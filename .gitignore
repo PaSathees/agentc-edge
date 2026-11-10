@@ -1,0 +1,14 @@
+# local data and secrets
+*.db
+*.db-*
+config.toml
+.env
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# os and editors
+.DS_Store
+.zed/

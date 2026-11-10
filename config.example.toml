@@ -1,0 +1,5 @@
+# Copy to config.toml and fill in your own plugs. config.toml is gitignored.
+
+[plugs]
+"Plug-1" = "192.0.2.11"
+"Plug-2" = "192.0.2.12"

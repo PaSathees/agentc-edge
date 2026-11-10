@@ -1,0 +1,2 @@
+# /etc/udev/rules.d/ (UUID from: blkid /dev/mmcblk0p1): mount /data when the SD card is inserted again; plug-logger follows via WantedBy=data.mount
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="YOUR-CARD-UUID", ENV{SYSTEMD_WANTS}+="data.mount"

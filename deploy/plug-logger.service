@@ -1,0 +1,12 @@
+[Unit]
+Description=Plug energy logger
+RequiresMountsFor=/data
+
+[Service]
+User=sathees
+ExecStart=/usr/bin/python3 -u /home/sathees/logger/logger.py /data/energy.db /home/sathees/logger/config.toml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target data.mount
