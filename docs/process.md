@@ -35,3 +35,4 @@ Five phases, in order: specify, design, build, evaluate, operate. Soft gates: a 
 ## Gate log
 | Date | Leaving | Unmet criteria | Reason |
 |---|---|---|---|
+| 2026-11-11 | 1 Specify | none | Passed; 6 open questions carried into Design |
