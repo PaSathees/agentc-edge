@@ -1,6 +1,6 @@
 # AgentC audit
 
-Input to Specify. Source: `~/Desktop/PROJECTS/agentc` (backend about 9,000 lines of Python, Next.js frontend). 2026-11-08.
+Input to Specify. Source: the AgentC MSc repository, private (backend about 9,000 lines of Python, Next.js frontend). 2026-11-08.
 
 Verdicts: **keep** (port as is, simplified) · **replace** (same function, new owner) · **drop**.
 

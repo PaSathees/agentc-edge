@@ -28,6 +28,11 @@ Five phases, in order: specify, design, build, evaluate, operate. Soft gates: a 
 | 4 Evaluate | `evaluation.md` | Every LLM FR scored against its threshold; one error analysis round; old vs new cost measured |
 | 5 Operate | `operations.md` | Shadow mode run; traces reviewed weekly; drift checked; retrospective written |
 
+## Build in slices
+- Build in thin end-to-end slices (B0 to B8), one at a time; each is 2 to 4 sessions, split if bigger.
+- Per slice: brief (ACs in scope, files, tests) → failing tests from the ACs and EV cases → code → CI green → shown on real data → one pull request.
+- Order: skeleton, read, watch, propose, approve and write (first demo), then shadow mode runs while setup, Planner and Assistant are built.
+
 ## Rules for agent parts
 - Code computes every number and makes every control decision. The LLM drafts, explains and proposes.
 - No LLM step ships without an eval.
