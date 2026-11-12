@@ -38,7 +38,7 @@ Five phases (specify, design, build, evaluate, operate), each with its artifacts
 | Phase | Artifact |
 |---|---|
 | Specify | [requirements](docs/requirements.md), [audit of v1](docs/audit.md) |
-| Design | [design](docs/design.md), [ADRs](docs/adr/) |
+| Design | [design overview](docs/design.md), [details](docs/design/), [ADRs](docs/adr/) |
 | Evaluate | [evaluation](docs/evaluation.md) |
 | Operate | [operations](docs/operations.md) |
 

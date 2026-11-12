@@ -195,6 +195,8 @@ Assumptions (verify; revisit if wrong)
 - A-07 CP-SAT solves a week for 10 plugs within NFR-05 on the hub.
 
 ## Open questions
+Answered in [design/open-questions.md](design/open-questions.md) (2026-11-12).
+
 - Which grid emission factor for Sri Lanka, from which publisher and year?
 - My tariff: block or time-of-use? Shifting load only saves money under time-of-use.
 - The monthly kgCO2e goal: what value to start with?

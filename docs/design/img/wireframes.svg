@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1704" height="694" viewBox="0 0 1704 694" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1704" height="694" fill="#ffffff"/>
+<text x="180.0" y="38" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">Phone notification</text>
+<rect x="30" y="54" width="300" height="600" rx="18" fill="#fff" stroke="#2b2b2b" stroke-width="2"/>
+<rect x="32" y="56" width="296" height="596" rx="16" fill="#e9e9e9" stroke="#e9e9e9" stroke-width="1"/>
+<text x="180.0" y="144" font-size="44" font-weight="bold" fill="#333" text-anchor="middle">01:16</text>
+<rect x="42" y="194" width="276" height="150" rx="8" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+<text x="54" y="216" font-size="11" font-weight="normal" fill="#777" text-anchor="start">AgentC Edge · now</text>
+<text x="54" y="240" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Desk 2: off at 01:30, every day</text>
+<text x="54" y="260" font-size="12" font-weight="normal" fill="#444" text-anchor="start">Saves 0.06 kWh · LKR 3 a week</text>
+<rect x="54" y="294" width="120" height="28" rx="5" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="1"/>
+<text x="114.0" y="312" font-size="12" font-weight="bold" fill="#fff" text-anchor="middle">Approve</text>
+<rect x="182" y="294" width="124" height="28" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="244.0" y="312" font-size="12" font-weight="bold" fill="#222" text-anchor="middle">Reject</text>
+<text x="180.0" y="384" font-size="11" font-weight="normal" fill="#666" text-anchor="middle">Two taps. A reason can be added</text>
+<text x="180.0" y="400" font-size="11" font-weight="normal" fill="#666" text-anchor="middle">later in the app.</text>
+<text x="516.0" y="38" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">Today (home)</text>
+<rect x="366" y="54" width="300" height="600" rx="18" fill="#fff" stroke="#2b2b2b" stroke-width="2"/>
+<text x="382" y="88" font-size="18" font-weight="bold" fill="#222" text-anchor="start">Today</text>
+<rect x="378" y="100" width="276" height="28" rx="5" fill="#e2e2e2" stroke="#bdbdbd" stroke-width="1"/>
+<text x="390" y="119" font-size="11" font-weight="bold" fill="#333" text-anchor="start">Shadow mode on: nothing is written</text>
+<rect x="378" y="138" width="132" height="48" rx="6" fill="#ececec" stroke="#c4c4c4" stroke-width="1"/>
+<text x="388" y="157" font-size="11" font-weight="normal" fill="#666" text-anchor="start">This month</text>
+<text x="388" y="176" font-size="13" font-weight="bold" fill="#222" text-anchor="start">On track</text>
+<rect x="522" y="138" width="132" height="48" rx="6" fill="#ececec" stroke="#c4c4c4" stroke-width="1"/>
+<text x="532" y="157" font-size="11" font-weight="normal" fill="#666" text-anchor="start">Events</text>
+<text x="532" y="176" font-size="13" font-weight="bold" fill="#222" text-anchor="start">1 open</text>
+<rect x="378" y="198" width="276" height="212" rx="8" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+<text x="390" y="222" font-size="14" font-weight="bold" fill="#222" text-anchor="start">Desk 2</text>
+<text x="642" y="222" font-size="11" font-weight="normal" fill="#777" text-anchor="end">Responder · 23 h</text>
+<text x="390" y="246" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Turn off at 01:30, every day</text>
+<text x="390" y="270" font-size="12" font-weight="normal" fill="#444" text-anchor="start">Stayed on until 06:00 on 2 of the</text>
+<text x="390" y="286" font-size="12" font-weight="normal" fill="#444" text-anchor="start">last 11 nights; usually off by 01:00.</text>
+<text x="390" y="312" font-size="11" font-weight="normal" fill="#444" text-anchor="start">Saves 0.06 kWh · LKR 3 · 0.03 kg a week</text>
+<text x="390" y="332" font-size="11" font-weight="bold" fill="#555" text-anchor="start">Evidence ›</text>
+<rect x="390" y="358" width="80" height="28" rx="5" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="1"/>
+<text x="430.0" y="376" font-size="12" font-weight="bold" fill="#fff" text-anchor="middle">Approve</text>
+<rect x="478" y="358" width="70" height="28" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="513.0" y="376" font-size="12" font-weight="bold" fill="#222" text-anchor="middle">Edit</text>
+<rect x="556" y="358" width="86" height="28" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="599.0" y="376" font-size="12" font-weight="bold" fill="#222" text-anchor="middle">Reject</text>
+<rect x="378" y="422" width="276" height="62" rx="8" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+<text x="390" y="446" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Week plan · 3 changes</text>
+<text x="390" y="468" font-size="11" font-weight="normal" fill="#555" text-anchor="start">Planner · choose which to keep ›</text>
+<text x="382" y="512" font-size="12" font-weight="normal" fill="#444" text-anchor="start">TV plug offline since 14:02</text>
+<circle cx="634" cy="574" r="20" fill="#2b2b2b"/>
+<text x="634" y="578" font-size="11" font-weight="bold" fill="#fff" text-anchor="middle">Ask</text>
+<line x1="368" y1="604" x2="664" y2="604" stroke="#c4c4c4"/>
+<text x="403" y="634" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">Today</text>
+<text x="478" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Devices</text>
+<text x="553" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Insights</text>
+<text x="628" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Settings</text>
+<text x="852.0" y="38" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">Device page</text>
+<rect x="702" y="54" width="300" height="600" rx="18" fill="#fff" stroke="#2b2b2b" stroke-width="2"/>
+<text x="718" y="80" font-size="11" font-weight="normal" fill="#666" text-anchor="start">‹ Devices</text>
+<text x="718" y="104" font-size="18" font-weight="bold" fill="#222" text-anchor="start">Desk 2</text>
+<text x="718" y="130" font-size="11" font-weight="normal" fill="#666" text-anchor="start">Agent access</text>
+<rect x="714" y="138" width="88" height="28" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="758" y="156" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">None</text>
+<rect x="806" y="138" width="88" height="28" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="850" y="156" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">Advice</text>
+<rect x="898" y="138" width="88" height="28" rx="5" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="1"/>
+<text x="942" y="156" font-size="11" font-weight="bold" fill="#fff" text-anchor="middle">Write after OK</text>
+<text x="718" y="190" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Timers</text>
+<text x="718" y="212" font-size="12" font-weight="normal" fill="#444" text-anchor="start">On 07:30 · Mon to Fri · yours</text>
+<text x="718" y="234" font-size="12" font-weight="normal" fill="#444" text-anchor="start">Off 01:30 · every day · verified</text>
+<rect x="932" y="219" width="58" height="28" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="961.0" y="237" font-size="12" font-weight="bold" fill="#222" text-anchor="middle">Undo</text>
+<text x="718" y="272" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Today vs usual</text>
+<rect x="714" y="280" width="276" height="96" rx="4" fill="#fafafa" stroke="#c4c4c4" stroke-width="1"/>
+<polyline fill="none" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3" points="722,364 782,359 822,334 882,316 932,324 982,354"/>
+<polyline fill="none" stroke="#2b2b2b" stroke-width="2" points="722,354 782,352 822,324 882,300 932,304"/>
+<text x="718" y="400" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Rules</text>
+<text x="718" y="422" font-size="11" font-weight="normal" fill="#444" text-anchor="start">Must run 08:00 to 18:00 · Mon to Fri · hard  ✎</text>
+<text x="718" y="450" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Learned</text>
+<text x="718" y="472" font-size="11" font-weight="normal" fill="#444" text-anchor="start">Alert at 1.5 × usual  ✎</text>
+<text x="718" y="500" font-size="13" font-weight="bold" fill="#222" text-anchor="start">History</text>
+<text x="718" y="522" font-size="11" font-weight="normal" fill="#444" text-anchor="start">12 Nov · approved off 01:30 · verified</text>
+<text x="718" y="540" font-size="11" font-weight="normal" fill="#444" text-anchor="start">10 Nov · rule added by you</text>
+<circle cx="970" cy="574" r="20" fill="#2b2b2b"/>
+<text x="970" y="578" font-size="11" font-weight="bold" fill="#fff" text-anchor="middle">Ask</text>
+<line x1="704" y1="604" x2="1000" y2="604" stroke="#c4c4c4"/>
+<text x="739" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Today</text>
+<text x="814" y="634" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">Devices</text>
+<text x="889" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Insights</text>
+<text x="964" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Settings</text>
+<text x="1188.0" y="38" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">Insights</text>
+<rect x="1038" y="54" width="300" height="600" rx="18" fill="#fff" stroke="#2b2b2b" stroke-width="2"/>
+<text x="1054" y="88" font-size="18" font-weight="bold" fill="#222" text-anchor="start">Insights</text>
+<rect x="1050" y="102" width="66" height="26" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="1083" y="119" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">kWh</text>
+<rect x="1120" y="102" width="66" height="26" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="1153" y="119" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">LKR</text>
+<rect x="1190" y="102" width="66" height="26" rx="5" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="1"/>
+<text x="1223" y="119" font-size="11" font-weight="bold" fill="#fff" text-anchor="middle">kgCO2e</text>
+<text x="1054" y="156" font-size="13" font-weight="bold" fill="#222" text-anchor="start">This month vs goal</text>
+<rect x="1050" y="166" width="276" height="18" rx="4" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+<rect x="1050" y="166" width="170" height="18" rx="4" fill="#9a9a9a" stroke="#9a9a9a" stroke-width="1"/>
+<line x1="1268" y1="160" x2="1268" y2="190" stroke="#2b2b2b" stroke-width="2"/>
+<text x="1268" y="204" font-size="10" font-weight="normal" fill="#555" text-anchor="middle">goal</text>
+<text x="1054" y="234" font-size="13" font-weight="bold" fill="#222" text-anchor="start">By device</text>
+<text x="1054" y="262" font-size="11" font-weight="normal" fill="#444" text-anchor="start">3D printer</text>
+<rect x="1168" y="250" width="150" height="16" rx="3" fill="#bdbdbd" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1054" y="292" font-size="11" font-weight="normal" fill="#444" text-anchor="start">Desk 2</text>
+<rect x="1168" y="280" width="120" height="16" rx="3" fill="#bdbdbd" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1054" y="322" font-size="11" font-weight="normal" fill="#444" text-anchor="start">Desk</text>
+<rect x="1168" y="310" width="95" height="16" rx="3" fill="#bdbdbd" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1054" y="352" font-size="11" font-weight="normal" fill="#444" text-anchor="start">MacBook charger</text>
+<rect x="1168" y="340" width="80" height="16" rx="3" fill="#bdbdbd" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1054" y="382" font-size="11" font-weight="normal" fill="#444" text-anchor="start">PeoTV</text>
+<rect x="1168" y="370" width="40" height="16" rx="3" fill="#bdbdbd" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1054" y="412" font-size="11" font-weight="normal" fill="#444" text-anchor="start">LG TV</text>
+<rect x="1168" y="400" width="30" height="16" rx="3" fill="#bdbdbd" stroke="#bdbdbd" stroke-width="1"/>
+<rect x="1050" y="444" width="276" height="96" rx="8" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+<text x="1062" y="468" font-size="13" font-weight="bold" fill="#222" text-anchor="start">Weekly report</text>
+<text x="1062" y="490" font-size="11" font-weight="normal" fill="#444" text-anchor="start">2 changes approved, 1 rejected;</text>
+<text x="1062" y="506" font-size="11" font-weight="normal" fill="#444" text-anchor="start">on track for the month. Read ›</text>
+<text x="1188.0" y="564" font-size="10" font-weight="normal" fill="#888" text-anchor="middle">Bars illustrative</text>
+<circle cx="1306" cy="574" r="20" fill="#2b2b2b"/>
+<text x="1306" y="578" font-size="11" font-weight="bold" fill="#fff" text-anchor="middle">Ask</text>
+<line x1="1040" y1="604" x2="1336" y2="604" stroke="#c4c4c4"/>
+<text x="1075" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Today</text>
+<text x="1150" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Devices</text>
+<text x="1225" y="634" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">Insights</text>
+<text x="1300" y="634" font-size="11" font-weight="normal" fill="#777" text-anchor="middle">Settings</text>
+<text x="1524.0" y="38" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">Chat panel (from any page)</text>
+<rect x="1374" y="54" width="300" height="600" rx="18" fill="#fff" stroke="#2b2b2b" stroke-width="2"/>
+<rect x="1376" y="56" width="296" height="80" rx="16" fill="#e4e4e4" stroke="#e4e4e4" stroke-width="1"/>
+<text x="1390" y="94" font-size="16" font-weight="bold" fill="#888" text-anchor="start">Desk 2</text>
+<rect x="1374" y="124" width="300" height="530" rx="14" fill="#fff" stroke="#2b2b2b" stroke-width="2"/>
+<text x="1390" y="152" font-size="14" font-weight="bold" fill="#222" text-anchor="start">Ask about Desk 2</text>
+<text x="1656" y="152" font-size="14" font-weight="bold" fill="#555" text-anchor="end">✕</text>
+<rect x="1444" y="168" width="218" height="40" rx="10" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="1"/>
+<text x="1454" y="185" font-size="12" font-weight="normal" fill="#fff" text-anchor="start">Why was it on all night</text>
+<text x="1454" y="201" font-size="12" font-weight="normal" fill="#fff" text-anchor="start">on 1 November?</text>
+<rect x="1386" y="220" width="236" height="72" rx="10" fill="#ececec" stroke="#ececec" stroke-width="1"/>
+<text x="1396" y="238" font-size="12" font-weight="normal" fill="#222" text-anchor="start">It drew about 10 W from midnight</text>
+<text x="1396" y="254" font-size="12" font-weight="normal" fill="#222" text-anchor="start">to 06:00. No timer turns it off.</text>
+<text x="1396" y="278" font-size="10" font-weight="normal" fill="#666" text-anchor="start">used: usage(Desk 2, 1 Nov)</text>
+<rect x="1444" y="306" width="218" height="40" rx="10" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="1"/>
+<text x="1454" y="323" font-size="12" font-weight="normal" fill="#fff" text-anchor="start">Let it run until 2 on</text>
+<text x="1454" y="339" font-size="12" font-weight="normal" fill="#fff" text-anchor="start">work nights</text>
+<rect x="1386" y="360" width="276" height="104" rx="8" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+<text x="1398" y="382" font-size="11" font-weight="normal" fill="#777" text-anchor="start">New rule</text>
+<text x="1398" y="402" font-size="12" font-weight="bold" fill="#222" text-anchor="start">Desk 2: latest off 02:00, Mon to Fri</text>
+<text x="1398" y="420" font-size="11" font-weight="normal" fill="#444" text-anchor="start">soft</text>
+<rect x="1398" y="428" width="110" height="28" rx="5" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="1"/>
+<text x="1453.0" y="446" font-size="12" font-weight="bold" fill="#fff" text-anchor="middle">Approve rule</text>
+<rect x="1516" y="428" width="70" height="28" rx="5" fill="#fff" stroke="#2b2b2b" stroke-width="1"/>
+<text x="1551.0" y="446" font-size="12" font-weight="bold" fill="#222" text-anchor="middle">Edit</text>
+<rect x="1386" y="598" width="276" height="36" rx="18" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+<text x="1402" y="621" font-size="12" font-weight="normal" fill="#999" text-anchor="start">Ask…</text>
+</svg>
