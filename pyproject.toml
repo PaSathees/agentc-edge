@@ -1,0 +1,51 @@
+[project]
+name = "agentc"
+version = "0.1.0"
+description = "Human-in-the-loop energy agents for a home of smart plugs"
+readme = "README.md"
+authors = [
+    { name = "Sathees Paskaran", email = "73420161+PaSathees@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.5",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "httpx2>=2.16.0",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F errors, I imports, UP modern syntax, B bugs, ANN type hints, PLR0915 function size
+select = ["E", "F", "I", "UP", "B", "ANN", "PLR0915"]
+ignore = ["ANN202", "ANN401"]  # private helpers and Any are allowed
+
+[tool.ruff.lint.pylint]
+max-statements = 40  # NFR-16: functions about 40 lines at most
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src"]
+typeCheckingMode = "standard"  # a config file overrides Zed's setting
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --cov=agentc --cov-report=term-missing"
