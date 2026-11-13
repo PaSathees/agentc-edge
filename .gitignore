@@ -8,6 +8,9 @@ config.toml
 .venv/
 __pycache__/
 *.pyc
+.coverage
+.pytest_cache/
+.ruff_cache/
 
 # os and editors
 .DS_Store

@@ -1,5 +1,7 @@
 # AgentC Edge
 
+[![CI](https://github.com/PaSathees/agentc-edge/actions/workflows/ci.yml/badge.svg)](https://github.com/PaSathees/agentc-edge/actions/workflows/ci.yml)
+
 Edge agents for energy and carbon operations. Code watches the meters, agents wake only when something happens, and a person approves every change before it reaches a device.
 
 > Status: in development. Built in the open with a documented process (`docs/`).
@@ -27,6 +29,17 @@ cp config.example.toml config.toml   # add your plugs
 python3 logger/logger.py energy.db config.toml
 ```
 
+## Develop
+
+Needs [uv](https://docs.astral.sh/uv/). Tests use a fake Tasmota plug, so no hardware is needed.
+
+```bash
+uv sync                      # Python 3.12 and dependencies
+uv run pytest                # tests with coverage
+uv run ruff check . && uv run basedpyright   # lint and types, as in CI
+uv run uvicorn agentc.app:app                # app at localhost:8000/health
+```
+
 ## Results
 
 Not measured yet. See `docs/evaluation.md`.
@@ -48,6 +61,8 @@ Process and conventions: [docs/process.md](docs/process.md).
 
 ```
 logger/   plug logger (stdlib only)
+src/      the app: agentc package
+tests/    pytest tests and the fake Tasmota plug
 deploy/   hub setup scripts and systemd units
 docs/     requirements, design, ADRs, evaluation, operations
 ```
