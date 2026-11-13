@@ -17,8 +17,11 @@ EMPTY_TIMER = {
 
 
 class FakePlug:
-    def __init__(self, power_w: float = 0.0) -> None:
+    def __init__(self, power_w: float = 0.0, mac: str = "AA:BB:CC:00:00:01") -> None:
         self.power_w = power_w
+        self.mac = mac
+        self.utc = "2026-11-13T07:08:23"  # the plug's own clock; tests can skew it
+        self.local = "2026-11-13T12:38:23"
         self.relay_on = False
         self.timers_on = True
         self.timezone = "+05:30"
@@ -48,6 +51,10 @@ class FakePlug:
             energy = {"Power": self.power_w, "ApparentPower": self.power_w, "ReactivePower": 0,
                       "Factor": 1.0, "Voltage": 230, "Current": 0.0, "Total": 1.0}  # fmt: skip
             return {"StatusSNS": {"Time": "2026-11-12T23:00:00", "ENERGY": energy}}
+        if key == "status" and arg == "5":
+            return {"StatusNET": {"Hostname": "fake-plug", "Mac": self.mac}}
+        if key == "status" and arg == "7":
+            return {"StatusTIM": {"UTC": self.utc, "Local": self.local, "Timezone": self.timezone}}
         if key == "timers":
             return {"Timers": "ON" if self.timers_on else "OFF",
                     **{f"Timer{n}": t for n, t in self.timers.items()}}  # fmt: skip

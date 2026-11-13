@@ -5,7 +5,10 @@ JSON columns hold text written with json.dumps.
 """
 
 import sqlite3
+from datetime import datetime
 from pathlib import Path
+
+from agentc.devices.base import Timer
 
 SCHEMA_VERSION = 1
 
@@ -25,7 +28,10 @@ CREATE TABLE IF NOT EXISTS plugs (
     name        TEXT NOT NULL,
     ip          TEXT,
     first_seen  TEXT,
-    last_seen   TEXT
+    last_seen   TEXT,
+    reachable   INTEGER NOT NULL DEFAULT 1 CHECK (reachable IN (0, 1)),
+    last_error  TEXT,
+    timers_on   INTEGER CHECK (timers_on IN (0, 1))  -- the plug's global Timers switch
 );
 -- What is plugged in; access and the timer slots the system may use
 CREATE TABLE IF NOT EXISTS devices (
@@ -205,3 +211,55 @@ def connect(path: str | Path) -> sqlite3.Connection:
     db.executescript(SCHEMA)
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
+
+
+def plug_seen(
+    db: sqlite3.Connection, *, site_id: int, mac: str, name: str, ip: str,
+    timers_on: bool, now: datetime,
+) -> None:  # fmt: skip
+    """Record a plug that answered: insert it, or update it and clear any error."""
+    with db:
+        db.execute(
+            """INSERT INTO plugs (mac, site_id, name, ip, first_seen, last_seen, timers_on)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (mac) DO UPDATE SET name = excluded.name, ip = excluded.ip,
+                 last_seen = excluded.last_seen, timers_on = excluded.timers_on,
+                 reachable = 1, last_error = NULL""",
+            (mac, site_id, name, ip, now.isoformat(), now.isoformat(), timers_on),
+        )
+
+
+def plug_failed(db: sqlite3.Connection, *, name: str, error: str) -> None:
+    """Mark a known plug unreachable. A plug never seen has no MAC yet, so no row."""
+    with db:
+        db.execute("UPDATE plugs SET reachable = 0, last_error = ? WHERE name = ?", (error, name))
+
+
+TIMER_FIELDS = "slot, enable, mode, time, window, days, repeat, output, action"
+
+
+def save_timers(
+    db: sqlite3.Connection, *, site_id: int, mac: str, timers: list[Timer], now: datetime
+) -> None:
+    """Replace a plug's stored timers with what was just read from it."""
+    rows = [(site_id, mac, now.isoformat(), *_timer_values(t)) for t in timers]
+    with db:  # one transaction: all 16 or none
+        db.execute("DELETE FROM timers WHERE plug_mac = ?", (mac,))
+        db.executemany(
+            f"INSERT INTO timers (site_id, plug_mac, read_at, {TIMER_FIELDS})"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+
+
+def load_timers(db: sqlite3.Connection, *, mac: str) -> list[Timer]:
+    sql = f"SELECT {TIMER_FIELDS} FROM timers WHERE plug_mac = ? ORDER BY slot"
+    return [
+        Timer(slot, bool(en), mode, time, window, days, bool(rep), output, action)
+        for slot, en, mode, time, window, days, rep, output, action in db.execute(sql, (mac,))
+    ]
+
+
+def _timer_values(t: Timer) -> tuple[int | str, ...]:
+    return (t.slot, int(t.enable), t.mode, t.time, t.window, t.days, int(t.repeat),
+            t.output, t.action)  # fmt: skip
