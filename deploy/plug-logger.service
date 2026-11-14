@@ -1,6 +1,8 @@
 [Unit]
 Description=Plug energy logger
 RequiresMountsFor=/data
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 User=sathees

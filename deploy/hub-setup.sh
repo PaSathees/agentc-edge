@@ -39,8 +39,10 @@ EOF
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 systemctl set-default multi-user.target
 
-# Boots from EFI/BOOT without an NVRAM entry (HP firmware drops entries); blank the screen
+# Boots from EFI/BOOT without an NVRAM entry (HP firmware drops entries); blank the screen.
+# update_nvram false: GRUB upgrades never touch the firmware boot list (3F0 trap)
 echo 'grub-efi-amd64 grub2/force_efi_extra_removable boolean true' | debconf-set-selections
+echo 'grub-efi-amd64 grub2/update_nvram boolean false' | debconf-set-selections
 mkdir -p /etc/default/grub.d
 cat > /etc/default/grub.d/edge.cfg <<'EOF'
 GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT consoleblank=60 systemd.swap=0"
@@ -48,6 +50,11 @@ EOF
 dpkg-reconfigure -f noninteractive grub-efi-amd64
 update-grub
 update-initramfs -u
+
+# Network up before the logger: network-online waits for a default route, 60 s max
+sed -i '/^WAIT_ONLINE_\(METHOD\|TIMEOUT\)=/d' /etc/default/networking
+printf 'WAIT_ONLINE_METHOD=route\nWAIT_ONLINE_TIMEOUT=60\n' >> /etc/default/networking
+systemctl enable ifupdown-wait-online.service
 
 # SSH keys only
 cat > /etc/ssh/sshd_config.d/edge.conf <<'EOF'
