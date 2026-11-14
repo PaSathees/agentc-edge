@@ -5,9 +5,10 @@ JSON columns hold text written with json.dumps.
 """
 
 import sqlite3
-from datetime import datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
+from agentc.calc import Factor, ProfileHour
 from agentc.devices.base import Timer
 
 SCHEMA_VERSION = 1
@@ -263,3 +264,83 @@ def load_timers(db: sqlite3.Connection, *, mac: str) -> list[Timer]:
 def _timer_values(t: Timer) -> tuple[int | str, ...]:
     return (t.slot, int(t.enable), t.mode, t.time, t.window, t.days, int(t.repeat),
             t.output, t.action)  # fmt: skip
+
+
+PROFILE_FIELDS = "hour, median_w, on_share, days_used"
+
+
+def save_profile(
+    db: sqlite3.Connection, *, site_id: int, mac: str, profile: list[ProfileHour]
+) -> None:
+    """Replace a plug's stored profile with a freshly built one."""
+    rows = [(site_id, mac, p.hour, p.median_w, p.on_share, p.days_used) for p in profile]
+    with db:  # one transaction: the old profile or the new one, never a mix
+        db.execute("DELETE FROM profiles WHERE plug_mac = ?", (mac,))
+        db.executemany(
+            f"INSERT INTO profiles (site_id, plug_mac, {PROFILE_FIELDS}) VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+
+
+def load_profile(db: sqlite3.Connection, *, mac: str) -> list[ProfileHour]:
+    sql = f"SELECT {PROFILE_FIELDS} FROM profiles WHERE plug_mac = ? ORDER BY hour"
+    return [ProfileHour(*row) for row in db.execute(sql, (mac,))]
+
+
+def save_grid_factor(db: sqlite3.Connection, *, site_id: int, factor: Factor) -> None:
+    """Store a grid emission factor; an older one stays, for the months it applied to."""
+    with db:
+        db.execute(
+            "INSERT INTO factors (id, site_id, kind, value, unit, source, valid_from)"
+            " VALUES (?, ?, 'grid', ?, 'kgCO2e/kWh', ?, ?)",
+            (factor.id, site_id, str(factor.value), factor.source, factor.valid_from),
+        )
+
+
+def grid_factor(db: sqlite3.Connection, *, site_id: int, on: date) -> Factor | None:
+    """The grid factor in force on a date: the newest that had started by then."""
+    row = db.execute(
+        """SELECT id, value, source, valid_from FROM factors
+           WHERE site_id = ? AND kind = 'grid' AND valid_from <= ?
+           ORDER BY valid_from DESC LIMIT 1""",
+        (site_id, on.isoformat()),
+    ).fetchone()
+    if row is None:
+        return None
+    factor_id, value, source, valid_from = row
+    return Factor(factor_id, float(value), source, valid_from)
+
+
+# energy.db belongs to the logger: the app only ever reads it (ADR-006).
+
+
+def open_readings(path: str | Path) -> sqlite3.Connection:
+    """Open energy.db read-only. Any write through this connection fails."""
+    return sqlite3.connect(f"file:{Path(path).resolve()}?mode=ro", uri=True)
+
+
+def readings(
+    db: sqlite3.Connection, *, plug: str, start: datetime, end: datetime
+) -> list[tuple[datetime, float]]:
+    """One plug's minute readings in [start, end), oldest first; failed reads skipped."""
+    sql = """SELECT ts_utc, power_w FROM readings
+             WHERE plug = ? AND ts_utc >= ? AND ts_utc < ? AND power_w IS NOT NULL
+             ORDER BY ts_utc"""
+    rows = db.execute(sql, (plug, *_utc_bounds(start, end)))
+    return [(datetime.fromisoformat(ts), w) for ts, w in rows]
+
+
+def counter(
+    db: sqlite3.Connection, *, plug: str, start: datetime, end: datetime
+) -> list[tuple[datetime, float]]:
+    """The plug's own energy meter (total kWh) in [start, end), oldest first."""
+    sql = """SELECT ts_utc, total_kwh FROM readings
+             WHERE plug = ? AND ts_utc >= ? AND ts_utc < ? AND total_kwh IS NOT NULL
+             ORDER BY ts_utc"""
+    rows = db.execute(sql, (plug, *_utc_bounds(start, end)))
+    return [(datetime.fromisoformat(ts), total) for ts, total in rows]
+
+
+def _utc_bounds(start: datetime, end: datetime) -> tuple[str, str]:
+    # Stored as UTC ISO text, so the bounds must be UTC text too for the comparison to hold
+    return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()
