@@ -214,6 +214,23 @@ def connect(path: str | Path) -> sqlite3.Connection:
     return db
 
 
+def add_site(db: sqlite3.Connection, *, name: str, tz: str) -> int:
+    """Return the site's id. Add the site the first time we see its name."""
+    with db:
+        row = db.execute("SELECT id FROM sites WHERE name = ?", (name,)).fetchone()
+        if row is None:
+            sql = "INSERT INTO sites (name, tz) VALUES (?, ?) RETURNING id"
+            row = db.execute(sql, (name, tz)).fetchone()
+    return row[0]
+
+
+def plug_mac(db: sqlite3.Connection, *, name: str) -> str | None:
+    """The MAC of the plug with this name, or None if we never reached it."""
+    sql = "SELECT mac FROM plugs WHERE name = ? ORDER BY last_seen DESC LIMIT 1"
+    row = db.execute(sql, (name,)).fetchone()
+    return row[0] if row else None
+
+
 def plug_seen(
     db: sqlite3.Connection, *, site_id: int, mac: str, name: str, ip: str,
     timers_on: bool, now: datetime,

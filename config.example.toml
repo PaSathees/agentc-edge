@@ -1,5 +1,44 @@
-# Copy to config.toml and fill in your own plugs. config.toml is gitignored.
+# Copy to config.toml and fill in your own values. config.toml is gitignored.
+
+[site]
+name = "home"
+tz = "Asia/Colombo"
+
+[paths]  # relative to this file
+app_db = "app.db"
+energy_db = "energy.db"
 
 [plugs]
 "Plug-1" = "192.0.2.11"
 "Plug-2" = "192.0.2.12"
+
+# Example rates only. Copy yours from your bill or the regulator's published schedule.
+# kind = "block": the month's total picks a schedule (no up_to = no limit), then band by band.
+[tariff]
+kind = "block"
+source = "Example tariff, not real rates"
+
+[[tariff.schedules]]
+up_to = 60
+bands = [
+    { up_to = 30, rate = 10.0, fixed = 100.0 },
+    { up_to = 60, rate = 20.0, fixed = 200.0 },
+]
+
+[[tariff.schedules]]
+bands = [
+    { up_to = 60, rate = 30.0 },
+    { up_to = 90, rate = 40.0, fixed = 400.0 },
+    { rate = 50.0, fixed = 500.0 },
+]
+
+# Or time-of-use: replace the [tariff] section above with
+# [tariff]
+# kind = "time_of_use"
+# source = "..."
+# fixed = 500.0
+# periods = [
+#     { start = "05:30", rate = 30.0 },
+#     { start = "18:30", rate = 60.0 },
+#     { start = "22:30", rate = 20.0 },
+# ]
