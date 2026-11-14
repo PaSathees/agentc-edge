@@ -1,0 +1,2 @@
+# /etc/udev/rules.d/, written by hub-data.sh with the card's UUID: mount /backup when the SD card is put back in
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="YOUR-CARD-UUID", ENV{SYSTEMD_WANTS}+="backup.mount"

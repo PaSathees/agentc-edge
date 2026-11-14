@@ -1,0 +1,8 @@
+[Unit]
+Description=Copy energy.db to the SD card
+RequiresMountsFor=/data /backup
+
+[Service]
+Type=oneshot
+User=sathees
+ExecStart=/usr/local/bin/energy-backup
