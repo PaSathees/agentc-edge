@@ -178,7 +178,7 @@ Process
 ## 7. Constraints and assumptions
 Constraints (fixed)
 - C-01 Solo. Claude drafts code; I write and edit parts, own the requirements and design calls, and review.
-- C-02 One hub: ProBook, 16 GB, CPU only, OS on a pen drive, data on an SD card. The logger already runs on it.
+- C-02 One hub: ProBook, 16 GB, CPU only, OS and data on a 120 GB SATA SSD, nightly backup to an SD card. The logger already runs on it.
 - C-03 No paid infrastructure; the only spend is model API calls (NFR-01).
 - C-04 Devices are Tasmota plugs over HTTP: 16 timers each, weekly repeat, local time.
 - C-05 Public repo: no AgentC source, thesis results or private addresses.

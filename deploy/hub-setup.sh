@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# edge-hub base setup: Debian on a pen drive, always on, few writes. Safe to re-run.
-# Run: ssh -t sathees@HOST sudo bash hub-setup.sh, then reboot.
+# edge-hub base setup: Debian on the internal SATA SSD, always on, few writes. Safe to re-run.
+# Run: ssh -t sathees@HOST sudo bash hub-setup.sh, then reboot, then hub-data.sh.
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo"; exit 1; }
 [ -s "/home/${SUDO_USER:?}/.ssh/authorized_keys" ] || { echo "no SSH key installed, stopping"; exit 1; }
@@ -39,11 +39,11 @@ EOF
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 systemctl set-default multi-user.target
 
-# Boots without an NVRAM entry; no USB autosuspend on the root stick; blank the screen
+# Boots from EFI/BOOT without an NVRAM entry (HP firmware drops entries); blank the screen
 echo 'grub-efi-amd64 grub2/force_efi_extra_removable boolean true' | debconf-set-selections
 mkdir -p /etc/default/grub.d
 cat > /etc/default/grub.d/edge.cfg <<'EOF'
-GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT usbcore.autosuspend=-1 consoleblank=60 systemd.swap=0"
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT consoleblank=60 systemd.swap=0"
 EOF
 dpkg-reconfigure -f noninteractive grub-efi-amd64
 update-grub
@@ -58,9 +58,10 @@ EOF
 sshd -t
 
 apt-get update
-apt-get install -y --no-install-recommends sqlite3 rsync curl ca-certificates
+apt-get install -y --no-install-recommends sqlite3 rsync curl ca-certificates smartmontools
 
 echo "--- check"
+smartctl -H "/dev/$(lsblk -no PKNAME "$(findmnt -no SOURCE /)")" | tail -2
 grep -E 'noatime|swap' /etc/fstab
 ls /boot/efi/EFI/BOOT
 echo "Done. Now run: sudo reboot"
