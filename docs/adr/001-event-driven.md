@@ -15,7 +15,7 @@ AgentC ran its whole agent graph once a day, about USD 0.60 a run, whether or no
 
 ## Decision
 
-Option 2. The Watcher is plain code with no model calls. It raises an event only for unusual use, goal drift, an offline plug, a timer mismatch or a grid event, at most one per plug and kind a day. Agents start from events.
+Option 2. The Watcher is plain code with no model calls. It raises an event only for unusual use, goal drift, an offline plug, a timer mismatch or a grid event, at most one per run of unusual use or per outage. Agents start from events.
 
 ## Consequences
 

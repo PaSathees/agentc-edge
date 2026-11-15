@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -33,3 +34,9 @@ def test_a_site_wide_event_has_no_plug(db):
     cut = Event("power_cut", None, NOW, {"plugs": 10})
     store.add_event(db, site_id=1, event=cut, dedupe="site|power_cut|2026-11-03")
     assert store.load_events(db, site_id=1) == [cut]
+
+
+def test_event_times_are_saved_in_utc(db):  # so the newest one sorts last as text
+    local = Event("offline", "AA", NOW.astimezone(ZoneInfo("Asia/Colombo")), {})
+    store.add_event(db, site_id=1, event=local, dedupe="AA|offline|2026-11-03")
+    assert db.execute("SELECT start_utc FROM events").fetchone() == ("2026-11-02T19:30:00+00:00",)

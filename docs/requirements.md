@@ -1,5 +1,7 @@
 # Requirements
 
+Codes like FR-09 or J-04 are explained in the [glossary](glossary.md).
+
 ## 1. Problem and context
 
 Small sites (a home now, a plant room later) pay for energy they don't need: devices left on, schedules that no longer match use, no one watching the data. Scope 2 emissions follow the same kWh.
@@ -84,11 +86,11 @@ Setup and data
 - FR-08 [S] (J-05) Fetch weather daily (Open-Meteo) for the site location. AC: stored hourly; a failed fetch is retried and never blocks a run.
 
 Watching
-- FR-09 [M] (J-04) Watcher runs every 15 min and raises an anomaly when power stays above the profile by the plug's threshold for 30 min or more. AC: replayed "charger left on" fixture raises 1 event; a normal-day fixture raises 0.
+- FR-09 [M] (J-04) Watcher runs every 15 min and raises an "unusual use" event when, for 30 min or more, power is over 2 times its usual level (the plug's alert factor), at least 10 W more, at an hour the plug is on under 20% of the time. A gap over 5 min restarts the 30 min. AC: replayed "charger left on" fixture raises 1 event; a normal-day fixture raises 0. (Rule set 2026-11-14 on 13 real days: 36 alerts became 8.)
 - FR-10 [M] (J-05) Goal drift event when month-to-date plus projected kgCO2e exceeds the goal. AC: fixture month over goal raises 1 event; under goal raises 0.
 - FR-11 [M] (J-07) Plug offline event after 3 failed rounds; timer mismatch event from a daily read-back. AC: fixture with a changed timer raises 1 mismatch event.
-- FR-12 [S] (J-07) Grid events: all plugs fail in the same round (power cut); voltage outside the configured band. Shown only, never acted on. AC: fixture power cut raises 1 grid event, not 10 offline events.
-- FR-13 [M] (J-04, J-05) Cooldown and dedupe: one event per plug and kind per 24 h. AC: a 6-hour anomaly raises 1 event, not 24.
+- FR-12 [S] (J-07) Grid events: every plug silent 2 minutes in a row is a power cut (1 minute is a Wi-Fi blip); voltage outside the configured band (later). Shown only, never acted on. AC: fixture power cut raises 1 grid event, not 10 offline events.
+- FR-13 [M] (J-04, J-05) No repeats: one event per run of unusual use, and one per outage (a plug must answer again before a new one). AC: a 6-hour anomaly raises 1 event, not 24; an outage past midnight raises 1, not 2.
 
 Agents and proposals
 - FR-14 [M] (J-04) Proposal contract: device, timer changes, reason, savings (kWh, LKR, kgCO2e per week), evidence, source (agent or chat), expiry. AC: schema validated before the inbox.

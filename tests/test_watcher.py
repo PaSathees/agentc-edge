@@ -163,6 +163,22 @@ def test_every_plug_failing_is_one_power_cut_not_many_offline():
     ]
 
 
+def test_a_short_blackout_is_a_power_cut_even_if_some_plugs_are_back():
+    # all plugs failed, then Plug-1 came back first: still one power cut, no offline events
+    assert offline_events(rounds(CUT, CUT, DOWN), MACS) == [
+        Event("power_cut", None, at(9, 0), {"plugs": 2})
+    ]
+
+
+def test_a_one_minute_blackout_is_only_a_wifi_blip():
+    assert offline_events(rounds(UP, CUT, UP), MACS) == []
+
+
+def test_a_blackout_anywhere_since_the_last_pass_is_found():
+    found = offline_events(rounds(UP, CUT, CUT, UP, UP, UP), MACS)
+    assert found == [Event("power_cut", None, at(9, 1), {"plugs": 2})]
+
+
 def test_too_few_rounds_says_nothing():
     assert offline_events(rounds(DOWN, DOWN), MACS) == []
 

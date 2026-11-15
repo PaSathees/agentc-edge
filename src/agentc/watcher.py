@@ -15,6 +15,8 @@ MORE_W = 10.0  # ... and at least 10 W more, so 0 W to 3 W is not an alert
 RUN = timedelta(minutes=30)  # how long it must last
 MAX_GAP = timedelta(minutes=5)  # a longer gap in readings restarts the count
 OFFLINE_ROUNDS = 3  # failed logger rounds in a row before a plug counts as offline
+BLACKOUT_ROUNDS = 2  # every plug silent this many rounds in a row = power cut; 1 is a Wi-Fi blip
+PASS_ROUNDS = 17  # rounds each pass reads: 15 since the last pass, plus 2 of overlap
 
 
 @dataclass(frozen=True)
@@ -106,20 +108,21 @@ def dedupe_key(event: Event, *, tz: str) -> str:
 def offline_events(
     rounds: list[tuple[datetime, dict[str, bool]]], macs: dict[str, str]
 ) -> list[Event]:
-    """Plugs that failed the last 3 rounds. If every plug failed, one power cut instead.
+    """A power cut if every plug was silent 2 rounds in a row; else plugs down 3 rounds.
 
-    rounds: the logger's latest rounds, oldest first; each maps plug name -> answered.
+    rounds: the logger's rounds since the last pass, oldest first; each maps plug -> answered.
     macs: plug name -> MAC, for the plugs the app knows.
     """
-    last = rounds[-OFFLINE_ROUNDS:]
-    if len(last) < OFFLINE_ROUNDS:
+    if len(rounds) < OFFLINE_ROUNDS:
         return []
-    start, plugs = last[0][0], last[-1][1]
-    down = [p for p in plugs if not any(answered.get(p, False) for _, answered in last)]
-    if down and len(down) == len(plugs):
-        return [Event("power_cut", None, start, {"plugs": len(down)})]
+    silent = [not any(answered.values()) for _, answered in rounds]
+    for i in range(len(rounds) - BLACKOUT_ROUNDS + 1):
+        if all(silent[i : i + BLACKOUT_ROUNDS]):  # the whole house: one event, not one per plug
+            return [Event("power_cut", None, rounds[i][0], {"plugs": len(rounds[i][1])})]
+    last = rounds[-OFFLINE_ROUNDS:]
+    down = [p for p in last[-1][1] if not any(answered.get(p, False) for _, answered in last)]
     return [
-        Event("offline", macs[p], start, {"plug": p, "rounds": OFFLINE_ROUNDS})
+        Event("offline", macs[p], last[0][0], {"plug": p, "rounds": OFFLINE_ROUNDS})
         for p in down
         if p in macs
     ]

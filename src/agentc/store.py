@@ -1,4 +1,4 @@
-"""The only module that runs SQL on app.db (ADR-006). Schema: docs/design/data.md.
+"""The only module that runs SQL on app.db (decision ADR-006). Tables: docs/design/data.md.
 
 Times are ISO 8601 text in UTC; profiles and timers use the site's local time.
 JSON columns hold text written with json.dumps.
@@ -233,6 +233,12 @@ def plug_mac(db: sqlite3.Connection, *, name: str) -> str | None:
     return row[0] if row else None
 
 
+def plug_macs(db: sqlite3.Connection, *, site_id: int) -> dict[str, str]:
+    """Every plug the app has reached: name -> MAC."""
+    sql = "SELECT name, mac FROM plugs WHERE site_id = ? ORDER BY name"
+    return dict(db.execute(sql, (site_id,)).fetchall())
+
+
 def plug_seen(
     db: sqlite3.Connection, *, site_id: int, mac: str, name: str, ip: str,
     timers_on: bool, now: datetime,
@@ -330,7 +336,7 @@ def grid_factor(db: sqlite3.Connection, *, site_id: int, on: date) -> Factor | N
     return Factor(factor_id, float(value), source, valid_from)
 
 
-# energy.db belongs to the logger: the app only ever reads it (ADR-006).
+# energy.db belongs to the logger: the app only ever reads it (decision ADR-006).
 
 
 def add_event(db: sqlite3.Connection, *, site_id: int, event: Event, dedupe: str) -> bool:
@@ -339,7 +345,7 @@ def add_event(db: sqlite3.Connection, *, site_id: int, event: Event, dedupe: str
         cur = db.execute(
             "INSERT OR IGNORE INTO events (site_id, kind, plug_mac, start_utc, facts, dedupe)"
             " VALUES (?, ?, ?, ?, ?, ?)",
-            (site_id, event.kind, event.plug_mac, event.start.isoformat(),
+            (site_id, event.kind, event.plug_mac, event.start.astimezone(UTC).isoformat(),
              json.dumps(event.facts), dedupe),
         )  # fmt: skip
     return cur.rowcount == 1
@@ -351,6 +357,30 @@ def load_events(db: sqlite3.Connection, *, site_id: int) -> list[Event]:
         Event(kind, mac, datetime.fromisoformat(start), json.loads(facts))
         for kind, mac, start, facts in db.execute(sql, (site_id,))
     ]
+
+
+def last_run(db: sqlite3.Connection, *, site_id: int, job: str) -> datetime | None:
+    """When a job last ran, or None if it never has."""
+    sql = "SELECT value FROM settings WHERE site_id = ? AND key = ?"
+    row = db.execute(sql, (site_id, f"last_run:{job}")).fetchone()
+    return datetime.fromisoformat(row[0]) if row else None
+
+
+def set_last_run(db: sqlite3.Connection, *, site_id: int, job: str, at: datetime) -> None:
+    with db:
+        db.execute(
+            "INSERT OR REPLACE INTO settings (site_id, key, value) VALUES (?, ?, ?)",
+            (site_id, f"last_run:{job}", at.isoformat()),
+        )
+
+
+def last_event_start(
+    db: sqlite3.Connection, *, site_id: int, kind: str, plug_mac: str | None
+) -> datetime | None:
+    """When the latest event of this kind for this plug started (plug None = the site)."""
+    sql = "SELECT MAX(start_utc) FROM events WHERE site_id = ? AND kind = ? AND plug_mac IS ?"
+    (start,) = db.execute(sql, (site_id, kind, plug_mac)).fetchone()
+    return datetime.fromisoformat(start) if start else None
 
 
 def open_readings(path: str | Path) -> sqlite3.Connection:
@@ -392,6 +422,15 @@ def last_rounds(
     for ts, plug, answered in db.execute(sql, (end.astimezone(UTC).isoformat(), n)):
         rounds.setdefault(ts, {})[plug] = bool(answered)
     return [(datetime.fromisoformat(ts), plugs) for ts, plugs in rounds.items()]
+
+
+def answered(db: sqlite3.Connection, *, plug: str | None, start: datetime, end: datetime) -> bool:
+    """Did this plug (or, with None, any plug) answer at least once in [start, end)?"""
+    sql = "SELECT 1 FROM readings WHERE ts_utc >= ? AND ts_utc < ? AND error IS NULL"
+    args: tuple[str, ...] = _utc_bounds(start, end)
+    if plug is not None:
+        sql, args = sql + " AND plug = ?", (*args, plug)
+    return db.execute(sql + " LIMIT 1", args).fetchone() is not None
 
 
 def _utc_bounds(start: datetime, end: datetime) -> tuple[str, str]:
