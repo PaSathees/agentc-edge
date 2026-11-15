@@ -13,6 +13,8 @@ RARELY_ON = 0.2  # alert only at hours the plug is on under 20% of the time
 FACTOR = 2.0  # unusual = more than 2 x usual ...
 MORE_W = 10.0  # ... and at least 10 W more, so 0 W to 3 W is not an alert
 RUN = timedelta(minutes=30)  # how long it must last
+SMALL_W = 3.0  # a small load left on: at least 3 W more ...
+LONG_RUN = timedelta(hours=3)  # ... counts only if it lasts 3 hours
 MAX_GAP = timedelta(minutes=5)  # a longer gap in readings restarts the count
 OFFLINE_ROUNDS = 3  # failed logger rounds in a row before a plug counts as offline
 BLACKOUT_ROUNDS = 2  # every plug silent this many rounds in a row = power cut; 1 is a Wi-Fi blip
@@ -56,14 +58,16 @@ def usual_week(profile: list[ProfileHour]) -> dict[int, Usual]:
     return usual
 
 
-def is_unusual(watts: float, usual: Usual | None, *, factor: float = FACTOR) -> bool:
+def is_unusual(
+    watts: float, usual: Usual | None, *, factor: float = FACTOR, more_w: float = MORE_W
+) -> bool:
     """Power well above usual, at an hour the plug is rarely on."""
     if usual is None:
         return False
     return (
         usual.on_share < RARELY_ON
         and watts > factor * usual.watts
-        and watts - usual.watts >= MORE_W
+        and watts - usual.watts >= more_w
     )
 
 
@@ -71,25 +75,42 @@ def unusual_runs(
     readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
     factor: float = FACTOR,
 ) -> list[Run]:  # fmt: skip
-    """Stretches of unusual power that last 30 min or more, oldest first."""
+    """Unusual stretches, oldest first: 10 W more for 30 min, or 3 W more for 3 hours.
+
+    A long stretch holds any short one inside it, so that stretch is one run, not two.
+    """
+    short = _runs(readings, usual, tz=tz, factor=factor, more_w=MORE_W, length=RUN)
+    long = _runs(readings, usual, tz=tz, factor=factor, more_w=SMALL_W, length=LONG_RUN)
+    inside = [r for r in short if any(x.start <= r.start <= x.end for x in long)]
+    return sorted([r for r in short if r not in inside] + long, key=lambda r: r.start)
+
+
+def _runs(
+    readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
+    factor: float, more_w: float, length: timedelta,
+) -> list[Run]:  # fmt: skip
+    """Stretches of unusual power that last `length` or more, oldest first."""
     zone = ZoneInfo(tz)
     runs: list[Run] = []
     stretch: list[tuple[datetime, float]] = []
     for at, watts in readings:
         local = at.astimezone(zone)
-        if not is_unusual(watts, usual.get(local.weekday() * 24 + local.hour), factor=factor):
-            stretch = _close(stretch, runs)  # a normal reading ends the stretch
+        hour = usual.get(local.weekday() * 24 + local.hour)
+        if not is_unusual(watts, hour, factor=factor, more_w=more_w):
+            stretch = _close(stretch, runs, length)  # a normal reading ends the stretch
             continue
         if stretch and at - stretch[-1][0] > MAX_GAP:
-            stretch = _close(stretch, runs)  # too long without readings: start again
+            stretch = _close(stretch, runs, length)  # too long without readings: start again
         stretch.append((at, watts))
-    _close(stretch, runs)
+    _close(stretch, runs, length)
     return runs
 
 
-def _close(stretch: list[tuple[datetime, float]], runs: list[Run]) -> list[tuple[datetime, float]]:
+def _close(
+    stretch: list[tuple[datetime, float]], runs: list[Run], length: timedelta
+) -> list[tuple[datetime, float]]:
     """Keep the stretch as a run if it lasted long enough; return a new, empty stretch."""
-    if stretch and stretch[-1][0] - stretch[0][0] >= RUN:
+    if stretch and stretch[-1][0] - stretch[0][0] >= length:
         runs.append(Run(start=stretch[0][0], end=stretch[-1][0], peak_w=max(w for _, w in stretch)))
     return []
 

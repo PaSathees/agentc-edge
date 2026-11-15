@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 ON_W = 2.0  # above standby: a plug drawing more than this counts as "on"
 MIN_DAYS = 7  # a profile needs at least a week of readings (FR-02)
+BILL_DAYS = 30  # tariff bands are set for a 30-day bill
 
 
 @dataclass(frozen=True)
@@ -71,17 +72,26 @@ class Schedule:
     bands: tuple[Band, ...]
 
 
-def month_lkr(month_kwh: float, tariff: tuple[Schedule, ...]) -> float:
-    """The month's bill under a block tariff: the total picks the schedule, then band by band."""
-    schedule = next((s for s in tariff if s.up_to is None or month_kwh <= s.up_to), None)
+def month_lkr(
+    month_kwh: float, tariff: tuple[Schedule, ...], *, days: int = BILL_DAYS, levy: float = 0.0
+) -> float:
+    """The bill under a block tariff: the total picks the schedule, then band by band.
+
+    days: the bill's length. The bands grow with it: on a 35-day bill a 60-unit
+    band ends at 70. The fixed charge stays the same.
+    levy: a tax on the whole bill, e.g. 0.025 for 2.5%. The tax is counted in the
+    total it is charged on, so total = charge / (1 - levy).
+    """
+    scale = days / BILL_DAYS
+    schedule = next((s for s in tariff if s.up_to is None or month_kwh <= s.up_to * scale), None)
     if schedule is None:
         raise ValueError("the last schedule must have no limit (up_to=None)")
     cost, low = 0.0, 0.0
     for band in schedule.bands:
-        high = math.inf if band.up_to is None else band.up_to
+        high = math.inf if band.up_to is None else band.up_to * scale
         cost += (min(month_kwh, high) - low) * band.rate  # the units that fall in this band
         if month_kwh <= high:
-            return cost + band.fixed
+            return (cost + band.fixed) / (1 - levy)
         low = high
     raise ValueError("the last band must have no limit (up_to=None)")
 
@@ -115,9 +125,12 @@ def month_tou_lkr(counter: list[tuple[datetime, float]], tariff: TimeOfUse, *, t
     return tariff.fixed + sum(used)
 
 
-def saving_lkr(month_kwh: float, saved_kwh: float, tariff: tuple[Schedule, ...]) -> float:
+def saving_lkr(
+    month_kwh: float, saved_kwh: float, tariff: tuple[Schedule, ...], *, levy: float = 0.0
+) -> float:
     """What saving saved_kwh is worth in a month that would otherwise use month_kwh."""
-    return month_lkr(month_kwh, tariff) - month_lkr(max(month_kwh - saved_kwh, 0.0), tariff)
+    less = max(month_kwh - saved_kwh, 0.0)
+    return month_lkr(month_kwh, tariff, levy=levy) - month_lkr(less, tariff, levy=levy)
 
 
 @dataclass(frozen=True)

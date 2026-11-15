@@ -3,10 +3,18 @@
 [site]
 name = "home"
 tz = "Asia/Colombo"
+month_kwh = 150  # the whole house's units in 30 days; from your bill: units / days x 30
 
 [paths]  # relative to this file
 app_db = "app.db"
 energy_db = "energy.db"
+
+# The grid's average kgCO2e per kWh (location-based Scope 2).
+[carbon]
+id = "slsea-2023"
+factor = 0.4242
+source = "SLSEA Sri Lanka Energy Balance 2023, Table 9.1, average emission factor"
+valid_from = "2023-01-01"
 
 [plugs]
 "Plug-1" = "192.0.2.11"
@@ -17,6 +25,7 @@ energy_db = "energy.db"
 [tariff]
 kind = "block"
 source = "Example tariff, not real rates"
+levy = 0.025  # tax on the whole bill (Sri Lanka's SSCL is 2.5%); leave out if none
 
 [[tariff.schedules]]
 up_to = 60

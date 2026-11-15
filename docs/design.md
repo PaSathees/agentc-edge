@@ -30,7 +30,7 @@ Only three things leave the home: prompts to the model, a weather request, and a
 
 ## One real example, end to end
 
-From the logged data: the second desk (Desk 2) stayed on all night on 1 and 2 November, drawing about 10 W until 06:00. On 10 and 11 November it was in use until about 00:50.
+From the logged data: the second desk (Desk 2) stayed on all night on 1 and 2 November, drawing about 5 W until 06:00. On 10 and 11 November it was in use until about 00:50.
 
 ```mermaid
 sequenceDiagram
@@ -40,8 +40,8 @@ sequenceDiagram
   participant C as Checks (code)
   participant O as Owner
   participant A as Actuator (code)
-  P->>W: 10 W at 01:10 (logged every minute)
-  W->>W: usual at 01:00 is about 1 W, now above it for 2 checks
+  P->>W: 5 W at 01:10 (logged every minute)
+  W->>W: usual at 01:00 is about 1 W, now 3 W or more above it for 3 hours
   W->>R: event: unusual use
   R->>R: code lists options with savings, then model picks one, writes the reason
   R->>C: draft: off at 01:30, every day

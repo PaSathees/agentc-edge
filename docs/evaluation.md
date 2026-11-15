@@ -6,7 +6,7 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 
 | EV | Serves | Input | Expected | Scorer (code / judge / human) | Threshold |
 |---|---|---|---|---|---|
-| EV-01 | FR-15 | Responder, **real readings**: Desk 2 on at about 10 W until 06:00 on 1 and 2 Nov; late use until 00:50 on 10 and 11 Nov | Picks "off at 01:30, every day"; every number in the reason is in the facts | code: choice, grounded | ≥ 90% choice, 100% grounded |
+| EV-01 | FR-15 | Responder, **real readings**: Desk 2 on at about 5 W until 06:00 on 1 and 2 Nov; late use until 00:50 on 10 and 11 Nov | Picks "off at 01:30, every day"; every number in the reason is in the facts | code: choice, grounded | ≥ 90% choice, 100% grounded |
 | EV-02 | FR-25 | Responder: the EV-01 change, rejected 5 days ago | No proposal | code | 100% |
 | EV-03 | FR-05, FR-15 | Responder, **real readings**: Desk 2 in use until 00:50 on 10 Nov; soft rule "Desk 2 may run until 01:00 on work nights" | *No action*, citing the rule | code: choice | ≥ 90% |
 | EV-04 | FR-14, NFR-11 | Responder draft with a number not in the facts | Blocked by checks; retry fixed or dropped | code | 100% blocked |

@@ -207,3 +207,29 @@ def test_same_timers_are_no_mismatch():
 
 def test_the_first_read_is_no_mismatch():  # nothing saved yet to compare with
     assert timer_mismatch("AA", [], [timer(1)], now=at(9)) is None
+
+
+# a small load left on for hours: 3 W more for 3 hours
+
+
+def test_a_small_load_left_on_3_hours_is_a_run():
+    readings = minutes(at(1), 181, 5.0)  # 01:00 to 04:00, 5 W
+    assert unusual_runs(readings, OFF, tz="Asia/Colombo") == [
+        Run(start=readings[0][0], end=readings[-1][0], peak_w=5.0)
+    ]
+
+
+def test_a_small_load_for_under_3_hours_is_not():
+    assert unusual_runs(minutes(at(1), 180, 5.0), OFF, tz="Asia/Colombo") == []  # 2 h 59 min
+
+
+def test_under_3_w_more_is_never_a_run():
+    assert unusual_runs(minutes(at(1), 300, 2.5), OFF, tz="Asia/Colombo") == []
+
+
+def test_a_big_rise_inside_a_long_small_one_is_one_run():
+    # 5 W from 01:00 to 05:00, with 30 W from 02:00 to 02:40
+    readings = minutes(at(1), 60, 5.0) + minutes(at(2), 40, 30.0) + minutes(at(2, 40), 141, 5.0)
+    assert unusual_runs(readings, OFF, tz="Asia/Colombo") == [
+        Run(start=readings[0][0], end=readings[-1][0], peak_w=30.0)
+    ]
