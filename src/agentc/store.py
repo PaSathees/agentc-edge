@@ -4,12 +4,14 @@ Times are ISO 8601 text in UTC; profiles and timers use the site's local time.
 JSON columns hold text written with json.dumps.
 """
 
+import json
 import sqlite3
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 from agentc.calc import Factor, ProfileHour
 from agentc.devices.base import Timer
+from agentc.watcher import Event
 
 SCHEMA_VERSION = 1
 
@@ -329,6 +331,26 @@ def grid_factor(db: sqlite3.Connection, *, site_id: int, on: date) -> Factor | N
 
 
 # energy.db belongs to the logger: the app only ever reads it (ADR-006).
+
+
+def add_event(db: sqlite3.Connection, *, site_id: int, event: Event, dedupe: str) -> bool:
+    """Save an event. False if one with the same key is already saved."""
+    with db:
+        cur = db.execute(
+            "INSERT OR IGNORE INTO events (site_id, kind, plug_mac, start_utc, facts, dedupe)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (site_id, event.kind, event.plug_mac, event.start.isoformat(),
+             json.dumps(event.facts), dedupe),
+        )  # fmt: skip
+    return cur.rowcount == 1
+
+
+def load_events(db: sqlite3.Connection, *, site_id: int) -> list[Event]:
+    sql = "SELECT kind, plug_mac, start_utc, facts FROM events WHERE site_id = ? ORDER BY id"
+    return [
+        Event(kind, mac, datetime.fromisoformat(start), json.loads(facts))
+        for kind, mac, start, facts in db.execute(sql, (site_id,))
+    ]
 
 
 def open_readings(path: str | Path) -> sqlite3.Connection:
