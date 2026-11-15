@@ -1,4 +1,4 @@
-"""Timer import and plug checks (FR-01 timer import, A-02 plug clocks).
+"""Read each plug's timers and check its clock (FR-01, A-02).
 
 Reads every plug, stores what it has, and returns the problems in plain words.
 Nothing here writes to a plug.
@@ -57,7 +57,7 @@ def _import_one(
 
 
 def check_clock(name: str, clock: Clock, *, tz: str, now: datetime) -> list[Problem]:
-    """A-02: the plug's zone matches the site's, and its clock is within 2 minutes."""
+    """The plug's time zone matches the site's, and its clock is within 2 minutes (A-02)."""
     problems = []
     expected = utc_offset(tz, now)
     if clock.timezone != expected:

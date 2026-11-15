@@ -1,4 +1,4 @@
-"""All the maths (M-14): usage profiles; kWh, LKR and kgCO2e (FR-02 profiles, FR-23 maths).
+"""All the maths: usage profiles; kWh, LKR and kgCO2e. Done in code, never by the AI (FR-02, FR-23).
 
 Numbers that reach the owner or a model are computed here, never by a model.
 """
@@ -12,7 +12,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 ON_W = 2.0  # above standby: a plug drawing more than this counts as "on"
-MIN_DAYS = 7  # FR-02: a profile needs at least a week of readings
+MIN_DAYS = 7  # a profile needs at least a week of readings (FR-02)
 
 
 @dataclass(frozen=True)

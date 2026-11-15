@@ -6,9 +6,11 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from agentc import cli, store
+from agentc.watcher import Event
 from tests.fake_tasmota import FakePlug
 
 COLOMBO = ZoneInfo("Asia/Colombo")
+AT = datetime(2026, 11, 3, 1, 0, tzinfo=COLOMBO)  # Tuesday 01:00 local
 EXAMPLE = Path(__file__).parent.parent / "config.example.toml"
 
 
@@ -69,17 +71,18 @@ def test_the_site_is_added_once(cfg, capsys, tmp_path):
     assert db.execute("SELECT name, tz FROM sites").fetchall() == [("home", "Asia/Colombo")]
 
 
-def write_energy_db(path, plug, days):
-    """A minute of readings for `days` days up to now: 10 W at 01:00 local, else 1 W.
+def write_energy_db(path, plug, days, watts=None, end=None):
+    """A minute of readings for `days` days up to `end` (now if not given).
 
+    watts(utc_time) gives the power; by default 10 W at 01:00 local, else 1 W.
     The plug's meter (total_kwh) goes up 0.001 kWh each minute.
     """
-    end = datetime.now(UTC).replace(second=0, microsecond=0)
+    end = end or datetime.now(UTC).replace(second=0, microsecond=0)
     rows = []
     for n, m in enumerate(range(days * 24 * 60, 0, -1)):
         ts = end - timedelta(minutes=m)
-        watts = 10.0 if ts.astimezone(COLOMBO).hour == 1 else 1.0
-        rows.append((ts.isoformat(), plug, watts, n * 0.001, None))
+        w = watts(ts) if watts else 10.0 if ts.astimezone(COLOMBO).hour == 1 else 1.0
+        rows.append((ts.isoformat(), plug, w, n * 0.001, None))
     db = sqlite3.connect(path)
     with db:
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, total_kwh, error)")
@@ -110,3 +113,49 @@ def test_profile_needs_seven_days_of_data(cfg, capsys, tmp_path):
 def test_profile_of_a_plug_never_reached(cfg, capsys):
     code, out = run(cfg, capsys, "profile", "Plug-2")
     assert (code, out) == (1, "Plug-2 is not known yet. Run `agentc timers` first.\n")
+
+
+# watch and replay
+
+
+def spike_days(tmp_path, days=8):
+    """`days` of Plug-2 at 1 W, except 30 W from 3 h to 1 h before now."""
+    end = datetime.now(UTC).replace(second=0, microsecond=0)
+    start, stop = end - timedelta(hours=3), end - timedelta(hours=1)
+    watts = lambda ts: 30.0 if start <= ts < stop else 1.0  # noqa: E731
+    write_energy_db(tmp_path / "energy.db", "Plug-2", days, watts=watts, end=end)
+
+
+def test_watch_shows_new_events_once(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    spike_days(tmp_path)
+    run(cfg, capsys, "profile", "Plug-2")
+    code, out = run(cfg, capsys, "watch")
+    assert code == 0
+    assert "Plug-2: on at an unusual time from " in out and ", 119 min, peak 30 W\n" in out
+    assert run(cfg, capsys, "watch")[1] == "Nothing new.\n"  # 15 min have not passed
+
+
+def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    spike_days(tmp_path)
+    code, out = run(cfg, capsys, "replay", "--days", "8")
+    assert code == 0
+    assert out.startswith("1. Plug-2: on at an unusual time from ")
+    assert out.endswith("Events in 8 days: 1\n")
+    assert store.load_events(store.connect(tmp_path / "app.db"), site_id=1) == []
+
+
+@pytest.mark.parametrize(
+    ("event", "words"),
+    [
+        (Event("offline", "AA", AT, {"plug": "Plug-6", "rounds": 3}),
+         "Plug-6: not answering since Tue 03 Nov 01:00"),
+        (Event("power_cut", None, AT, {"plugs": 10}),
+         "Power cut at Tue 03 Nov 01:00: all 10 plugs stopped answering"),
+        (Event("timer_mismatch", "AA", AT, {"slots": "1, 9"}),
+         "Plug-6: timers changed on the plug (slots 1, 9)"),
+    ],
+)  # fmt: skip
+def test_event_words(event, words):
+    assert cli.event_words(event, {"AA": "Plug-6"}, tz="Asia/Colombo") == words

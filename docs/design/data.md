@@ -3,7 +3,7 @@
 [Design overview](../design.md)
 
 
-Two SQLite files on the hub's data card. `energy.db` holds the readings and belongs to the logger. `app.db` holds everything the app knows: plugs, devices, rules, events, proposals and the audit trail. Times are stored in UTC; profiles and timers use the site's local time.
+Two SQLite files on the hub's SSD, copied to an SD card every night. `energy.db` holds the readings and belongs to the logger. `app.db` holds everything the app knows: plugs, devices, rules, events, proposals and the audit trail. Times are stored in UTC; profiles and timers use the site's local time.
 
 ```mermaid
 erDiagram
@@ -24,7 +24,7 @@ erDiagram
 | `readings` | One row per plug per minute: `ts_utc`, `plug` (name), power, apparent and reactive power, power factor, voltage, current, kWh counter, `error` when the read failed. Exists and runs today |
 | `readings_15m` | 15-minute averages, added by the logger's daily rollup |
 
-Retention: raw minutes for 30 days; then the daily rollup writes 15-minute rows and moves the raw rows to a monthly compressed CSV on the data card, kept for forecast work (NFR-08 storage). The logger re-reads `config.toml` when the file changes, so a new plug needs no restart.
+Retention: raw minutes for 30 days; then the daily rollup writes 15-minute rows and moves the raw rows to a monthly compressed CSV on the SSD, kept for forecast work (NFR-08 storage). The logger re-reads `config.toml` when the file changes, so a new plug needs no restart.
 
 ## app.db (app)
 

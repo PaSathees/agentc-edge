@@ -1,4 +1,4 @@
-"""What every device adapter returns. Tasmota now; MQTT or Modbus later (M-03)."""
+"""What every device adapter returns. Tasmota plugs now; MQTT or Modbus later (M-03)."""
 
 from dataclasses import dataclass
 from datetime import datetime
