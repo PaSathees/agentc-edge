@@ -380,6 +380,20 @@ def counter(
     return [(datetime.fromisoformat(ts), total) for ts, total in rows]
 
 
+def last_rounds(
+    db: sqlite3.Connection, *, n: int, end: datetime
+) -> list[tuple[datetime, dict[str, bool]]]:
+    """The logger's last n rounds before `end`, oldest first: which plugs answered."""
+    sql = """SELECT ts_utc, plug, error IS NULL FROM readings
+             WHERE ts_utc IN (SELECT DISTINCT ts_utc FROM readings
+                              WHERE ts_utc < ? ORDER BY ts_utc DESC LIMIT ?)
+             ORDER BY ts_utc"""
+    rounds: dict[str, dict[str, bool]] = {}
+    for ts, plug, answered in db.execute(sql, (end.astimezone(UTC).isoformat(), n)):
+        rounds.setdefault(ts, {})[plug] = bool(answered)
+    return [(datetime.fromisoformat(ts), plugs) for ts, plugs in rounds.items()]
+
+
 def _utc_bounds(start: datetime, end: datetime) -> tuple[str, str]:
     # Stored as UTC ISO text, so the bounds must be UTC text too for the comparison to hold
     return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()

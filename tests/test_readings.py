@@ -47,3 +47,11 @@ def test_energy_db_is_opened_read_only(energy_db):
     db = store.open_readings(energy_db)
     with pytest.raises(sqlite3.OperationalError, match="readonly"):
         db.execute("DELETE FROM readings")
+
+
+def test_last_rounds_says_which_plugs_answered(energy_db):
+    db = store.open_readings(energy_db)
+    assert store.last_rounds(db, n=2, end=END) == [
+        (datetime(2026, 11, 1, 19, 31, tzinfo=UTC), {"Plug-6": False}),
+        (datetime(2026, 11, 1, 19, 32, tzinfo=UTC), {"Plug-6": True, "Plug-2": True}),
+    ]  # the round at 20:00 is not before END, and 19:30 is not in the last 2

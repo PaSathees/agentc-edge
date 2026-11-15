@@ -4,12 +4,15 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from agentc.calc import ProfileHour
+from agentc.devices.base import Timer
 from agentc.watcher import (
     Event,
     Run,
     Usual,
     dedupe_key,
     is_unusual,
+    offline_events,
+    timer_mismatch,
     unusual_runs,
     unusual_use,
     usual_week,
@@ -130,3 +133,61 @@ def test_the_key_uses_the_local_day_the_run_started():
 def test_a_site_wide_event_is_keyed_to_the_site():
     event = Event("power_cut", None, at(10).astimezone(UTC), {})
     assert dedupe_key(event, tz="Asia/Colombo") == "site|power_cut|2026-11-02"
+
+
+# offline and power cut: from the logger's last rounds
+
+
+def rounds(*answered):
+    """One logger round a minute; each argument maps plug name -> did it answer."""
+    return [(at(9, m), dict(a)) for m, a in enumerate(answered)]
+
+
+MACS = {"Plug-1": "AA", "Plug-2": "BB"}
+UP, DOWN = {"Plug-1": True, "Plug-2": True}, {"Plug-1": True, "Plug-2": False}
+CUT = {"Plug-1": False, "Plug-2": False}
+
+
+def test_three_failed_rounds_is_offline():
+    found = offline_events(rounds(UP, DOWN, DOWN, DOWN), MACS)
+    assert found == [Event("offline", "BB", at(9, 1), {"plug": "Plug-2", "rounds": 3})]
+
+
+def test_two_failed_rounds_is_not_offline_yet():
+    assert offline_events(rounds(UP, UP, DOWN, DOWN), MACS) == []
+
+
+def test_every_plug_failing_is_one_power_cut_not_many_offline():
+    assert offline_events(rounds(CUT, CUT, CUT), MACS) == [
+        Event("power_cut", None, at(9, 0), {"plugs": 2})
+    ]
+
+
+def test_too_few_rounds_says_nothing():
+    assert offline_events(rounds(DOWN, DOWN), MACS) == []
+
+
+def test_a_plug_never_reached_has_no_mac_so_no_event():
+    assert offline_events(rounds(DOWN, DOWN, DOWN), {"Plug-1": "AA"}) == []
+
+
+# timer mismatch: the plug's timers changed since we saved them
+
+
+def timer(slot, time="07:30"):
+    return Timer(slot, True, 0, time, 0, "0111110", True, 1, 1)
+
+
+def test_a_changed_timer_is_a_mismatch():
+    saved, read = [timer(1), timer(2)], [timer(1, "08:00"), timer(2)]
+    assert timer_mismatch("AA", saved, read, now=at(9)) == Event(
+        "timer_mismatch", "AA", at(9), {"slots": "1"}
+    )
+
+
+def test_same_timers_are_no_mismatch():
+    assert timer_mismatch("AA", [timer(1)], [timer(1)], now=at(9)) is None
+
+
+def test_the_first_read_is_no_mismatch():  # nothing saved yet to compare with
+    assert timer_mismatch("AA", [], [timer(1)], now=at(9)) is None

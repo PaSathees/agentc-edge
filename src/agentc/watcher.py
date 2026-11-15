@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from agentc.calc import ProfileHour
+from agentc.devices.base import Timer
 
 MIN_DAYS = 3  # an hour with fewer days than this uses the same hour across the week
 RARELY_ON = 0.2  # alert only at hours the plug is on under 20% of the time
@@ -13,6 +14,7 @@ FACTOR = 2.0  # unusual = more than 2 x usual ...
 MORE_W = 10.0  # ... and at least 10 W more, so 0 W to 3 W is not an alert
 RUN = timedelta(minutes=30)  # how long it must last
 MAX_GAP = timedelta(minutes=5)  # a longer gap in readings restarts the count
+OFFLINE_ROUNDS = 3  # failed logger rounds in a row before a plug counts as offline
 
 
 @dataclass(frozen=True)
@@ -99,3 +101,35 @@ def dedupe_key(event: Event, *, tz: str) -> str:
     """Same plug, kind and local day = same event, saved once (FR-13)."""
     day = event.start.astimezone(ZoneInfo(tz)).date().isoformat()
     return f"{event.plug_mac or 'site'}|{event.kind}|{day}"
+
+
+def offline_events(
+    rounds: list[tuple[datetime, dict[str, bool]]], macs: dict[str, str]
+) -> list[Event]:
+    """Plugs that failed the last 3 rounds. If every plug failed, one power cut instead.
+
+    rounds: the logger's latest rounds, oldest first; each maps plug name -> answered.
+    macs: plug name -> MAC, for the plugs the app knows.
+    """
+    last = rounds[-OFFLINE_ROUNDS:]
+    if len(last) < OFFLINE_ROUNDS:
+        return []
+    start, plugs = last[0][0], last[-1][1]
+    down = [p for p in plugs if not any(answered.get(p, False) for _, answered in last)]
+    if down and len(down) == len(plugs):
+        return [Event("power_cut", None, start, {"plugs": len(down)})]
+    return [
+        Event("offline", macs[p], start, {"plug": p, "rounds": OFFLINE_ROUNDS})
+        for p in down
+        if p in macs
+    ]
+
+
+def timer_mismatch(
+    mac: str, saved: list[Timer], read: list[Timer], *, now: datetime
+) -> Event | None:
+    """The plug's timers differ from the ones we saved last time."""
+    if not saved or saved == read:
+        return None
+    slots = [r.slot for s, r in zip(saved, read, strict=False) if s != r]
+    return Event("timer_mismatch", mac, now, {"slots": ", ".join(map(str, slots))})
