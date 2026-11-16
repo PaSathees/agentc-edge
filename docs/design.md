@@ -44,14 +44,14 @@ sequenceDiagram
   W->>W: usual at 01:00 is about 1 W, now 3 W or more above it for 3 hours
   W->>R: event: unusual use
   R->>R: code lists options with savings, then model picks one, writes the reason
-  R->>C: draft: off at 01:30, every day
+  R->>C: draft: off at 01:30, on at 07:00, every day
   C->>O: numbers, rules, access, slot all pass, then card + phone notification
   O->>A: Approve
-  A->>P: write Timer9: off 01:30, daily
+  A->>P: write Timer9: off 01:30 and Timer10: on 07:00, daily
   P-->>A: read back matches, then recorded
 ```
 
-The off time is 01:30, not 00:30, because the late working nights end before 01:00; code checks every option against usage like that before the model sees it. If the owner rejects it with "I sometimes work until 2", the reason becomes a soft rule and the same change is not proposed again. From then on the plug switches itself off with no software in the loop.
+The off time is 01:30, not 00:30, because the late working nights end before 01:00. The on time is 07:00, half an hour before the earliest morning use, because Desk 2 has no timer of its own to turn it back on. Code works out both times from the readings before the model sees anything: a use is 10 W above standby for 20 minutes or more, and power left on below that is waste. If the owner rejects it with "I sometimes work until 2", the reason becomes a soft rule and the same change is not proposed again. From then on the plug switches itself off with no software in the loop.
 
 Cost: one call to a small model. On a day with nothing unusual, there are no AI calls at all. The same data is eval case EV-01.
 
