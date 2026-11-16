@@ -41,6 +41,22 @@ class Option:
 
 
 @dataclass(frozen=True)
+class Proposal:
+    """A suggested change the owner approves or rejects (FR-14). Its numbers come from an Option."""
+
+    plug_mac: str
+    device: str  # the owner's name for what is plugged in
+    changes: tuple[Change, ...]
+    reason: str  # the AI's 1 or 2 sentences
+    kwh: float  # saved a week
+    lkr: float
+    kg: float
+    evidence: str  # what the numbers rest on, e.g. the event and the days of readings
+    source: str  # responder, planner, assistant or owner
+    expires: datetime  # not approved by then: it lapses
+
+
+@dataclass(frozen=True)
 class Money:
     tariff: Tariff
     month_kwh: float  # the whole house's units in 30 days: sets which band a saving comes off
