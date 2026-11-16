@@ -4,6 +4,7 @@ import pytest
 
 from agentc import config
 from agentc.calc import Band, Factor, Period, Schedule, TimeOfUse
+from agentc.config import Budget, Tier
 
 EXAMPLE = Path(__file__).parent.parent / "config.example.toml"
 
@@ -82,3 +83,32 @@ def test_a_block_table_that_cannot_price_every_month_fails_at_load(tmp_path):
 def test_unknown_time_zone_fails_at_load(tmp_path):
     with pytest.raises(ValueError, match="time zone"):
         config.load(write(tmp_path, TOU.replace("Asia/Colombo", "Asia/Nowhere")))
+
+
+def test_model_tiers_and_caps():
+    c = config.load(EXAMPLE)
+    assert c.tiers["small"] == Tier("claude-haiku-5-5", 0.10, 0.50, "low")
+    assert c.tiers["mid"] == Tier("claude-sonnet-5-5", 2.0, 10.0, "medium")
+    assert c.budget == Budget(month_usd=3.0, run_usd=0.05)
+
+
+def test_without_an_llm_section_the_defaults_apply(tmp_path):
+    c = config.load(write(tmp_path, TOU))
+    assert (c.tiers, c.budget) == (config.TIERS, config.BUDGET)
+
+
+def test_the_caps_can_be_changed(tmp_path):
+    c = config.load(write(tmp_path, TOU + "\n[llm]\nmonth_usd = 2.0\nrun_usd = 0.01\n"))
+    assert c.budget == Budget(month_usd=2.0, run_usd=0.01)
+
+
+def test_one_tier_can_be_changed_alone(tmp_path):
+    small = '\n[llm.tiers.small]\nmodel = "other"\nusd_in = 1.0\nusd_out = 5.0\neffort = "high"\n'
+    c = config.load(write(tmp_path, TOU + small))
+    assert c.tiers == {"small": Tier("other", 1.0, 5.0, "high"), "mid": config.TIERS["mid"]}
+
+
+def test_an_unknown_effort_fails_on_load(tmp_path):
+    small = '\n[llm.tiers.small]\nmodel = "m"\nusd_in = 1.0\nusd_out = 5.0\neffort = "huge"\n'
+    with pytest.raises(ValueError, match="effort must be one of low, medium, high, xhigh, max"):
+        config.load(write(tmp_path, TOU + small))

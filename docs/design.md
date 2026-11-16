@@ -117,7 +117,7 @@ Every state change is an audit row. *Undo* on a verified change creates a new pr
 | Hard, soft rule | Owner rules per device. Hard: a proposal that breaks it is blocked. Soft: allowed, with a warning |
 | Shadow mode | Agents propose and the owner can approve, but nothing is written |
 
-Tools: **LangGraph** (agent graphs), **CP-SAT** (OR-Tools solver), **SQLite**, **FastAPI**, **Next.js**, **ntfy** (phone notifications), **Tailscale** (private network).
+Tools: **Anthropic SDK** behind `llm()` (ADR-005), **LangGraph** (graphs for the Assistant and Planner; the Responder is a straight line, so a plain function), **Pydantic** (answer shapes), **CP-SAT** (OR-Tools solver), **SQLite**, **FastAPI**, **Next.js**, **ntfy** (phone notifications), **Tailscale** (private network).
 
 ## Detail
 

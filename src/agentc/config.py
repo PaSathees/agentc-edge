@@ -3,12 +3,37 @@
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from agentc.calc import Band, Factor, Period, Schedule, TimeOfUse, month_lkr
 
 Tariff = tuple[Schedule, ...] | TimeOfUse
+
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+
+
+@dataclass(frozen=True)
+class Tier:
+    """A model size: small for the Responder and Assistant, mid for the Planner (ADR-005)."""
+
+    model: str
+    usd_in: float  # USD per million tokens in, from the provider's price page
+    usd_out: float  # USD per million tokens out
+    effort: Effort  # how hard the model thinks; more effort costs more tokens
+
+
+@dataclass(frozen=True)
+class Budget:
+    month_usd: float  # all model calls in a calendar month (NFR-01)
+    run_usd: float  # one agent run
+
+
+TIERS = {
+    "small": Tier("claude-haiku-5-5", 0.10, 0.50, "low"),
+    "mid": Tier("claude-sonnet-5-5", 2.0, 10.0, "medium"),
+}
+BUDGET = Budget(month_usd=3.0, run_usd=0.05)
 
 
 @dataclass(frozen=True)
@@ -21,6 +46,8 @@ class Config:
     levy: float  # tax on the whole bill, e.g. 0.025 for 2.5%; 0 if none
     month_kwh: float  # the whole house's units in a 30-day month, from the bill
     factor: Factor  # the grid's kgCO2e per kWh, with its source
+    tiers: dict[str, Tier]
+    budget: Budget
     app_db: Path
     energy_db: Path
 
@@ -31,6 +58,7 @@ def load(path: str | Path) -> Config:
     with path.open("rb") as f:
         raw = tomllib.load(f)
     site, paths, tariff, carbon = raw["site"], raw.get("paths", {}), raw["tariff"], raw["carbon"]
+    llm = raw.get("llm", {})  # model calls: optional, defaults above
     try:
         ZoneInfo(site["tz"])
     except ZoneInfoNotFoundError:
@@ -44,9 +72,17 @@ def load(path: str | Path) -> Config:
         levy=tariff.get("levy", 0.0),
         month_kwh=site["month_kwh"],
         factor=Factor(carbon["id"], carbon["factor"], carbon["source"], carbon["valid_from"]),
+        tiers={**TIERS, **{k: _tier(t) for k, t in llm.get("tiers", {}).items()}},
+        budget=Budget(llm.get("month_usd", BUDGET.month_usd), llm.get("run_usd", BUDGET.run_usd)),
         app_db=path.parent / paths.get("app_db", "app.db"),
         energy_db=path.parent / paths.get("energy_db", "energy.db"),
     )
+
+
+def _tier(t: dict[str, Any]) -> Tier:
+    if (effort := t["effort"]) not in get_args(Effort):
+        raise ValueError(f"effort must be one of {', '.join(get_args(Effort))}, not {effort!r}")
+    return Tier(**t)
 
 
 def _tariff(t: dict[str, Any]) -> Tariff:

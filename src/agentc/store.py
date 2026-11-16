@@ -393,6 +393,35 @@ def add_audit(
         )
 
 
+def add_llm_call(
+    db: sqlite3.Connection, *, site_id: int, at: datetime, run_id: str, agent: str, model: str,
+    prompt_version: str, prompt: str, output: str | None, tokens_in: int | None,
+    tokens_out: int | None, usd: float | None, latency_ms: int,
+) -> int:  # fmt: skip
+    """Save the trace of one model call (FR-27); return its id. output None = the call failed."""
+    with db:
+        (cid,) = db.execute(
+            "INSERT INTO llm_calls (site_id, run_id, agent, model, prompt_version, prompt, output,"
+            " tokens_in, tokens_out, usd, latency_ms, ts_utc)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            (site_id, run_id, agent, model, prompt_version, prompt, output, tokens_in, tokens_out,
+             usd, latency_ms, at.astimezone(UTC).isoformat()),
+        ).fetchone()  # fmt: skip
+    return cid
+
+
+def llm_usd(
+    db: sqlite3.Connection, *, site_id: int, since: datetime | None = None,
+    run_id: str | None = None,
+) -> float:  # fmt: skip
+    """USD spent on model calls: since a time, in one run, or both (FR-28 budget)."""
+    sql = """SELECT COALESCE(SUM(usd), 0) FROM llm_calls WHERE site_id = ?
+             AND ts_utc >= COALESCE(?, ts_utc) AND run_id = COALESCE(?, run_id)"""
+    after = since.astimezone(UTC).isoformat() if since else None
+    (usd,) = db.execute(sql, (site_id, after, run_id)).fetchone()
+    return usd
+
+
 # energy.db belongs to the logger: the app only ever reads it (decision ADR-006).
 
 
