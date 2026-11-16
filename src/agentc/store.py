@@ -422,6 +422,13 @@ def llm_usd(
     return usd
 
 
+def link_calls(db: sqlite3.Connection, *, call_ids: list[int], proposal_id: int) -> None:
+    """Mark the model calls that made a proposal, so its trace can be found (FR-27)."""
+    with db:
+        db.executemany("UPDATE llm_calls SET proposal_id = ? WHERE id = ?",
+                       [(proposal_id, c) for c in call_ids])  # fmt: skip
+
+
 # energy.db belongs to the logger: the app only ever reads it (decision ADR-006).
 
 

@@ -43,7 +43,7 @@ flowchart TB
 Cheap checks run first. Each block is recorded with the check that failed, so error analysis can count them.
 
 - **Grounded numbers (check 2).** Code pulls every number out of the agent's text and matches it against the facts the agent was given, after rounding to the shown precision. Times and dates count as numbers. One unmatched number fails the draft (NFR-11 grounded).
-- **Same change (check 6).** A change is the same when device, action (on or off), days and time match within 30 minutes.
+- **Same change (check 6).** A change is the same when the device and action (on or off) match, the days have at least one day in common, and the times are within 30 minutes. So "off at 01:30 on weekdays" repeats a rejected "off at 01:30 every day". The Responder also drops such options before the model sees them, and options that break a hard rule.
 - **Access *Advice*** (`propose` in requirements FR-04). The proposal reaches the inbox as advice; the Approve button is replaced by "Done it myself".
 
 ## At write time

@@ -4,7 +4,7 @@ import pytest
 
 from agentc import config
 from agentc.calc import Band, Factor, Period, Schedule, TimeOfUse
-from agentc.config import Budget, Tier
+from agentc.config import Budget, Device, Rule, Tier
 
 EXAMPLE = Path(__file__).parent.parent / "config.example.toml"
 
@@ -112,3 +112,26 @@ def test_an_unknown_effort_fails_on_load(tmp_path):
     small = '\n[llm.tiers.small]\nmodel = "m"\nusd_in = 1.0\nusd_out = 5.0\neffort = "huge"\n'
     with pytest.raises(ValueError, match="effort must be one of low, medium, high, xhigh, max"):
         config.load(write(tmp_path, TOU + small))
+
+
+def test_devices_with_access_and_rules():
+    c = config.load(EXAMPLE)
+    rule = Rule("latest_off", "01:00", hard=False, text="Desk 2 may run until 01:00")
+    assert config.device(c, "Plug-1") == Device("Desk 2", "advice", tuple(range(9, 17)), (rule,))
+    assert config.device(c, "Plug-2") == Device("3D printer", access="none")
+
+
+def test_a_plug_not_listed_is_a_device_of_its_own_name(tmp_path):
+    c = config.load(write(tmp_path, TOU))
+    assert config.device(c, "Plug-2") == Device("Plug-2", "advice", tuple(range(9, 17)), ())
+
+
+def test_a_device_can_use_other_slots(tmp_path):
+    text = TOU + '\n[devices."Plug-2"]\nname = "TV"\nslots = [15, 16]\n'
+    assert config.device(config.load(write(tmp_path, text)), "Plug-2").slots == (15, 16)
+
+
+def test_an_unknown_access_fails_on_load(tmp_path):
+    text = TOU + '\n[devices."Plug-2"]\nname = "TV"\naccess = "full"\n'
+    with pytest.raises(ValueError, match="access must be one of none, advice, write"):
+        config.load(write(tmp_path, text))

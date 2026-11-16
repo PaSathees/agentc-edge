@@ -34,6 +34,26 @@ TIERS = {
     "mid": Tier("claude-sonnet-5-5", 2.0, 10.0, "medium"),
 }
 BUDGET = Budget(month_usd=3.0, run_usd=0.05)
+ACCESS = ("none", "advice", "write")  # never changed; proposals only; written after approval
+SLOTS = tuple(range(9, 17))  # timers the system may use; 1 to 8 stay the owner's
+
+
+@dataclass(frozen=True)
+class Rule:
+    kind: str  # "latest_off": the device may run until `time`; other kinds come later
+    time: str  # local HH:MM
+    hard: bool  # a hard rule blocks a draft; a soft one adds a warning
+    text: str  # the owner's own words, shown with a warning
+
+
+@dataclass(frozen=True)
+class Device:
+    """What is plugged into a plug, and what the system may do with it (FR-04)."""
+
+    name: str  # the owner's name; the only name a model sees
+    access: str = "advice"  # new devices start at advice
+    slots: tuple[int, ...] = SLOTS
+    rules: tuple[Rule, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -48,6 +68,7 @@ class Config:
     factor: Factor  # the grid's kgCO2e per kWh, with its source
     tiers: dict[str, Tier]
     budget: Budget
+    devices: dict[str, Device]  # plug name -> device; a plug not listed is a Device of its name
     app_db: Path
     energy_db: Path
 
@@ -74,9 +95,22 @@ def load(path: str | Path) -> Config:
         factor=Factor(carbon["id"], carbon["factor"], carbon["source"], carbon["valid_from"]),
         tiers={**TIERS, **{k: _tier(t) for k, t in llm.get("tiers", {}).items()}},
         budget=Budget(llm.get("month_usd", BUDGET.month_usd), llm.get("run_usd", BUDGET.run_usd)),
+        devices={plug: _device(d) for plug, d in raw.get("devices", {}).items()},
         app_db=path.parent / paths.get("app_db", "app.db"),
         energy_db=path.parent / paths.get("energy_db", "energy.db"),
     )
+
+
+def _device(d: dict[str, Any]) -> Device:
+    if (access := d.get("access", "advice")) not in ACCESS:
+        raise ValueError(f"access must be one of {', '.join(ACCESS)}, not {access!r}")
+    rules = tuple(Rule(**r) for r in d.get("rules", []))
+    return Device(d["name"], access, tuple(d.get("slots", SLOTS)), rules)
+
+
+def device(cfg: Config, plug: str) -> Device:
+    """The device on a plug, by the plug's name."""
+    return cfg.devices.get(plug, Device(plug))
 
 
 def _tier(t: dict[str, Any]) -> Tier:

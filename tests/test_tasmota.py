@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from agentc.devices.base import DeviceError, Timer
+from agentc.devices.base import PlugError, Timer
 from agentc.devices.tasmota import TasmotaPlug
 
 
@@ -32,19 +32,19 @@ def test_reads_the_clock_in_utc_with_the_timezone(plug):
     assert clock.timezone == "+05:30"
 
 
-def test_offline_plug_raises_device_error(plug):
+def test_offline_plug_raises_plug_error(plug):
     plug.offline = True
-    with pytest.raises(DeviceError):
+    with pytest.raises(PlugError):
         TasmotaPlug(plug.ip, timeout_s=1).timers()
 
 
-def test_unexpected_answer_raises_device_error(plug, monkeypatch):
+def test_unexpected_answer_raises_plug_error(plug, monkeypatch):
     monkeypatch.setattr(plug, "handle", lambda cmnd: {"Command": "Unknown"})
-    with pytest.raises(DeviceError):
+    with pytest.raises(PlugError):
         TasmotaPlug(plug.ip).clock()
 
 
-def test_timers_answer_missing_a_slot_raises_device_error(plug, monkeypatch):
+def test_timers_answer_missing_a_slot_raises_plug_error(plug, monkeypatch):
     monkeypatch.setattr(plug, "handle", lambda cmnd: {"Timers": "ON", "Timer1": {}})
-    with pytest.raises(DeviceError):
+    with pytest.raises(PlugError):
         TasmotaPlug(plug.ip).timers()

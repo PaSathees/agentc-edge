@@ -1,6 +1,7 @@
 """The Watcher: checks the readings and finds events. Pure code; it never calls a model."""
 
 import statistics
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -91,28 +92,34 @@ def _runs(
 ) -> list[Run]:  # fmt: skip
     """Stretches of unusual power that last `length` or more, oldest first."""
     zone = ZoneInfo(tz)
-    runs: list[Run] = []
-    stretch: list[tuple[datetime, float]] = []
-    for at, watts in readings:
+
+    def high(at: datetime, watts: float) -> bool:
         local = at.astimezone(zone)
         hour = usual.get(local.weekday() * 24 + local.hour)
-        if not is_unusual(watts, hour, factor=factor, more_w=more_w):
-            stretch = _close(stretch, runs, length)  # a normal reading ends the stretch
+        return is_unusual(watts, hour, factor=factor, more_w=more_w)
+
+    return [Run(s[0][0], s[-1][0], max(w for _, w in s)) for s in stretches(readings, high, length)]
+
+
+def stretches(
+    readings: list[tuple[datetime, float]], high: Callable[[datetime, float], bool],
+    length: timedelta,
+) -> list[list[tuple[datetime, float]]]:  # fmt: skip
+    """Unbroken stretches of high readings that last `length` or more, oldest first.
+
+    A reading that is not high ends a stretch, and so does a gap over 5 minutes.
+    """
+    found: list[list[tuple[datetime, float]]] = []
+    last = None  # when the previous high reading was; None after a reading that is not high
+    for at, watts in readings:
+        if not high(at, watts):
+            last = None
             continue
-        if stretch and at - stretch[-1][0] > MAX_GAP:
-            stretch = _close(stretch, runs, length)  # too long without readings: start again
-        stretch.append((at, watts))
-    _close(stretch, runs, length)
-    return runs
-
-
-def _close(
-    stretch: list[tuple[datetime, float]], runs: list[Run], length: timedelta
-) -> list[tuple[datetime, float]]:
-    """Keep the stretch as a run if it lasted long enough; return a new, empty stretch."""
-    if stretch and stretch[-1][0] - stretch[0][0] >= length:
-        runs.append(Run(start=stretch[0][0], end=stretch[-1][0], peak_w=max(w for _, w in stretch)))
-    return []
+        if last is None or at - last > MAX_GAP:
+            found.append([])  # start a new stretch
+        found[-1].append((at, watts))
+        last = at
+    return [s for s in found if s[-1][0] - s[0][0] >= length]
 
 
 def unusual_use(mac: str, run: Run) -> Event:

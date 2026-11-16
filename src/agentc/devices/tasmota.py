@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
-from agentc.devices.base import Clock, DeviceError, Info, Timer, TimerSet
+from agentc.devices.base import Clock, Info, PlugError, Timer, TimerSet
 
 
 class TasmotaPlug:
@@ -25,7 +25,7 @@ class TasmotaPlug:
             timers = [_timer(n, r[f"Timer{n}"]) for n in range(1, 17)]
             return TimerSet(enabled=r["Timers"] == "ON", timers=timers)
         except (KeyError, TypeError, ValueError) as err:
-            raise DeviceError(f"{self.ip}: unreadable Timers answer: {err!r}") from err
+            raise PlugError(f"{self.ip}: unreadable Timers answer: {err!r}") from err
 
     def clock(self) -> Clock:
         tim = self._get("Status 7", "StatusTIM")
@@ -36,7 +36,7 @@ class TasmotaPlug:
         """Run a command and return one section of its answer."""
         r = self._cmd(cmnd)
         if not isinstance(r.get(key), dict):
-            raise DeviceError(f"{self.ip}: {cmnd!r} answered without {key}")
+            raise PlugError(f"{self.ip}: {cmnd!r} answered without {key}")
         return r[key]
 
     def _cmd(self, cmnd: str) -> dict[str, Any]:
@@ -45,7 +45,7 @@ class TasmotaPlug:
             with urllib.request.urlopen(url, timeout=self.timeout_s) as resp:
                 return json.load(resp)
         except (OSError, ValueError, http.client.HTTPException) as err:
-            raise DeviceError(f"{self.ip}: {cmnd!r} failed: {err!r}") from err
+            raise PlugError(f"{self.ip}: {cmnd!r} failed: {err!r}") from err
 
 
 def _timer(slot: int, t: dict[str, Any]) -> Timer:

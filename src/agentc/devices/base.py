@@ -1,12 +1,12 @@
-"""What every device adapter returns. Tasmota plugs now; MQTT or Modbus later (M-03)."""
+"""What every plug adapter returns. Tasmota plugs now; MQTT or Modbus later (M-03)."""
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
 
-class DeviceError(Exception):
-    """The device did not answer, or answered with something we can't read."""
+class PlugError(Exception):
+    """The plug did not answer, or answered with something we can't read."""
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,9 @@ class Clock:
     timezone: str  # e.g. "+05:30"
 
 
-class Device(Protocol):
+class Plug(Protocol):
+    """The plug hardware, through its adapter. Not the device plugged into it."""
+
     def info(self) -> Info: ...
     def timers(self) -> TimerSet: ...
     def clock(self) -> Clock: ...

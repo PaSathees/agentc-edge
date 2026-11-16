@@ -38,6 +38,19 @@ effort = "medium"
 "Plug-1" = "192.0.2.11"
 "Plug-2" = "192.0.2.12"
 
+# What is plugged into each plug. Optional: a plug not listed keeps its own name,
+# access "advice" and timer slots 9 to 16. The name is the only one a model sees.
+# access: "none" = never changed; "advice" = proposals only; "write" = written after approval.
+[devices."Plug-1"]
+name = "Desk 2"
+rules = [
+    { kind = "latest_off", time = "01:00", hard = false, text = "Desk 2 may run until 01:00" },
+]
+
+[devices."Plug-2"]
+name = "3D printer"
+access = "none"  # it also powers the printer's controller
+
 # Example rates only. Copy yours from your bill or the regulator's published schedule.
 # kind = "block": the month's total picks a schedule (no up_to = no limit), then band by band.
 [tariff]

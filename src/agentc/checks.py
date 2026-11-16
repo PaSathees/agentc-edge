@@ -5,12 +5,14 @@ Soft rules never block: they only add a warning for the owner.
 """
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
+from agentc.config import Rule
 from agentc.options import DAY, Change, Option, Proposal, of
 
 SENTENCES = 2  # the reason is 1 or 2 sentences
-SAME_WITHIN = 30  # minutes: two changes are the same if action and days match too
+SAME_WITHIN = 30  # minutes: two changes are the same if the action matches and days overlap
 NUMBER = re.compile(r"\d+(?:[.:]\d+)?")  # 12, 0.015, 01:30
 
 
@@ -18,14 +20,6 @@ NUMBER = re.compile(r"\d+(?:[.:]\d+)?")  # 12, 0.015, 01:30
 class Draft:
     option: str  # an option id, or "none"
     reason: str
-
-
-@dataclass(frozen=True)
-class Rule:
-    kind: str  # "latest_off": the device may run until `time`; other kinds come later
-    time: str  # local HH:MM
-    hard: bool  # a hard rule blocks a draft; a soft one adds a warning
-    text: str  # the owner's own words, shown with a warning
 
 
 @dataclass(frozen=True)
@@ -49,8 +43,8 @@ def _norm(n: str) -> str:
 
 
 def check(
-    draft: Draft, *, options: list[Option], facts: str, access: str, slots: list[int],
-    rules: list[Rule], rejected: list[Proposal],
+    draft: Draft, *, options: list[Option], facts: str, access: str, slots: Sequence[int],
+    rules: Sequence[Rule], rejected: list[Proposal],
 ) -> Verdict:  # fmt: skip
     """Run the checks in order (docs/design/guardrails.md).
 
@@ -71,12 +65,25 @@ def check(
         return Verdict("access: this device is never changed")
     if bad := [c.slot for c in chosen.changes if c.slot not in slots]:
         return Verdict(f"slots: timer {bad[0]} is not one the system may use")
-    broken = [r for r in rules if _breaks(chosen.changes, r)]
-    if hard := [r for r in broken if r.hard]:
-        return Verdict(f"rule: {hard[0].text}")
-    if any(_same(c, old) for c in chosen.changes for p in rejected for old in p.changes):
-        return Verdict("repeat: the owner rejected the same change in the last 14 days")
-    return Verdict(None, tuple(r.text for r in broken))
+    if conflict := _conflict(chosen.changes, rules, rejected):
+        return Verdict(conflict)
+    return Verdict(None, tuple(r.text for r in rules if _breaks(chosen.changes, r)))
+
+
+def allowed(option: Option, rules: Sequence[Rule], rejected: list[Proposal]) -> bool:
+    """No hard rule broken and not a repeat: code drops other options before the model sees them."""
+    return _conflict(option.changes, rules, rejected) is None
+
+
+def _conflict(
+    changes: tuple[Change, ...], rules: Sequence[Rule], rejected: list[Proposal]
+) -> str | None:
+    """Why these changes may never be offered: a hard rule broken, or a repeat. None if neither."""
+    if hard := [r for r in rules if r.hard and _breaks(changes, r)]:
+        return f"rule: {hard[0].text}"
+    if any(_same(c, old) for c in changes for p in rejected for old in p.changes):
+        return "repeat: the owner rejected the same change in the last 14 days"
+    return None
 
 
 def _breaks(changes: tuple[Change, ...], rule: Rule) -> bool:
@@ -87,6 +94,10 @@ def _breaks(changes: tuple[Change, ...], rule: Rule) -> bool:
 
 
 def _same(a: Change, b: Change) -> bool:
-    """Same action and days, and times within 30 minutes of each other."""
+    """Same action, a day in common, and times within 30 minutes of each other.
+
+    So "off at 01:30 on weekdays" repeats a rejected "off at 01:30 every day".
+    """
     gap = (of(a.time) - of(b.time)) % DAY
-    return a.action == b.action and a.days == b.days and min(gap, DAY - gap) <= SAME_WITHIN
+    overlap = int(a.days, 2) & int(b.days, 2)
+    return a.action == b.action and overlap > 0 and min(gap, DAY - gap) <= SAME_WITHIN

@@ -5,6 +5,7 @@ Every time and number here comes from the readings, so the AI never has to work 
 """
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -12,7 +13,7 @@ from zoneinfo import ZoneInfo
 from agentc.calc import Factor, TimeOfUse, saving_lkr, tou_rate
 from agentc.config import Tariff
 from agentc.devices.base import Timer
-from agentc.watcher import MAX_GAP, Run, Usual
+from agentc.watcher import MAX_GAP, Run, Usual, stretches
 
 DAY_START = 6 * 60  # a day runs from 06:00 to 06:00, so use after midnight counts as late
 USE_W = 10.0  # in use: at least 10 W above the plug's lowest usual power ...
@@ -94,15 +95,8 @@ def use(readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: 
     """
     zone = ZoneInfo(tz)
     base = min((u.watts for u in usual.values()), default=0.0)  # standby
-    used: list[int] = []
-    stretch: list[datetime] = []
-    for at, w in [*readings, (datetime.max.replace(tzinfo=UTC), 0.0)]:  # the last one closes
-        if w - base >= USE_W and (not stretch or at - stretch[-1] <= MAX_GAP):
-            stretch.append(at)
-            continue
-        if stretch and stretch[-1] - stretch[0] >= MIN_USE:
-            used += [minutes(t.astimezone(zone)) for t in stretch]
-        stretch = [at] if w - base >= USE_W else []
+    found = stretches(readings, lambda _, w: w - base >= USE_W, MIN_USE)
+    used = [minutes(at.astimezone(zone)) for s in found for at, _ in s]
     return Use(max(used), min(used)) if used else None
 
 
@@ -114,17 +108,17 @@ def window(u: Use) -> tuple[int, int] | None:
 
 
 def offer(
-    run: Run, readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
-    days: int, timers: list[Timer], slots: list[int], money: Money,
+    run: Run, readings: list[tuple[datetime, float]], u: Use, *, tz: str, days: int,
+    timers: list[Timer], slots: Sequence[int], money: Money,
 ) -> list[Option]:  # fmt: skip
     """Fixes for one unusual run: A every day, B only on the days like the run's.
 
-    readings: the last `days` days, oldest first. Empty when no timer would cut the run.
+    readings: the last `days` days, oldest first. u: their use. Empty when no timer
+    would cut the run.
     """
     zone = ZoneInfo(tz)
-    u = use(readings, usual, tz=tz)
-    times = window(u) if u else None
-    if u is None or times is None:
+    times = window(u)
+    if times is None:
         return []
     off, on = times
     off_at = _off_at(run, off, zone)

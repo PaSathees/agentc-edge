@@ -128,8 +128,17 @@ def test_times_either_side_of_midnight_are_close():
     [
         Change(9, "off", "02:01", "1111111"),  # 31 minutes apart
         Change(9, "on", "01:30", "1111111"),  # on, not off
-        Change(9, "off", "01:30", "0111110"),  # other days
+        Change(9, "off", "01:30", "1000001"),  # weekends: no day in common with B
     ],
 )
 def test_a_different_change_is_not_a_repeat(change):
-    assert verdict(rejected=[turned_down(change)]).blocked is None
+    weekdays = Draft("B", "Off at 01:30 and on at 07:00 on weekdays.")
+    assert verdict(weekdays, rejected=[turned_down(change)]).blocked is None
+
+
+def test_the_same_times_on_fewer_days_is_a_repeat():  # EV-02
+    old = turned_down(Change(9, "off", "01:30", "1111111"))
+    weekdays = Draft("B", "Off at 01:30 and on at 07:00 on weekdays.")
+    assert verdict(weekdays, rejected=[old]).blocked == (
+        "repeat: the owner rejected the same change in the last 14 days"
+    )

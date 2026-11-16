@@ -55,8 +55,10 @@ def night(day):
 
 
 def fix(run, readings, *, timers=(), slots=FREE, money=MONEY):
+    u = use(readings, OFF, tz="Asia/Colombo")
+    assert u is not None
     return offer(
-        run, readings, OFF, tz="Asia/Colombo", days=14, timers=list(timers), slots=slots,
+        run, readings, u, tz="Asia/Colombo", days=14, timers=list(timers), slots=slots,
         money=money,
     )  # fmt: skip
 
@@ -91,6 +93,10 @@ def test_a_10_minute_check_at_night_is_not_use():
 
 def test_20_minutes_or_more_is_use():
     assert use(at(0, "02:00", 21, 30.0), OFF, tz="Asia/Colombo") == Use(of("02:20"), of("02:00"))
+
+
+def test_exactly_10_w_above_standby_is_use():
+    assert use(at(0, "02:00", 21, 10.0), OFF, tz="Asia/Colombo") == Use(of("02:20"), of("02:00"))
 
 
 def test_a_gap_over_5_minutes_starts_a_new_use():
@@ -170,11 +176,6 @@ def test_a_run_the_timers_would_not_cut_has_no_fix():
     noon = START + timedelta(hours=6)  # 12:00 to 13:00
     run = Run(noon.astimezone(UTC), (noon + timedelta(hours=1)).astimezone(UTC), 30.0)
     assert fix(run, desk()) == []
-
-
-def test_a_plug_never_in_use_has_no_fix():
-    idle = [(at, 0.0) for at, _ in desk()]
-    assert fix(night(0), idle) == []
 
 
 def test_used_all_day_has_no_fix():
