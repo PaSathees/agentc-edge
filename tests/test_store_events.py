@@ -40,3 +40,12 @@ def test_event_times_are_saved_in_utc(db):  # so the newest one sorts last as te
     local = Event("offline", "AA", NOW.astimezone(ZoneInfo("Asia/Colombo")), {})
     store.add_event(db, site_id=1, event=local, dedupe="AA|offline|2026-11-03")
     assert db.execute("SELECT start_utc FROM events").fetchone() == ("2026-11-02T19:30:00+00:00",)
+
+
+def test_new_events_are_one_kind_not_yet_handled(db):
+    cut = Event("power_cut", None, NOW, {"plugs": 10})
+    store.add_event(db, site_id=1, event=LEFT_ON, dedupe="a")
+    store.add_event(db, site_id=1, event=cut, dedupe="b")
+    store.add_event(db, site_id=1, event=LEFT_ON, dedupe="c")
+    store.event_done(db, event_id=1)
+    assert store.new_events(db, site_id=1, kind="unusual_use") == [(3, LEFT_ON)]

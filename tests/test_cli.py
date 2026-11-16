@@ -5,9 +5,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import cli, store
+from agentc import cli, store, watcher
+from agentc.calc import ProfileHour
 from agentc.watcher import Event
+from tests.fake_model import FakeModel
 from tests.fake_tasmota import FakePlug
+from tests.test_options import START, desk, night
 
 COLOMBO = ZoneInfo("Asia/Colombo")
 AT = datetime(2026, 11, 3, 1, 0, tzinfo=COLOMBO)  # Tuesday 01:00 local
@@ -37,8 +40,8 @@ def cfg(tmp_path, plugs):
     return path
 
 
-def run(cfg, capsys, *args):
-    code = cli.main(["--config", str(cfg), *args])
+def run(cfg, capsys, *args, send=None):
+    code = cli.main(["--config", str(cfg), *args], send=send)
     return code, capsys.readouterr().out
 
 
@@ -133,7 +136,7 @@ def test_watch_shows_new_events_once(cfg, capsys, tmp_path):
     code, out = run(cfg, capsys, "watch")
     assert code == 0
     assert "Plug-2: on at an unusual time from " in out and ", 119 min, peak 30 W\n" in out
-    assert run(cfg, capsys, "watch")[1] == "Nothing new.\n"  # 15 min have not passed
+    assert run(cfg, capsys, "watch")[1] == f"Nothing new.\n{cli.NO_KEY}\n"  # 15 min: not yet
 
 
 def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
@@ -159,3 +162,61 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
 )  # fmt: skip
 def test_event_words(event, words):
     assert cli.event_words(event, {"AA": "Plug-6"}, tz="Asia/Colombo") == words
+
+
+# the Responder from the command line
+
+
+def desk_till_yesterday(tmp_path):
+    """14 days of Desk 2 on Plug-1, moved by whole days to end 1 to 2 days ago, at 05:59.
+
+    Left on at 5 W on the last night. Returns that night's run as the Watcher saved it.
+    """
+    shift = timedelta(days=(datetime.now(COLOMBO) - (START + timedelta(days=15))).days)
+    rows = [((at + shift).isoformat(), "Plug-1", w, 0.0, None) for at, w in desk(waste=(13,))]
+    db = sqlite3.connect(tmp_path / "energy.db")
+    with db:
+        db.execute("CREATE TABLE readings (ts_utc, plug, power_w, total_kwh, error)")
+        db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?, ?)", rows)
+    db.close()
+    return night(13).start + shift
+
+
+def test_watch_shows_new_proposals(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    start = desk_till_yesterday(tmp_path)
+    app = store.connect(tmp_path / "app.db")
+    mac = "AA:00:00:00:00:01"
+    store.save_profile(
+        app, site_id=1, mac=mac, profile=[ProfileHour(h, 0.0, 0.0, 3) for h in range(168)]
+    )
+    left_on = Event("unusual_use", mac, start, {})
+    store.add_event(
+        app, site_id=1, event=left_on, dedupe=watcher.dedupe_key(left_on, tz="Asia/Colombo")
+    )
+    code, out = run(cfg, capsys, "watch", send=FakeModel())
+    assert code == 0
+    assert "Proposal for Desk 2: off at 01:30, on at 07:00, every day. Saves LKR " in out
+    assert out.count("Proposal for") == 1
+    assert out.endswith(" a week.\n  It stays on all night.\n")
+
+
+def test_watch_with_a_key_runs_the_responder(cfg, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")  # nothing to answer, so no call is made
+    run(cfg, capsys, "timers")
+    spike_days(tmp_path)
+    assert cli.NO_KEY not in run(cfg, capsys, "watch")[1]
+
+
+def test_replay_can_ask_the_model_too(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    desk_till_yesterday(tmp_path)
+    code, out = run(cfg, capsys, "replay", "--respond", send=FakeModel())
+    assert code == 0
+    assert "Events in 14 days: 1\nProposal for Desk 2: off at 01:30, on at 07:00, every day." in out
+    assert out.endswith("\n  It stays on all night.\nProposals: 1. Model calls cost USD 0.0001.\n")
+    assert store.load_proposals(store.connect(tmp_path / "app.db"), site_id=1) == []  # a copy
+
+
+def test_replay_needs_a_key_to_ask_the_model(cfg, capsys):
+    assert run(cfg, capsys, "replay", "--respond") == (1, cli.NO_KEY + "\n")

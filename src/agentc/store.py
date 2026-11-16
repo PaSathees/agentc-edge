@@ -446,10 +446,24 @@ def add_event(db: sqlite3.Connection, *, site_id: int, event: Event, dedupe: str
 
 def load_events(db: sqlite3.Connection, *, site_id: int) -> list[Event]:
     sql = "SELECT kind, plug_mac, start_utc, facts FROM events WHERE site_id = ? ORDER BY id"
-    return [
-        Event(kind, mac, datetime.fromisoformat(start), json.loads(facts))
-        for kind, mac, start, facts in db.execute(sql, (site_id,))
-    ]
+    return [_event(*row) for row in db.execute(sql, (site_id,))]
+
+
+def new_events(db: sqlite3.Connection, *, site_id: int, kind: str) -> list[tuple[int, Event]]:
+    """Events of one kind that nothing has handled yet, as (id, event), oldest first."""
+    sql = """SELECT id, kind, plug_mac, start_utc, facts FROM events
+             WHERE site_id = ? AND kind = ? AND status = 'new' ORDER BY id"""
+    return [(eid, _event(*row)) for eid, *row in db.execute(sql, (site_id, kind))]
+
+
+def event_done(db: sqlite3.Connection, *, event_id: int) -> None:
+    """Mark an event handled. What came of it is in proposals and audit."""
+    with db:
+        db.execute("UPDATE events SET status = 'done' WHERE id = ?", (event_id,))
+
+
+def _event(kind: str, mac: str | None, start: str, facts: str) -> Event:
+    return Event(kind, mac, datetime.fromisoformat(start), json.loads(facts))
 
 
 def last_run(db: sqlite3.Connection, *, site_id: int, job: str) -> datetime | None:

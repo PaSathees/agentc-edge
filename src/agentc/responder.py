@@ -21,6 +21,7 @@ from agentc.options import (
     EVERY_DAY,
     WEEKDAYS,
     WEEKEND,
+    Change,
     Money,
     Option,
     Proposal,
@@ -99,10 +100,14 @@ def describe(case: Case, *, tz: str) -> str:
         "Options:",
     ]
     for o in case.options:
-        when = ", ".join(f"{c.action} at {c.time}" for c in o.changes)
-        lines.append(f"{o.id}: {when}, {DAYS[o.changes[0].days]}. Saves {o.kwh:.3f} kWh,"
+        lines.append(f"{o.id}: {fix_words(o.changes)}. Saves {o.kwh:.3f} kWh,"
                      f" LKR {o.lkr:.1f}, {o.kg:.3f} kgCO2e a week.")  # fmt: skip
     return "\n".join(lines)
+
+
+def fix_words(changes: tuple[Change, ...]) -> str:
+    """Timer changes in plain words, e.g. "off at 01:30, on at 07:00, every day"."""
+    return ", ".join(f"{c.action} at {c.time}" for c in changes) + f", {DAYS[changes[0].days]}"
 
 
 def schema(case: Case) -> dict[str, Any]:

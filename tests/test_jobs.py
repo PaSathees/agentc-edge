@@ -4,10 +4,15 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import jobs, store
+from agentc import config, jobs, store
 from agentc.calc import ProfileHour
+from agentc.config import Budget
+from agentc.llm import Llm
 from agentc.watcher import Event
+from tests.fake_model import FakeModel
 from tests.fake_tasmota import FakePlug
+from tests.test_cli import EXAMPLE
+from tests.test_options import START, desk, night
 
 COLOMBO = ZoneInfo("Asia/Colombo")
 MONDAY = datetime(2026, 11, 2, tzinfo=COLOMBO)  # Monday 00:00 local
@@ -189,3 +194,131 @@ def test_a_long_power_cut_is_one_event(app, tmp_path):
     every = {MONDAY + timedelta(minutes=m) for m in range(60, 4 * 60)}  # all down from 01:00
     db = energy(tmp_path, lambda t: 1.0, failed=every)
     assert jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW) == []
+
+
+# the respond step: each finished unusual run gets one answer
+
+
+END = START + timedelta(days=14)  # just after the last of the 14 days in desk()
+
+
+def desk_energy(tmp_path, waste=(0, 1)):
+    """energy.db with 14 days of Desk 2 on Plug-6 and on Plug-2 (EV-01's pattern)."""
+    rows = [
+        (at.isoformat(), plug, w, None) for at, w in desk(waste) for plug in ("Plug-6", "Plug-2")
+    ]
+    path = tmp_path / "energy.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
+        db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
+    db.close()
+    return store.open_readings(path)
+
+
+def left_on(app, day, mac="AA", late=timedelta(0)):
+    """The night of `day` saved as an event. late: the event starts that long after the run."""
+    event = Event("unusual_use", mac, night(day).start + late, {})
+    store.add_event(app, site_id=1, event=event, dedupe=f"{mac}|{day}")
+
+
+def answer(app, energy, model, now=END, month_usd=3.0):
+    cfg = config.load(EXAMPLE)  # Plug-6 is not listed, so it is advice only; Plug-2: access none
+    llm = Llm(app, 1, cfg.tz, cfg.tiers, Budget(month_usd, 0.05), model, clock=lambda: now)
+    return jobs.respond_pass(app, energy, jobs.Ask(cfg, llm), site_id=1, now=now)
+
+
+def statuses(app):
+    return [s for (s,) in app.execute("SELECT status FROM events ORDER BY id")]
+
+
+def test_a_finished_run_gets_one_proposal(app, tmp_path):
+    model, energy = FakeModel(), desk_energy(tmp_path)
+    left_on(app, 1)
+    (p,) = answer(app, energy, model)
+    assert [(c.action, c.time, c.days) for c in p.changes] == [
+        ("off", "01:30", "1111111"), ("on", "07:00", "1111111")
+    ]  # fmt: skip
+    assert statuses(app) == ["done"]
+    assert answer(app, energy, model) == []  # answered once only
+    assert model.calls == 1
+
+
+def test_a_run_still_going_waits_for_its_end(app, tmp_path):
+    model, energy = FakeModel(), desk_energy(tmp_path, waste=(13,))
+    left_on(app, 13)
+    assert answer(app, energy, model, now=END - timedelta(minutes=90)) == []  # 04:30: on
+    assert (statuses(app), model.calls) == (["new"], 0)
+    assert len(answer(app, energy, model, now=END + timedelta(minutes=6))) == 1  # off at 06:00
+
+
+def test_a_run_that_just_ended_is_answered_at_once(app, tmp_path):
+    left_on(app, 12)
+    just_after = START + timedelta(days=13, minutes=2)  # 06:02: two readings at 0 W since
+    assert len(answer(app, desk_energy(tmp_path, waste=(12,)), FakeModel(), now=just_after)) == 1
+
+
+def test_an_event_inside_a_longer_run_gets_the_whole_run(app, tmp_path):
+    left_on(app, 1, late=timedelta(hours=1))  # a pass that saw only the run's last hours
+    assert len(answer(app, desk_energy(tmp_path), FakeModel())) == 1
+
+
+def test_a_fix_the_owner_rejected_is_not_offered_again(app, tmp_path):  # EV-02
+    model, energy = FakeModel(), desk_energy(tmp_path)
+    left_on(app, 1)
+    (p,) = answer(app, energy, model)
+    store.add_proposal(app, site_id=1, event_id=1, proposal=p, status="rejected", now=END)
+    left_on(app, 0)  # the same waste, another night
+    assert answer(app, energy, model) == []
+    assert model.calls == 1
+
+
+def test_a_run_no_longer_in_the_readings_is_done_without_a_call(app, tmp_path):
+    model = FakeModel()
+    left_on(app, 1)
+    assert answer(app, desk_energy(tmp_path, waste=()), model) == []
+    assert (statuses(app), model.calls) == (["done"], 0)
+    assert app.execute("SELECT action, ref FROM audit").fetchall() == [("no_case", "event:1")]
+
+
+def test_under_a_week_of_readings_is_done_without_a_call(app, tmp_path):
+    model = FakeModel()
+    left_on(app, 1)
+    assert answer(app, desk_energy(tmp_path), model, now=START + timedelta(days=6, hours=23)) == []
+    assert (statuses(app), model.calls) == (["done"], 0)
+
+
+def test_the_model_is_told_how_many_days_the_readings_cover(app, tmp_path):
+    left_on(app, 1)
+    answer(app, desk_energy(tmp_path), FakeModel(), now=START + timedelta(days=7))
+    (prompt,) = app.execute("SELECT prompt FROM llm_calls").fetchone()
+    assert "Over the last 7 days it was never in use" in prompt
+
+
+def test_a_plug_with_access_none_is_never_asked_about(app, tmp_path):  # EV-05
+    model = FakeModel()
+    left_on(app, 1, mac="BB")  # Plug-2: the 3D printer
+    assert answer(app, desk_energy(tmp_path), model) == []
+    assert (statuses(app), model.calls) == (["done"], 0)
+
+
+def test_at_the_budget_cap_events_wait(app, tmp_path):
+    model = FakeModel()
+    left_on(app, 0)
+    left_on(app, 1)
+    assert answer(app, desk_energy(tmp_path), model, month_usd=0.0) == []
+    assert (statuses(app), model.calls) == (["new", "new"], 0)
+
+
+def test_only_unusual_runs_go_to_the_responder(app, tmp_path):
+    reported_at(app, "offline", "AA", night(1).start)
+    assert answer(app, desk_energy(tmp_path), FakeModel()) == []
+    assert statuses(app) == ["new"]  # kept for the owner's inbox (B4)
+
+
+def test_the_watch_pass_answers_when_asked(app, tmp_path):
+    left_on(app, 1)
+    cfg = config.load(EXAMPLE)
+    ask = jobs.Ask(cfg, Llm(app, 1, cfg.tz, cfg.tiers, cfg.budget, FakeModel(), clock=lambda: END))
+    _, made = jobs.run_due(app, desk_energy(tmp_path), site_id=1, tz=cfg.tz, plugs={},
+                           now=END, ask=ask)  # fmt: skip
+    assert len(made) == 1
