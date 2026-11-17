@@ -22,11 +22,12 @@ from agentc.options import (
     WEEKDAYS,
     WEEKEND,
     Change,
+    Gap,
     Money,
     Option,
     Proposal,
-    Use,
     clock,
+    gap,
     offer,
     use,
 )
@@ -61,7 +62,7 @@ class Case:
     device: Device
     run: Run
     usual_w: float  # the plug's usual watts at the hour the run started
-    use: Use
+    gap: Gap  # the stretch with no use that the run falls in
     options: list[Option]  # only those that break no hard rule and are not repeats
     rejected: list[Proposal]  # this plug's, in the last 14 days
     days: int  # days of readings the use and savings come from
@@ -74,15 +75,15 @@ def gather(
 ) -> Case | None:  # fmt: skip
     """The case for one run. None when code has nothing to offer, so no model call."""
     policy = device.policy
-    if (u := use(readings, usual, tz=tz, policy=policy)) is None:
+    if (g := gap(use(readings, usual, tz=tz, policy=policy), run, tz=tz)) is None:
         return None
-    found = offer(run, readings, u, tz=tz, days=days, timers=timers, slots=device.slots,
+    found = offer(run, readings, g, tz=tz, days=days, timers=timers, slots=device.slots,
                   money=money, policy=policy)  # fmt: skip
     if not (fit := [o for o in found if allowed(o, device.rules, rejected, policy)]):
         return None
     start = run.start.astimezone(ZoneInfo(tz))
     hour = usual.get(start.weekday() * 24 + start.hour)
-    return Case(mac, device, run, hour.watts if hour else 0.0, u, fit, rejected, days)
+    return Case(mac, device, run, hour.watts if hour else 0.0, g, fit, rejected, days)
 
 
 def describe(case: Case, *, tz: str) -> str:
@@ -94,8 +95,8 @@ def describe(case: Case, *, tz: str) -> str:
         f"Device: {case.device.name}",
         f"Seen: on at up to {case.run.peak_w:.0f} W from {start:%H:%M} to {end:%H:%M}"
         f" on {start:{WHEN}}. Usual at that hour: about {case.usual_w:.0f} W.",
-        f"Over the last {case.days} days it was never in use between {clock(case.use.latest)}"
-        f" and {clock(case.use.first)}. The options switch it off only inside that gap.",
+        f"Over the last {case.days} days it was never in use between {clock(case.gap.latest)}"
+        f" and {clock(case.gap.first)}. The options switch it off only inside that gap.",
         f"Owner rules: {rules}",
         "Options:",
     ]

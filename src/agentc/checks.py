@@ -90,10 +90,15 @@ def _conflict(
 
 
 def _breaks(changes: tuple[Change, ...], rule: Rule) -> bool:
-    """An off timer earlier than the time the owner said the device may run until."""
+    """An off timer in the 12 hours before the time the owner said the device may run until.
+
+    On the clock, so no day start is needed: off at 01:30 breaks "may run until 02:00";
+    off at 08:00 does not break "may run until 01:00".
+    """
     if rule.kind != "latest_off":
         return False
-    return any(c.action == "off" and of(c.time) < of(rule.time) for c in changes)
+    before = [(of(rule.time) - of(c.time)) % DAY for c in changes if c.action == "off"]
+    return any(0 < gap <= DAY // 2 for gap in before)
 
 
 def _same(a: Change, b: Change, within: int) -> bool:

@@ -101,6 +101,24 @@ def test_an_off_after_the_latest_time_keeps_the_rule():
     assert verdict(rules=[early]) == Verdict(None)
 
 
+@pytest.mark.parametrize(
+    ("off", "until", "breaks"),
+    [
+        ("01:30", "02:00", True),  # off 30 minutes before the owner's time
+        ("23:30", "01:00", True),  # off before midnight, the owner's time after it
+        ("05:30", "06:30", True),  # either side of the old 06:00 day start
+        ("08:00", "01:00", False),  # off the next morning: after the owner's time
+        ("01:00", "01:00", False),  # off at the owner's time: kept
+    ],
+)
+def test_a_latest_off_rule_is_read_on_the_clock(off, until, breaks):
+    rule = Rule("latest_off", until, hard=False, text=f"may run until {until}")
+    only = Option("A", (Change(9, "off", off, "1111111"),), 0.031, 3.2, 0.013)
+    result = check(Draft("A", "Off."), options=[only], facts=FACTS, access="advice", slots=[9],
+                   rules=[rule], rejected=[])  # fmt: skip
+    assert result.warnings == ((rule.text,) if breaks else ())
+
+
 def test_rule_kinds_not_built_yet_are_ignored():
     other = Rule("must_run", "02:00", hard=True, text="Router always on")
     assert verdict(rules=[other]).blocked is None

@@ -3,6 +3,8 @@
 *.db-*
 config.toml
 .env
+# public datasets, downloaded by scripts: too big for git
+data/
 
 # python
 .venv/

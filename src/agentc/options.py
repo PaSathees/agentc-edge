@@ -16,7 +16,6 @@ from agentc.devices.base import Timer
 from agentc.policy import DEFAULT, Policy
 from agentc.watcher import MAX_GAP, Run, Usual, stretches
 
-DAY_START = 6 * 60  # a day runs from 06:00 to 06:00, so use after midnight counts as late
 DAY = 24 * 60
 EVERY_DAY, WEEKDAYS, WEEKEND = "1111111", "0111110", "1000001"  # Sunday first, as Tasmota
 
@@ -63,33 +62,35 @@ class Money:
 
 
 @dataclass(frozen=True)
-class Use:
-    latest: int  # minutes after 06:00 the plug was last in use, over the days given
-    first: int  # minutes after 06:00 it was first in use
+class Gap:
+    """A stretch of the day when the plug is never in use, between two uses (clock minutes)."""
+
+    latest: int  # the last minute in use before the gap, e.g. 52 for 00:52
+    first: int  # the first minute in use after it, e.g. 465 for 07:45
 
 
 def minutes(local: datetime) -> int:
-    """Minutes after 06:00 on the day it belongs to: 05:59 is 1439, the end of that day."""
-    return (local.hour * 60 + local.minute - DAY_START) % DAY
+    """Minutes after midnight on the clock: 00:52 is 52."""
+    return local.hour * 60 + local.minute
 
 
 def of(hhmm: str) -> int:
-    """Local HH:MM as minutes after 06:00."""
+    """Local HH:MM as minutes after midnight."""
     h, m = map(int, hhmm.split(":"))
-    return (h * 60 + m - DAY_START) % DAY
+    return h * 60 + m
 
 
 def clock(m: int) -> str:
-    """Minutes after 06:00 as local HH:MM."""
-    m = (m + DAY_START) % DAY
+    """Minutes after midnight as local HH:MM."""
+    m %= DAY
     return f"{m // 60:02d}:{m % 60:02d}"
 
 
 def use(
     readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
     policy: Policy = DEFAULT,
-) -> Use | None:  # fmt: skip
-    """When the plug is in use: use_w above standby for use_min. None if it never was.
+) -> frozenset[int]:  # fmt: skip
+    """The minutes of the day the plug was in use on any day: use_w above standby for use_min.
 
     Power left on below that level is waste, not use, so it never moves the times.
     """
@@ -97,41 +98,62 @@ def use(
     base = min((u.watts for u in usual.values()), default=0.0)  # standby
     found = stretches(readings, lambda _, w: w - base >= policy.use_w,
                       timedelta(minutes=policy.use_min))  # fmt: skip
-    used = [minutes(at.astimezone(zone)) for s in found for at, _ in s]
-    return Use(max(used), min(used)) if used else None
+    return frozenset(minutes(at.astimezone(zone)) for s in found for at, _ in s)
 
 
-def window(u: Use, policy: Policy = DEFAULT) -> tuple[int, int] | None:
-    """Off and on times: a margin after the latest use and before the first.
+def gap(used: frozenset[int], run: Run, *, tz: str) -> Gap | None:
+    """The gap in use that the run falls in. None if the plug was never in use, or the run is
+    all inside use.
 
-    None if there is no gap, or if it would keep the plug off longer than max_off_h.
+    The run's first minute out of use picks the gap, so night waste gets the night gap and
+    daytime waste the daytime gap. No day start is needed.
+    """
+    if not used:
+        return None
+    start = minutes(run.start.astimezone(ZoneInfo(tz)))
+    length = min(DAY, int((run.end - run.start).total_seconds() // 60))
+    out = (m % DAY for m in range(start, start + length + 1) if m % DAY not in used)
+    if (at := next(out, None)) is None:
+        return None
+    latest = next((at - k) % DAY for k in range(1, DAY) if (at - k) % DAY in used)
+    first = next((at + k) % DAY for k in range(1, DAY) if (at + k) % DAY in used)
+    return Gap(latest, first)
+
+
+def window(g: Gap, policy: Policy = DEFAULT) -> tuple[int, int] | None:
+    """Off and on times inside the gap: a margin after the latest use and before the first.
+
+    None if the gap is too short for both margins, or if the plug would stay off longer
+    than max_off_h.
     """
     step, margin = policy.step_min, policy.margin_min
-    off = math.ceil(u.latest / step) * step + margin
-    on = u.first // step * step - margin
-    if off >= on + DAY or (on - off) % DAY > policy.max_off_h * 60:
+    off = (math.ceil(g.latest / step) * step + margin) % DAY
+    on = (g.first // step * step - margin) % DAY
+    room = (g.first - g.latest) % DAY  # the gap's length
+    if not (0 < (off - g.latest) % DAY < (on - g.latest) % DAY <= room):
+        return None
+    if (on - off) % DAY > policy.max_off_h * 60:
         return None
     return off, on
 
 
 def offer(
-    run: Run, readings: list[tuple[datetime, float]], u: Use, *, tz: str, days: int,
+    run: Run, readings: list[tuple[datetime, float]], g: Gap, *, tz: str, days: int,
     timers: list[Timer], slots: Sequence[int], money: Money, policy: Policy = DEFAULT,
 ) -> list[Option]:  # fmt: skip
     """Fixes for one unusual run: A every day, B only on the days like the run's.
 
-    readings: the last `days` days, oldest first. u: their use. Empty when no timer
-    would cut the run.
+    readings: the last `days` days, oldest first. g: the gap in their use that holds the
+    run. Empty when no timer would cut the run.
     """
     zone = ZoneInfo(tz)
-    times = window(u, policy)
+    times = window(g, policy)
     if times is None:
         return []
     off, on = times
-    off_at = _off_at(run, off, zone)
-    if not (run.start < off_at + timedelta(minutes=(on - off) % DAY) and run.end > off_at):
+    if (off_at := _off_at(run, off, (on - off) % DAY, zone)) is None:
         return []  # the timers would not have stopped this run
-    has_on = any(_is_on(t, off, u.first) for t in timers)
+    has_on = any(_is_on(t, off, g.first) for t in timers)
     free = [s for s in slots if s not in {t.slot for t in timers if t.enable}]
     if len(free) < (1 if has_on else 2):
         return []  # no allowed timer slots left on this plug
@@ -147,10 +169,14 @@ def offer(
     return [o for o in found if o.kwh > 0]
 
 
-def _off_at(run: Run, off: int, zone: ZoneInfo) -> datetime:
-    """When the off timer would fire in the run's day (06:00 to 06:00)."""
+def _off_at(run: Run, off: int, length: int, zone: ZoneInfo) -> datetime | None:
+    """When the off timer fires for this run: the off window (`length` minutes) that overlaps
+    it. None if no off window does."""
     start = run.start.astimezone(zone)
-    return start - timedelta(minutes=minutes(start)) + timedelta(minutes=off)
+    last = start - timedelta(minutes=(minutes(start) - off) % DAY)  # the last off before it
+    if start >= last + timedelta(minutes=length):
+        last += timedelta(days=1)  # that window had closed: the next one
+    return last if last < run.end else None
 
 
 def _is_on(t: Timer, off: int, first: int) -> bool:
@@ -179,7 +205,7 @@ def saved(
 def lkr(week_kwh: float, money: Money, *, at: int) -> float:
     """LKR a week for week_kwh saved a week. Time-of-use: the rate when the timer fires."""
     if isinstance(money.tariff, TimeOfUse):
-        h, m = divmod((at + DAY_START) % DAY, 60)
+        h, m = divmod(at % DAY, 60)
         rate = tou_rate(money.tariff, datetime(2000, 1, 1, h, m, tzinfo=UTC), tz="UTC")
         return week_kwh * rate / (1 - money.levy)
     month = saving_lkr(money.month_kwh, week_kwh * 30 / 7, money.tariff, levy=money.levy)
