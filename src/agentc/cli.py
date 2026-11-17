@@ -13,6 +13,7 @@ import anthropic
 from agentc import calc, config, evals, jobs, llm, store, timers
 from agentc.config import Config
 from agentc.options import Proposal
+from agentc.policy import explain
 from agentc.responder import fix_words
 from agentc.watcher import Event
 
@@ -34,6 +35,8 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     replay = commands.add_parser("replay", help="play past days through the Watcher")
     replay.add_argument("--days", type=int, default=14, help="how many days to play")
     replay.add_argument("--respond", action="store_true", help="ask the model too (costs money)")
+    policy = commands.add_parser("policy", help="show each threshold, where it came from, and why")
+    policy.add_argument("plug", nargs="?", help="a name from config.toml; none: the whole site")
     score = commands.add_parser("eval", help="score the Responder on the eval cases")
     score.add_argument("--live", action="store_true", help="ask the real model and record (costs)")
     score.add_argument("--samples", type=int, default=10, help="tries per case when live")
@@ -47,6 +50,8 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
         return show_eval(model, samples=args.samples)
 
     cfg = config.load(args.config)
+    if args.command == "policy":
+        return show_policy(cfg, args.plug)
     db = store.connect(cfg.app_db)
     site_id = store.add_site(db, name=cfg.site, tz=cfg.tz)
     if args.command == "profile":
@@ -60,6 +65,23 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
             return 1
         return show_replay(db, cfg, site_id=site_id, days=args.days, send=model)
     show_timers(db, site_id=site_id, plugs=cfg.plugs)
+    return 0
+
+
+def show_policy(cfg: Config, plug: str | None) -> int:
+    """Each threshold: its value, where it came from (default, site or device), and why."""
+    if plug and plug not in cfg.plugs:
+        print(f"{plug} is not in {', '.join(cfg.plugs)}.")
+        return 1
+    if plug:
+        device = config.device(cfg, plug)
+        print(f"{plug}: {device.name}")
+        policy = device.policy
+    else:
+        print(f"Site: {cfg.site}")
+        policy = cfg.policy
+    for name, value, source, why in explain(policy, cfg.policy):
+        print(f"  {name:<16}{value:>6g}  {source:<8}{why}")
     return 0
 
 

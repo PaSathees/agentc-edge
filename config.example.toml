@@ -51,6 +51,12 @@ rules = [
 name = "3D printer"
 access = "none"  # it also powers the printer's controller
 
+# Thresholds (decisions about the home). Optional: `agentc policy` lists them all, with
+# why. Change one for the whole site here, or for one device under its own name, e.g.
+# [devices."Plug-1".policy] with max_off_h = 16 for a TV used only in the evenings.
+# [policy]
+# max_off_h = 12
+
 # Example rates only. Copy yours from your bill or the regulator's published schedule.
 # kind = "block": the month's total picks a schedule (no up_to = no limit), then band by band.
 [tariff]

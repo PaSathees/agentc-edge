@@ -220,3 +220,27 @@ def test_replay_can_ask_the_model_too(cfg, capsys, tmp_path):
 
 def test_replay_needs_a_key_to_ask_the_model(cfg, capsys):
     assert run(cfg, capsys, "replay", "--respond") == (1, cli.NO_KEY + "\n")
+
+
+# thresholds
+
+
+def test_policy_shows_each_value_where_it_came_from_and_why(cfg, capsys):
+    code, out = run(cfg, capsys, "policy", "Plug-1")
+    assert code == 0
+    assert out.startswith("Plug-1: Desk 2\n")
+    assert (
+        "  max_off_h           12  default No fix keeps a plug off longer than this many hours\n"
+        in out
+    )
+    assert len(out.splitlines()) == 1 + 16
+
+
+def test_policy_of_the_whole_site(cfg, capsys):
+    assert run(cfg, capsys, "policy")[1].startswith(
+        "Site: home\n  factor               2  default "
+    )
+
+
+def test_policy_of_an_unknown_plug(cfg, capsys):
+    assert run(cfg, capsys, "policy", "Plug-9") == (1, "Plug-9 is not in Plug-1, Plug-2.\n")
