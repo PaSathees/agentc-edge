@@ -244,3 +244,22 @@ def test_policy_of_the_whole_site(cfg, capsys):
 
 def test_policy_of_an_unknown_plug(cfg, capsys):
     assert run(cfg, capsys, "policy", "Plug-9") == (1, "Plug-9 is not in Plug-1, Plug-2.\n")
+
+
+def with_policy(cfg, text):
+    cfg.write_text(cfg.read_text() + f"\n[policy]\n{text}\n")
+
+
+def test_profile_uses_the_plugs_policy(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    write_energy_db(tmp_path / "energy.db", "Plug-2", days=7)  # touches 8 dates
+    with_policy(cfg, "min_days = 9")
+    code, out = run(cfg, capsys, "profile", "Plug-2")
+    assert (code, out) == (1, "Plug-2: not enough data yet. A profile needs 9 days.\n")
+
+
+def test_replay_uses_each_plugs_policy(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    spike_days(tmp_path)  # 8 days: touches 9 dates
+    with_policy(cfg, "min_days = 10")  # so no profile, and no event
+    assert run(cfg, capsys, "replay", "--days", "8")[1] == "Events in 8 days: 0\n"

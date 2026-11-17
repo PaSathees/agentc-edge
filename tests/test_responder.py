@@ -7,6 +7,7 @@ from agentc import responder, store
 from agentc.config import Budget, Device, Rule, Tier
 from agentc.llm import Llm
 from agentc.options import Change, Option, Proposal, Use, of
+from agentc.policy import Policy
 from agentc.watcher import Event, Run, Usual
 from tests.test_options import MONEY, OFF, desk, night
 
@@ -184,3 +185,38 @@ def test_a_soft_rule_warning_is_kept_with_the_proposal(db):
     rule = Rule("latest_off", "02:00", hard=False, text="Desk 2 may run until 02:00")
     respond(db, Script(GOOD), case(Device("Desk 2", rules=(rule,))))
     assert audit(db)[0][2] == {"option": "A", "warnings": "Desk 2 may run until 02:00"}
+
+
+def test_the_policy_sets_when_a_proposal_expires(db):
+    p = respond(db, Script(GOOD), case(Device("Desk 2", policy=Policy(expires_h=48))))
+    assert p is not None and p.expires == NOW + timedelta(hours=48)
+
+
+def test_the_device_policy_reaches_gather():
+    strict = Device("Desk 2", policy=Policy(max_off_h=5))  # the 01:30 to 07:00 fix is 5.5 h
+    c = responder.gather(night(1), mac="AA", device=strict, readings=desk(), usual=OFF, timers=[],
+                         money=MONEY, rejected=[], tz="Asia/Colombo", days=14)  # fmt: skip
+    assert c is None
+
+
+def test_the_device_policy_sets_what_use_is():
+    loud = Device("Desk 2", policy=Policy(use_w=40))  # 30 W at the desk is no longer use
+    c = responder.gather(night(1), mac="AA", device=loud, readings=desk(), usual=OFF, timers=[],
+                         money=MONEY, rejected=[], tz="Asia/Colombo", days=14)  # fmt: skip
+    assert c is None
+
+
+WIDE = Device("Desk 2", policy=Policy(same_within_min=60))  # 45 minutes apart is now a repeat
+NEAR = Proposal("AA", "Desk 2", (Change(9, "off", "02:15", "1111111"),), "", 0, 0, 0, "",
+                "responder", NOW)  # fmt: skip
+
+
+def test_the_device_policy_sets_what_gather_drops_as_a_repeat():
+    c = responder.gather(night(1), mac="AA", device=WIDE, readings=desk(), usual=OFF, timers=[],
+                         money=MONEY, rejected=[NEAR], tz="Asia/Colombo", days=14)  # fmt: skip
+    assert c is None
+
+
+def test_the_device_policy_sets_what_the_checks_block_as_a_repeat(db):
+    assert respond(db, Script(GOOD, GOOD), case(WIDE, rejected=[NEAR])) is None
+    assert audit(db)[0][2]["check"].startswith("repeat: ")

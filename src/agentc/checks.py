@@ -10,9 +10,9 @@ from dataclasses import dataclass
 
 from agentc.config import Rule
 from agentc.options import DAY, Change, Option, Proposal, of
+from agentc.policy import DEFAULT, Policy
 
 SENTENCES = 2  # the reason is 1 or 2 sentences
-SAME_WITHIN = 30  # minutes: two changes are the same if the action matches and days overlap
 NUMBER = re.compile(r"\d+(?:[.:]\d+)?")  # 12, 0.015, 01:30
 
 
@@ -44,7 +44,7 @@ def _norm(n: str) -> str:
 
 def check(
     draft: Draft, *, options: list[Option], facts: str, access: str, slots: Sequence[int],
-    rules: Sequence[Rule], rejected: list[Proposal],
+    rules: Sequence[Rule], rejected: list[Proposal], policy: Policy = DEFAULT,
 ) -> Verdict:  # fmt: skip
     """Run the checks in order (docs/design/guardrails.md).
 
@@ -65,24 +65,27 @@ def check(
         return Verdict("access: this device is never changed")
     if bad := [c.slot for c in chosen.changes if c.slot not in slots]:
         return Verdict(f"slots: timer {bad[0]} is not one the system may use")
-    if conflict := _conflict(chosen.changes, rules, rejected):
+    if conflict := _conflict(chosen.changes, rules, rejected, policy):
         return Verdict(conflict)
     return Verdict(None, tuple(r.text for r in rules if _breaks(chosen.changes, r)))
 
 
-def allowed(option: Option, rules: Sequence[Rule], rejected: list[Proposal]) -> bool:
+def allowed(
+    option: Option, rules: Sequence[Rule], rejected: list[Proposal], policy: Policy = DEFAULT
+) -> bool:
     """No hard rule broken and not a repeat: code drops other options before the model sees them."""
-    return _conflict(option.changes, rules, rejected) is None
+    return _conflict(option.changes, rules, rejected, policy) is None
 
 
 def _conflict(
-    changes: tuple[Change, ...], rules: Sequence[Rule], rejected: list[Proposal]
+    changes: tuple[Change, ...], rules: Sequence[Rule], rejected: list[Proposal], policy: Policy
 ) -> str | None:
     """Why these changes may never be offered: a hard rule broken, or a repeat. None if neither."""
     if hard := [r for r in rules if r.hard and _breaks(changes, r)]:
         return f"rule: {hard[0].text}"
-    if any(_same(c, old) for c in changes for p in rejected for old in p.changes):
-        return "repeat: the owner rejected the same change in the last 14 days"
+    within = policy.same_within_min
+    if any(_same(c, old, within) for c in changes for p in rejected for old in p.changes):
+        return f"repeat: the owner rejected the same change in the last {policy.history_days} days"
     return None
 
 
@@ -93,11 +96,11 @@ def _breaks(changes: tuple[Change, ...], rule: Rule) -> bool:
     return any(c.action == "off" and of(c.time) < of(rule.time) for c in changes)
 
 
-def _same(a: Change, b: Change) -> bool:
-    """Same action, a day in common, and times within 30 minutes of each other.
+def _same(a: Change, b: Change, within: int) -> bool:
+    """Same action, a day in common, and times within `within` minutes of each other.
 
     So "off at 01:30 on weekdays" repeats a rejected "off at 01:30 every day".
     """
     gap = (of(a.time) - of(b.time)) % DAY
     overlap = int(a.days, 2) & int(b.days, 2)
-    return a.action == b.action and overlap > 0 and min(gap, DAY - gap) <= SAME_WITHIN
+    return a.action == b.action and overlap > 0 and min(gap, DAY - gap) <= within

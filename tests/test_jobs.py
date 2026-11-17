@@ -1,4 +1,5 @@
 import sqlite3
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -8,6 +9,7 @@ from agentc import config, jobs, store
 from agentc.calc import ProfileHour
 from agentc.config import Budget
 from agentc.llm import Llm
+from agentc.policy import Policy
 from agentc.watcher import Event
 from tests.fake_model import FakeModel
 from tests.fake_tasmota import FakePlug
@@ -17,6 +19,7 @@ from tests.test_options import START, desk, night
 COLOMBO = ZoneInfo("Asia/Colombo")
 MONDAY = datetime(2026, 11, 2, tzinfo=COLOMBO)  # Monday 00:00 local
 NOW = MONDAY + timedelta(hours=4)  # the pass runs at 04:00
+CFG = config.load(EXAMPLE)  # Plug-6 is not listed: advice, site policy. Plug-2: access none
 
 
 @pytest.fixture
@@ -58,44 +61,36 @@ def kinds(events):
 
 def test_a_charger_left_on_is_saved_as_one_event(app, tmp_path):
     db = energy(tmp_path, lambda t: 30.0 if 1 <= t.hour < 3 else 1.0)
-    assert kinds(jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW)) == [
-        ("unusual_use", "AA")
-    ]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("unusual_use", "AA")]
     assert len(store.load_events(app, site_id=1)) == 1
 
 
 def test_the_next_pass_finds_it_again_but_saves_nothing(app, tmp_path):
     db = energy(tmp_path, lambda t: 30.0 if 1 <= t.hour < 3 else 1.0)
-    jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW)
-    assert jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW) == []
+    jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)
+    assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
 
 
 def test_a_normal_night_saves_nothing(app, tmp_path):
     db = energy(tmp_path, lambda t: 1.0)
-    assert jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW) == []
+    assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
 
 
 def test_a_plug_that_stopped_answering_is_offline(app, tmp_path):
     db = energy(tmp_path, lambda t: None if t.hour == 3 and t.minute >= 50 else 1.0)
-    assert kinds(jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW)) == [
-        ("offline", "AA")
-    ]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("offline", "AA")]
 
 
 def test_a_blackout_between_passes_is_found(app, tmp_path):
     blackout = {MONDAY + timedelta(hours=3, minutes=m) for m in (50, 51)}  # 03:50 to 03:51
     db = energy(tmp_path, lambda t: 1.0, failed=blackout)  # all back well before the pass
-    assert kinds(jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW)) == [
-        ("power_cut", None)
-    ]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("power_cut", None)]
 
 
 def test_a_power_cut_is_one_site_event(app, tmp_path):
     last = {MONDAY + timedelta(hours=3, minutes=m) for m in range(55, 60)}
     db = energy(tmp_path, lambda t: 1.0, failed=last)
-    assert kinds(jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW)) == [
-        ("power_cut", None)
-    ]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("power_cut", None)]
 
 
 # the daily timer check
@@ -114,7 +109,7 @@ def plugs():
 
 def check(app, plugs):
     ips = {name: p.ip for name, p in plugs.items()}
-    return jobs.timer_check(app, site_id=1, tz="Asia/Colombo", plugs=ips, now=NOW)
+    return jobs.timer_check(app, replace(CFG, plugs=ips), site_id=1, now=NOW)
 
 
 def test_the_first_timer_check_is_no_mismatch(app, plugs):
@@ -145,7 +140,7 @@ def quiet(tmp_path):
 def due(app, db, plugs, now):
     """Run whatever is due at `now`; return when each job last ran."""
     ips = {name: p.ip for name, p in plugs.items()}
-    jobs.run_due(app, db, site_id=1, tz="Asia/Colombo", plugs=ips, now=now)
+    jobs.run_due(app, db, replace(CFG, plugs=ips), site_id=1, now=now)
     return {job: store.last_run(app, site_id=1, job=job) for job in ("watch", "timers")}
 
 
@@ -178,22 +173,20 @@ def reported_at(app, kind, mac, local):
 def test_an_outage_that_goes_on_is_reported_once(app, tmp_path):
     reported_at(app, "offline", "AA", MONDAY + timedelta(hours=1))
     db = energy(tmp_path, lambda t: None if t.hour >= 1 else 1.0)  # down from 01:00
-    assert jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW) == []
+    assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
 
 
 def test_a_plug_that_answered_in_between_is_a_new_outage(app, tmp_path):
     reported_at(app, "offline", "AA", MONDAY + timedelta(hours=1))
     db = energy(tmp_path, lambda t: None if t.hour == 1 or t.hour == 3 else 1.0)  # back at 02:00
-    assert kinds(jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW)) == [
-        ("offline", "AA")
-    ]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("offline", "AA")]
 
 
 def test_a_long_power_cut_is_one_event(app, tmp_path):
     reported_at(app, "power_cut", None, MONDAY + timedelta(hours=1))
     every = {MONDAY + timedelta(minutes=m) for m in range(60, 4 * 60)}  # all down from 01:00
     db = energy(tmp_path, lambda t: 1.0, failed=every)
-    assert jobs.watch_pass(app, db, site_id=1, tz="Asia/Colombo", now=NOW) == []
+    assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
 
 
 # the respond step: each finished unusual run gets one answer
@@ -221,10 +214,9 @@ def left_on(app, day, mac="AA", late=timedelta(0)):
     store.add_event(app, site_id=1, event=event, dedupe=f"{mac}|{day}")
 
 
-def answer(app, energy, model, now=END, month_usd=3.0):
-    cfg = config.load(EXAMPLE)  # Plug-6 is not listed, so it is advice only; Plug-2: access none
+def answer(app, energy, model, now=END, month_usd=3.0, cfg=CFG):
     llm = Llm(app, 1, cfg.tz, cfg.tiers, Budget(month_usd, 0.05), model, clock=lambda: now)
-    return jobs.respond_pass(app, energy, jobs.Ask(cfg, llm), site_id=1, now=now)
+    return jobs.respond_pass(app, energy, cfg, llm, site_id=1, now=now)
 
 
 def statuses(app):
@@ -277,7 +269,9 @@ def test_a_run_no_longer_in_the_readings_is_done_without_a_call(app, tmp_path):
     left_on(app, 1)
     assert answer(app, desk_energy(tmp_path, waste=()), model) == []
     assert (statuses(app), model.calls) == (["done"], 0)
-    assert app.execute("SELECT action, ref FROM audit").fetchall() == [("no_case", "event:1")]
+    assert app.execute("SELECT action, ref, detail FROM audit").fetchall() == [
+        ("no_case", "event:1", '{"why": "no run in the readings"}')
+    ]  # fmt: skip
 
 
 def test_under_a_week_of_readings_is_done_without_a_call(app, tmp_path):
@@ -285,6 +279,29 @@ def test_under_a_week_of_readings_is_done_without_a_call(app, tmp_path):
     left_on(app, 1)
     assert answer(app, desk_energy(tmp_path), model, now=START + timedelta(days=6, hours=23)) == []
     assert (statuses(app), model.calls) == (["done"], 0)
+    assert app.execute("SELECT detail FROM audit").fetchone() == (
+        '{"why": "under 7 days of readings"}',
+    )
+
+
+def test_the_policy_sets_the_days_needed(app, tmp_path):
+    left_on(app, 1)
+    sooner = replace(CFG, policy=Policy(min_days=3))
+    assert len(answer(app, desk_energy(tmp_path), FakeModel(), now=START + timedelta(days=4),
+                      cfg=sooner)) == 1  # fmt: skip
+
+
+def test_nothing_to_offer_is_said_too(app, tmp_path):
+    left_on(app, 1)
+    strict = replace(CFG, policy=Policy(max_off_h=5))  # the 01:30 to 07:00 fix is 5.5 h
+    assert answer(app, desk_energy(tmp_path), FakeModel(), cfg=strict) == []
+    assert app.execute("SELECT detail FROM audit").fetchone() == ('{"why": "nothing to offer"}',)
+
+
+def test_the_site_policy_sets_what_the_pass_finds(app, tmp_path):
+    db = energy(tmp_path, lambda t: 30.0 if 1 <= t.hour < 3 else 1.0)
+    calm = replace(CFG, policy=Policy(more_w=40, small_w=40))
+    assert jobs.watch_pass(app, db, calm, site_id=1, now=NOW) == []
 
 
 def test_the_model_is_told_how_many_days_the_readings_cover(app, tmp_path):
@@ -317,8 +334,21 @@ def test_only_unusual_runs_go_to_the_responder(app, tmp_path):
 
 def test_the_watch_pass_answers_when_asked(app, tmp_path):
     left_on(app, 1)
-    cfg = config.load(EXAMPLE)
-    ask = jobs.Ask(cfg, Llm(app, 1, cfg.tz, cfg.tiers, cfg.budget, FakeModel(), clock=lambda: END))
-    _, made = jobs.run_due(app, desk_energy(tmp_path), site_id=1, tz=cfg.tz, plugs={},
-                           now=END, ask=ask)  # fmt: skip
+    llm = Llm(app, 1, CFG.tz, CFG.tiers, CFG.budget, FakeModel(), clock=lambda: END)
+    _, made = jobs.run_due(app, desk_energy(tmp_path), replace(CFG, plugs={}), site_id=1, now=END,
+                           llm=llm)  # fmt: skip
     assert len(made) == 1
+
+
+@pytest.mark.parametrize(
+    "policy",
+    [
+        Policy(history_days=8),  # night 1 is 13 days back: out of the readings
+        Policy(more_w=40, small_w=40),  # the readings no longer show it as unusual
+    ],
+)
+def test_the_device_policy_sets_which_readings_and_runs_the_answer_sees(app, tmp_path, policy):
+    left_on(app, 1)
+    assert answer(app, desk_energy(tmp_path), FakeModel(), cfg=replace(CFG, policy=policy)) == []
+    (why,) = app.execute("SELECT detail FROM audit").fetchone()
+    assert why == '{"why": "no run in the readings"}'

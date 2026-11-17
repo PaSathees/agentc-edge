@@ -1,11 +1,11 @@
 from pathlib import Path
 
 import pytest
-from agentc.policy import DEFAULT
 
 from agentc import config
 from agentc.calc import Band, Factor, Period, Schedule, TimeOfUse
 from agentc.config import Budget, Device, Rule, Tier
+from agentc.policy import DEFAULT
 
 EXAMPLE = Path(__file__).parent.parent / "config.example.toml"
 

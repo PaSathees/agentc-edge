@@ -18,6 +18,7 @@ from agentc.options import (
     use,
     window,
 )
+from agentc.policy import Policy
 from agentc.watcher import Run, Usual
 
 COLOMBO = ZoneInfo("Asia/Colombo")
@@ -95,6 +96,12 @@ def test_20_minutes_or_more_is_use():
     assert use(at(0, "02:00", 21, 30.0), OFF, tz="Asia/Colombo") == Use(of("02:20"), of("02:00"))
 
 
+def test_the_policy_sets_what_use_is():
+    readings = at(0, "02:00", 21, 10.0)  # 10 W for 20 minutes
+    assert use(readings, OFF, tz="Asia/Colombo", policy=Policy(use_w=11)) is None
+    assert use(readings, OFF, tz="Asia/Colombo", policy=Policy(use_min=21)) is None
+
+
 def test_exactly_10_w_above_standby_is_use():
     assert use(at(0, "02:00", 21, 10.0), OFF, tz="Asia/Colombo") == Use(of("02:20"), of("02:00"))
 
@@ -120,6 +127,17 @@ def test_off_half_an_hour_after_the_latest_use_on_before_the_first():
 
 def test_a_use_ending_on_the_half_hour_is_not_rounded_up_again():
     assert window(Use(latest=of("01:00"), first=of("09:00"))) == (of("01:30"), of("08:30"))
+
+
+def test_the_policy_sets_the_step_and_the_margin():
+    u = Use(latest=of("00:52"), first=of("07:45"))
+    assert window(u, Policy(step_min=15, margin_min=15)) == (of("01:15"), of("07:30"))
+
+
+def test_no_fix_keeps_a_plug_off_longer_than_max_off_h():  # the 18 h fix from thin data
+    u = Use(latest=of("20:14"), first=of("15:40"))
+    assert window(u) is None
+    assert window(u, Policy(max_off_h=18)) == (of("21:00"), of("15:00"))
 
 
 def test_no_gap_long_enough_means_no_window():

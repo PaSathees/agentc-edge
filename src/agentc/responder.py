@@ -34,7 +34,6 @@ from agentc.watcher import Run, Usual
 
 VERSION = "responder-v1"  # change it with any change to SYSTEM, so traces name the prompt used
 TRIES = 2  # one retry with the reason it was blocked
-EXPIRES = timedelta(hours=24)
 DAYS = {EVERY_DAY: "every day", WEEKDAYS: "weekdays", WEEKEND: "weekends"}
 WHEN = "%a %d %b"  # Tue 03 Nov
 SYSTEM = """You help a home owner stop wasted electricity on one device.
@@ -74,11 +73,12 @@ def gather(
     tz: str, days: int,
 ) -> Case | None:  # fmt: skip
     """The case for one run. None when code has nothing to offer, so no model call."""
-    if (u := use(readings, usual, tz=tz)) is None:
+    policy = device.policy
+    if (u := use(readings, usual, tz=tz, policy=policy)) is None:
         return None
     found = offer(run, readings, u, tz=tz, days=days, timers=timers, slots=device.slots,
-                  money=money)  # fmt: skip
-    if not (fit := [o for o in found if allowed(o, device.rules, rejected)]):
+                  money=money, policy=policy)  # fmt: skip
+    if not (fit := [o for o in found if allowed(o, device.rules, rejected, policy)]):
         return None
     start = run.start.astimezone(ZoneInfo(tz))
     hour = usual.get(start.weekday() * 24 + start.hour)
@@ -151,7 +151,7 @@ def _judge(text: str, case: Case, facts: str) -> tuple[Draft, Verdict]:
     draft = Draft(a.option, a.reason)
     return draft, check(draft, options=case.options, facts=facts, access=case.device.access,
                         slots=case.device.slots, rules=case.device.rules,
-                        rejected=case.rejected)  # fmt: skip
+                        rejected=case.rejected, policy=case.device.policy)  # fmt: skip
 
 
 def _save(
@@ -164,9 +164,10 @@ def _save(
         return None
     o = next(o for o in case.options if o.id == draft.option)
     upto = now.astimezone(ZoneInfo(tz))
+    expires = now + timedelta(hours=case.device.policy.expires_h)
     proposal = Proposal(
         plug_mac=case.mac, device=case.device.name, changes=o.changes, reason=draft.reason,
-        kwh=o.kwh, lkr=o.lkr, kg=o.kg, source="responder", expires=now + EXPIRES,
+        kwh=o.kwh, lkr=o.lkr, kg=o.kg, source="responder", expires=expires,
         evidence=f"{ref}; {case.days} days of readings to {upto:{WHEN}}",
     )  # fmt: skip
     pid = store.add_proposal(db, site_id=site_id, event_id=event_id, proposal=proposal,

@@ -13,13 +13,10 @@ from zoneinfo import ZoneInfo
 from agentc.calc import Factor, TimeOfUse, saving_lkr, tou_rate
 from agentc.config import Tariff
 from agentc.devices.base import Timer
+from agentc.policy import DEFAULT, Policy
 from agentc.watcher import MAX_GAP, Run, Usual, stretches
 
 DAY_START = 6 * 60  # a day runs from 06:00 to 06:00, so use after midnight counts as late
-USE_W = 10.0  # in use: at least 10 W above the plug's lowest usual power ...
-MIN_USE = timedelta(minutes=20)  # ... for 20 minutes or more; a shorter check is not use
-STEP = 30  # times round to the half hour ...
-MARGIN = 30  # ... then 30 minutes more, so normal use is never cut
 DAY = 24 * 60
 EVERY_DAY, WEEKDAYS, WEEKEND = "1111111", "0111110", "1000001"  # Sunday first, as Tasmota
 
@@ -88,28 +85,38 @@ def clock(m: int) -> str:
     return f"{m // 60:02d}:{m % 60:02d}"
 
 
-def use(readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str) -> Use | None:
-    """When the plug is in use: 10 W above standby for 20 minutes. None if it never was.
+def use(
+    readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
+    policy: Policy = DEFAULT,
+) -> Use | None:  # fmt: skip
+    """When the plug is in use: use_w above standby for use_min. None if it never was.
 
     Power left on below that level is waste, not use, so it never moves the times.
     """
     zone = ZoneInfo(tz)
     base = min((u.watts for u in usual.values()), default=0.0)  # standby
-    found = stretches(readings, lambda _, w: w - base >= USE_W, MIN_USE)
+    found = stretches(readings, lambda _, w: w - base >= policy.use_w,
+                      timedelta(minutes=policy.use_min))  # fmt: skip
     used = [minutes(at.astimezone(zone)) for s in found for at, _ in s]
     return Use(max(used), min(used)) if used else None
 
 
-def window(u: Use) -> tuple[int, int] | None:
-    """Off and on times: half an hour after the latest use, before the first. None if no gap."""
-    off = math.ceil(u.latest / STEP) * STEP + MARGIN
-    on = u.first // STEP * STEP - MARGIN
-    return (off, on) if off < on + DAY else None
+def window(u: Use, policy: Policy = DEFAULT) -> tuple[int, int] | None:
+    """Off and on times: a margin after the latest use and before the first.
+
+    None if there is no gap, or if it would keep the plug off longer than max_off_h.
+    """
+    step, margin = policy.step_min, policy.margin_min
+    off = math.ceil(u.latest / step) * step + margin
+    on = u.first // step * step - margin
+    if off >= on + DAY or (on - off) % DAY > policy.max_off_h * 60:
+        return None
+    return off, on
 
 
 def offer(
     run: Run, readings: list[tuple[datetime, float]], u: Use, *, tz: str, days: int,
-    timers: list[Timer], slots: Sequence[int], money: Money,
+    timers: list[Timer], slots: Sequence[int], money: Money, policy: Policy = DEFAULT,
 ) -> list[Option]:  # fmt: skip
     """Fixes for one unusual run: A every day, B only on the days like the run's.
 
@@ -117,7 +124,7 @@ def offer(
     would cut the run.
     """
     zone = ZoneInfo(tz)
-    times = window(u)
+    times = window(u, policy)
     if times is None:
         return []
     off, on = times
