@@ -14,7 +14,7 @@ from agentc.devices.base import Timer
 from agentc.options import Change, Proposal
 from agentc.watcher import Event
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: thresholds hold one learned value a row (B3b)
 
 SCHEMA = """
 -- One home or plant room; every other row belongs to one
@@ -99,10 +99,13 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 -- How far above its profile a plug must go to raise an event
 CREATE TABLE IF NOT EXISTS thresholds (
-    site_id    INTEGER NOT NULL REFERENCES sites(id),
-    plug_mac   TEXT PRIMARY KEY REFERENCES plugs(mac),
-    factor     REAL NOT NULL,
-    changed_by TEXT NOT NULL
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    plug_mac TEXT NOT NULL REFERENCES plugs(mac),
+    name     TEXT NOT NULL,
+    value    REAL NOT NULL,
+    why      TEXT NOT NULL,
+    at       TEXT NOT NULL,
+    PRIMARY KEY (plug_mac, name)
 );
 -- Open-Meteo hourly temperature, forecast and actual
 CREATE TABLE IF NOT EXISTS weather (
@@ -212,6 +215,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
     db.execute("PRAGMA journal_mode = WAL")
     db.execute("PRAGMA foreign_keys = ON")
     db.execute("PRAGMA busy_timeout = 5000")
+    if db.execute("PRAGMA user_version").fetchone()[0] == 1:
+        db.execute("DROP TABLE IF EXISTS thresholds")  # version 1's shape; never written to
     db.executescript(SCHEMA)
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
@@ -311,6 +316,24 @@ def save_profile(
 def load_profile(db: sqlite3.Connection, *, mac: str) -> list[ProfileHour]:
     sql = f"SELECT {PROFILE_FIELDS} FROM profiles WHERE plug_mac = ? ORDER BY hour"
     return [ProfileHour(*row) for row in db.execute(sql, (mac,))]
+
+
+def save_learned(
+    db: sqlite3.Connection, *, site_id: int, mac: str, values: dict[str, tuple[float, str]],
+    at: datetime,
+) -> None:  # fmt: skip
+    """Replace a plug's learned policy values (name -> value, why). Empty: none learned."""
+    when = at.astimezone(UTC).isoformat()
+    rows = [(site_id, mac, name, v, why, when) for name, (v, why) in values.items()]
+    with db:
+        db.execute("DELETE FROM thresholds WHERE plug_mac = ?", (mac,))
+        db.executemany("INSERT INTO thresholds VALUES (?, ?, ?, ?, ?, ?)", rows)
+
+
+def learned(db: sqlite3.Connection, *, mac: str) -> dict[str, tuple[float, str]]:
+    """A plug's learned policy values: name -> (value, why)."""
+    sql = "SELECT name, value, why FROM thresholds WHERE plug_mac = ? ORDER BY name"
+    return {name: (value, why) for name, value, why in db.execute(sql, (mac,))}
 
 
 def save_grid_factor(db: sqlite3.Connection, *, site_id: int, factor: Factor) -> None:

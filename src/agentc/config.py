@@ -1,7 +1,8 @@
 """config.toml: the site, its plugs, file paths and tariff. The real file is never committed."""
 
 import tomllib
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal, get_args
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -55,7 +56,9 @@ class Device:
     access: str = "advice"  # new devices start at advice
     slots: tuple[int, ...] = SLOTS
     rules: tuple[Rule, ...] = ()
-    policy: Policy = DEFAULT  # the site's, with this device's own values on top
+    policy: Policy = DEFAULT  # the defaults, then learned, then the site's, then its own
+    own: frozenset[str] = frozenset()  # policy names set in this device's own section
+    learned: dict[str, str] = field(default_factory=dict)  # names learned, with why
 
 
 @dataclass(frozen=True)
@@ -72,6 +75,7 @@ class Config:
     budget: Budget
     devices: dict[str, Device]  # plug name -> device; a plug not listed is a Device of its name
     policy: Policy  # the site's thresholds: the defaults, with [policy] on top
+    own: frozenset[str]  # policy names set in [policy]
     app_db: Path
     energy_db: Path
 
@@ -101,6 +105,7 @@ def load(path: str | Path) -> Config:
         budget=Budget(llm.get("month_usd", BUDGET.month_usd), llm.get("run_usd", BUDGET.run_usd)),
         devices={plug: _device(plug, d, site_policy) for plug, d in raw.get("devices", {}).items()},
         policy=site_policy,
+        own=frozenset(raw.get("policy", {})),
         app_db=path.parent / paths.get("app_db", "app.db"),
         energy_db=path.parent / paths.get("energy_db", "energy.db"),
     )
@@ -110,13 +115,25 @@ def _device(plug: str, d: dict[str, Any], site: Policy) -> Device:
     if (access := d.get("access", "advice")) not in ACCESS:
         raise ValueError(f"access must be one of {', '.join(ACCESS)}, not {access!r}")
     rules = tuple(Rule(**r) for r in d.get("rules", []))
-    policy = override(site, d.get("policy", {}), where=f'[devices."{plug}".policy]')
-    return Device(d["name"], access, tuple(d.get("slots", SLOTS)), rules, policy)
+    own = d.get("policy", {})
+    policy = override(site, own, where=f'[devices."{plug}".policy]')
+    return Device(d["name"], access, tuple(d.get("slots", SLOTS)), rules, policy, frozenset(own))
 
 
-def device(cfg: Config, plug: str) -> Device:
-    """The device on a plug, by the plug's name. A plug not listed gets the site's policy."""
-    return cfg.devices.get(plug, Device(plug, policy=cfg.policy))
+def device(
+    cfg: Config, plug: str, learned: Mapping[str, tuple[float, str]] | None = None
+) -> Device:
+    """The device on a plug, by the plug's name. A plug not listed gets the site's policy.
+
+    learned: the plug's learned values (name -> value, why). Each fills in only what the
+    owner did not set, in [policy] or in the device's own section.
+    """
+    d = cfg.devices.get(plug, Device(plug, policy=cfg.policy))
+    fill = {k: v for k, v in (learned or {}).items() if k not in cfg.own | d.own}
+    if not fill:
+        return d
+    policy = replace(d.policy, **{k: value for k, (value, _) in fill.items()})
+    return replace(d, policy=policy, learned={k: why for k, (_, why) in fill.items()})
 
 
 def _tier(t: dict[str, Any]) -> Tier:

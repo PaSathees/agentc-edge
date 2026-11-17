@@ -4,6 +4,7 @@ Defaults are here. config.toml can change them for the whole site ([policy]) or 
 device ([devices."Plug-6".policy]). Code reads only a device's own policy.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from typing import Any
 
@@ -51,12 +52,21 @@ def override(base: Policy, values: dict[str, Any], *, where: str) -> Policy:
     return replace(base, **values)
 
 
-def explain(policy: Policy, site: Policy) -> list[tuple[str, float, str, str]]:
-    """Each value as (name, value, where it came from, why). site: the site's policy."""
+def explain(
+    policy: Policy, *, site: frozenset[str], device: frozenset[str] = frozenset(),
+    learned: Mapping[str, str] | None = None,
+) -> list[tuple[str, float, str, str]]:  # fmt: skip
+    """Each value as (name, value, where it came from, why).
+
+    site, device: the names the owner set in [policy] and in the device's own section.
+    learned: the names learned from the plug's readings, each with why.
+    """
+    learned = learned or {}
     rows = []
     for f in fields(Policy):
-        v = getattr(policy, f.name)
-        source = ("device" if v != getattr(site, f.name) else
-                  "site" if v != getattr(DEFAULT, f.name) else "default")  # fmt: skip
-        rows.append((f.name, v, source, f.metadata["why"]))
+        name = f.name
+        source = ("device" if name in device else "site" if name in site else
+                  "learned" if name in learned else "default")  # fmt: skip
+        why = learned[name] if source == "learned" else f.metadata["why"]
+        rows.append((name, getattr(policy, name), source, why))
     return rows

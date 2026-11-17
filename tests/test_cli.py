@@ -263,3 +263,22 @@ def test_replay_uses_each_plugs_policy(cfg, capsys, tmp_path):
     spike_days(tmp_path)  # 8 days: touches 9 dates
     with_policy(cfg, "min_days = 10")  # so no profile, and no event
     assert run(cfg, capsys, "replay", "--days", "8")[1] == "Events in 8 days: 0\n"
+
+
+# learning (B3b)
+
+
+def test_learn_says_what_each_plug_learned(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    desk_till_yesterday(tmp_path)  # Plug-1 only
+    code, out = run(cfg, capsys, "learn")
+    assert (code, out) == (0, "Plug-1: standby 5 W, active 30 W\n"
+                              "Plug-2: not enough days of readings yet\n")  # fmt: skip
+    policy = run(cfg, capsys, "policy", "Plug-1")[1]
+    assert "  small_w            2.5  learned half the standby" in policy
+
+
+def test_learn_says_when_a_plug_has_one_level(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    write_energy_db(tmp_path / "energy.db", "Plug-2", days=8, watts=lambda _: 5.0)
+    assert "Plug-2: one level or none, so it keeps the defaults\n" in run(cfg, capsys, "learn")[1]
