@@ -11,6 +11,7 @@ from pathlib import Path
 
 from agentc.calc import Factor, ProfileHour
 from agentc.devices.base import Timer
+from agentc.options import Change, Proposal
 from agentc.watcher import Event
 
 SCHEMA_VERSION = 1
@@ -336,6 +337,98 @@ def grid_factor(db: sqlite3.Connection, *, site_id: int, on: date) -> Factor | N
     return Factor(factor_id, float(value), source, valid_from)
 
 
+def add_proposal(
+    db: sqlite3.Connection, *, site_id: int, event_id: int | None, proposal: Proposal,
+    status: str, now: datetime,
+) -> int:  # fmt: skip
+    """Save a proposal as version 1; return its id. status: draft, blocked or open."""
+    body = {**proposal.__dict__, "expires": proposal.expires.astimezone(UTC).isoformat(),
+            "changes": [c.__dict__ for c in proposal.changes]}  # fmt: skip
+    with db:
+        (pid,) = db.execute(
+            "INSERT INTO proposals (id, site_id, event_id, source, body, status, created)"
+            " VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM proposals), ?, ?, ?, ?, ?, ?)"
+            " RETURNING id",
+            (site_id, event_id, proposal.source, json.dumps(body), status,
+             now.astimezone(UTC).isoformat()),
+        ).fetchone()  # fmt: skip
+    return pid
+
+
+def load_proposals(
+    db: sqlite3.Connection, *, site_id: int, status: str | None = None
+) -> list[tuple[int, str, Proposal]]:
+    """Proposals as (id, status, proposal), oldest first; all of them, or one status."""
+    sql = """SELECT id, status, body FROM proposals
+             WHERE site_id = ? AND status = COALESCE(?, status) ORDER BY id"""
+    return [(pid, st, _proposal(body)) for pid, st, body in db.execute(sql, (site_id, status))]
+
+
+def rejected(db: sqlite3.Connection, *, site_id: int, mac: str, since: datetime) -> list[Proposal]:
+    """Proposals for this plug the owner rejected, made since `since` (check 6: no repeats)."""
+    sql = """SELECT body FROM proposals WHERE site_id = ? AND status = 'rejected'
+             AND json_extract(body, '$.plug_mac') = ? AND created >= ? ORDER BY id"""
+    rows = db.execute(sql, (site_id, mac, since.astimezone(UTC).isoformat()))
+    return [_proposal(body) for (body,) in rows]
+
+
+def _proposal(body: str) -> Proposal:
+    raw = json.loads(body)
+    changes = tuple(Change(**c) for c in raw.pop("changes"))
+    return Proposal(
+        **{**raw, "changes": changes, "expires": datetime.fromisoformat(raw["expires"])}
+    )
+
+
+def add_audit(
+    db: sqlite3.Connection, *, site_id: int, at: datetime, actor: str, action: str, ref: str,
+    detail: dict[str, str],
+) -> None:  # fmt: skip
+    """Add a line to the history of changes, e.g. why a draft was blocked. Never edited."""
+    with db:
+        db.execute(
+            "INSERT INTO audit (site_id, ts_utc, actor, action, ref, detail)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (site_id, at.astimezone(UTC).isoformat(), actor, action, ref, json.dumps(detail)),
+        )
+
+
+def add_llm_call(
+    db: sqlite3.Connection, *, site_id: int, at: datetime, run_id: str, agent: str, model: str,
+    prompt_version: str, prompt: str, output: str | None, tokens_in: int | None,
+    tokens_out: int | None, usd: float | None, latency_ms: int,
+) -> int:  # fmt: skip
+    """Save the trace of one model call (FR-27); return its id. output None = the call failed."""
+    with db:
+        (cid,) = db.execute(
+            "INSERT INTO llm_calls (site_id, run_id, agent, model, prompt_version, prompt, output,"
+            " tokens_in, tokens_out, usd, latency_ms, ts_utc)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            (site_id, run_id, agent, model, prompt_version, prompt, output, tokens_in, tokens_out,
+             usd, latency_ms, at.astimezone(UTC).isoformat()),
+        ).fetchone()  # fmt: skip
+    return cid
+
+
+def llm_usd(
+    db: sqlite3.Connection, *, site_id: int, since: datetime | None = None,
+    run_id: str | None = None,
+) -> float:  # fmt: skip
+    """USD spent on model calls: since a time, in one run, or both (FR-28 budget)."""
+    sql = """SELECT COALESCE(SUM(usd), 0) FROM llm_calls WHERE site_id = ?
+             AND ts_utc >= COALESCE(?, ts_utc) AND run_id = COALESCE(?, run_id)"""
+    after = since.astimezone(UTC).isoformat() if since else None
+    (usd,) = db.execute(sql, (site_id, after, run_id)).fetchone()
+    return usd
+
+
+def link_calls(db: sqlite3.Connection, *, call_ids: list[int], proposal_id: int) -> None:
+    """Mark the model calls that made a proposal, so its trace can be found (FR-27)."""
+    with db:
+        db.executemany("UPDATE llm_calls SET proposal_id = ? WHERE id = ?",
+                       [(proposal_id, c) for c in call_ids])  # fmt: skip
+
+
 # energy.db belongs to the logger: the app only ever reads it (decision ADR-006).
 
 
@@ -353,10 +446,24 @@ def add_event(db: sqlite3.Connection, *, site_id: int, event: Event, dedupe: str
 
 def load_events(db: sqlite3.Connection, *, site_id: int) -> list[Event]:
     sql = "SELECT kind, plug_mac, start_utc, facts FROM events WHERE site_id = ? ORDER BY id"
-    return [
-        Event(kind, mac, datetime.fromisoformat(start), json.loads(facts))
-        for kind, mac, start, facts in db.execute(sql, (site_id,))
-    ]
+    return [_event(*row) for row in db.execute(sql, (site_id,))]
+
+
+def new_events(db: sqlite3.Connection, *, site_id: int, kind: str) -> list[tuple[int, Event]]:
+    """Events of one kind that nothing has handled yet, as (id, event), oldest first."""
+    sql = """SELECT id, kind, plug_mac, start_utc, facts FROM events
+             WHERE site_id = ? AND kind = ? AND status = 'new' ORDER BY id"""
+    return [(eid, _event(*row)) for eid, *row in db.execute(sql, (site_id, kind))]
+
+
+def event_done(db: sqlite3.Connection, *, event_id: int) -> None:
+    """Mark an event handled. What came of it is in proposals and audit."""
+    with db:
+        db.execute("UPDATE events SET status = 'done' WHERE id = ?", (event_id,))
+
+
+def _event(kind: str, mac: str | None, start: str, facts: str) -> Event:
+    return Event(kind, mac, datetime.fromisoformat(start), json.loads(facts))
 
 
 def last_run(db: sqlite3.Connection, *, site_id: int, job: str) -> datetime | None:

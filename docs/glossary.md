@@ -43,7 +43,7 @@ Plain words for the codes and terms in these docs.
 | Profile | A plug's usual use for each of the 168 hours of the week |
 | Median | The middle value. One odd reading doesn't move it, unlike the average |
 | On share | The share of minutes a plug draws more than 2 W in that hour |
-| Run | A stretch of unusual use. It must last 30 minutes |
+| Run | A stretch of unusual use: 10 W more for 30 minutes, or 3 W more for 3 hours |
 | Round | One pass of the logger over all plugs, once a minute |
 | Fixture | A small, made-up set of data used by a test |
 | Grounded | Every number in an agent's text matches a number code gave it |

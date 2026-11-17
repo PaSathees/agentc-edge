@@ -3,6 +3,12 @@ import pytest
 from tests.fake_tasmota import FakePlug
 
 
+@pytest.fixture(autouse=True)
+def no_api_key(monkeypatch):
+    """Tests never reach the real model, even when run with the key in the environment."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+
 @pytest.fixture
 def plug():
     """A running fake plug; stopped after the test."""

@@ -1,0 +1,74 @@
+{
+ "EV-01": {
+  "key": "b7ed1f3ae95fd064",
+  "model": "claude-haiku-5-5",
+  "answers": [
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is normally about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and on at 07:00 every day, inside that unused gap, and the owner has no rules against it.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it normally uses about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and back on at 07:00 every day, which stops this waste with no owner rules against it.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is usually about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and back on at 07:00 every day, inside that unused gap, and the owner has no rules blocking this.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is usually about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and back on at 07:00 every day, which falls inside that unused gap, and the owner has no rules blocking it.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is usually about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and back on at 07:00 every day, which stops this waste, and the owner has no rules against it.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 ran at up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is usually about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and back on at 07:00 every day, and the owner has no rules blocking this.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it usually uses about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and on at 07:00 every day, which covers that idle window, and the owner has no rules blocking it.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is normally about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and back on at 07:00 every day, which is inside that unused window, and the owner has no rules blocking it.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is usually about 0 W and was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 and back on at 07:00 every day, inside that unused gap, and no owner rules block it.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, when it is usually about 0 W and is never in use between 00:52 and 07:45. Option A switches it off at 01:30 and back on at 07:00 every day, which stops this waste, and the owner has no rules blocking it.\"}"
+   ]
+  ]
+ },
+ "EV-03": {
+  "key": "e39d985c7509720e",
+  "model": "claude-haiku-5-5",
+  "answers": [
+   [
+    "{\"option\":\"none\",\"reason\":\"Owner rules let Desk 2 run until 02:00 on work nights, so switching it off at 01:30 would cut power the owner allows. Both options start that cut, so neither fits.\"}"
+   ],
+   [
+    "{\"option\":\"none\",\"reason\":\"Desk 2 may run until 02:00 on work nights, and both options cut power at 01:30, inside that allowed window. Monday 02 Nov's run from 01:37 to 06:29 was partly allowed, so no option fits this owner rule.\"}"
+   ],
+   [
+    "{\"option\":\"none\",\"reason\":\"Owner rules let Desk 2 run until 02:00 on work nights, and both options switch it off at 01:30, inside that allowed window, so neither fits safely. Whether Mon 02 Nov counts as a work night is not stated in the facts.\"}"
+   ],
+   [
+    "{\"option\":\"none\",\"reason\":\"Desk 2 may run until 02:00 on work nights, and both options would cut power at 01:30, which is inside that allowed time. The unusual run went from 01:37 to 06:29 on Mon 02 Nov, so no option fits without breaking the owner's rule.\"}"
+   ],
+   [
+    "{\"option\": \"none\", \"reason\": \"Desk 2 may run until 02:00 on work nights, so switching it off at 01:30 would cut use the owner allows. Neither option fits, so the device stays as it is.\"}"
+   ],
+   [
+    "{\"option\":\"none\",\"reason\":\"Desk 2 may run until 02:00 on work nights, and this run started at 01:37, inside that allowance, so cutting power at 01:30 could conflict with the owner rule. The facts do not confirm whether Mon 02 Nov was a work night, so no option is safe to apply.\"}"
+   ],
+   [
+    "{\"option\":\"A\",\"reason\":\"Desk 2 drew up to 37 W from 01:37 to 06:29 on Mon 02 Nov, and it was never in use between 00:52 and 07:45 over the last 13 days. Option A switches it off at 01:30 every day, which covers that waste, and the owner's 02:00 allowance applies only on work nights.\"}"
+   ],
+   [
+    "{\"option\":\"none\",\"reason\":\"Desk 2 ran from 01:37 to 06:29 on Mon 02 Nov, and the owner allows it to run until 02:00 on work nights, so both options' 01:30 switch-off could cut an allowed run. No option fits.\"}"
+   ],
+   [
+    "{\"option\":\"none\",\"reason\":\"Desk 2 may run until 02:00 on work nights, and both options would switch it off at 01:30 on those nights, cutting into time the owner allows. The 01:37 to 06:29 run on Mon 02 Nov is only partly outside that allowance, so no option fits.\"}"
+   ],
+   [
+    "{\"option\":\"none\",\"reason\":\"Desk 2 may run until 02:00 on work nights, and Monday 02 Nov is a work night, so switching it off at 01:30 would cut a period the owner allows. The run that went on until 06:29 is a case no option fits without breaking that rule.\"}"
+   ]
+  ]
+ }
+}

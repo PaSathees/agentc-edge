@@ -34,6 +34,20 @@ def test_saving_high_in_the_month_is_priced_at_the_top_band():
     assert saving_lkr(100, 5, TARIFF) == pytest.approx(5 * 50)
 
 
+def test_a_longer_bill_has_longer_bands_but_the_same_fixed_charge():
+    # 35 days: table 1 now ends at 70, its bands at 35 and 70; the fixed charge stays 200
+    assert month_lkr(70, TARIFF, days=35) == pytest.approx(35 * 10 + 35 * 20 + 200)
+
+
+def test_the_levy_is_counted_in_the_total_it_is_charged_on():
+    # 2.5%: a 300 charge is a 307.69 bill, as 307.69 x 2.5% + 300 = 307.69
+    assert month_lkr(20, TARIFF, levy=0.025) == pytest.approx(300 / 0.975)
+
+
+def test_a_saving_includes_the_levy():
+    assert saving_lkr(100, 5, TARIFF, levy=0.025) == pytest.approx(5 * 50 / 0.975)
+
+
 @pytest.mark.parametrize(
     "bad",
     [

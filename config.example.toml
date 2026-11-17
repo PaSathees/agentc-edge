@@ -3,20 +3,60 @@
 [site]
 name = "home"
 tz = "Asia/Colombo"
+month_kwh = 150  # the whole house's units in 30 days; from your bill: units / days x 30
 
 [paths]  # relative to this file
 app_db = "app.db"
 energy_db = "energy.db"
 
+# The grid's average kgCO2e per kWh (location-based Scope 2).
+[carbon]
+id = "slsea-2023"
+factor = 0.4242
+source = "SLSEA Sri Lanka Energy Balance 2023, Table 9.1, average emission factor"
+valid_from = "2023-01-01"
+
+# Model calls (decision ADR-005). Optional: these are the defaults.
+# The API key goes in .env (ANTHROPIC_API_KEY), never here.
+[llm]
+month_usd = 3.0  # stop all model calls for the rest of the month at this spend
+run_usd = 0.05  # stop one agent run at this spend
+
+[llm.tiers.small]  # Responder and Assistant
+model = "claude-haiku-5-5"
+usd_in = 0.10  # USD per million tokens, from the price page
+usd_out = 0.50
+effort = "low"
+
+[llm.tiers.mid]  # Planner
+model = "claude-sonnet-5-5"
+usd_in = 2.0
+usd_out = 10.0
+effort = "medium"
+
 [plugs]
 "Plug-1" = "192.0.2.11"
 "Plug-2" = "192.0.2.12"
+
+# What is plugged into each plug. Optional: a plug not listed keeps its own name,
+# access "advice" and timer slots 9 to 16. The name is the only one a model sees.
+# access: "none" = never changed; "advice" = proposals only; "write" = written after approval.
+[devices."Plug-1"]
+name = "Desk 2"
+rules = [
+    { kind = "latest_off", time = "01:00", hard = false, text = "Desk 2 may run until 01:00" },
+]
+
+[devices."Plug-2"]
+name = "3D printer"
+access = "none"  # it also powers the printer's controller
 
 # Example rates only. Copy yours from your bill or the regulator's published schedule.
 # kind = "block": the month's total picks a schedule (no up_to = no limit), then band by band.
 [tariff]
 kind = "block"
 source = "Example tariff, not real rates"
+levy = 0.025  # tax on the whole bill (Sri Lanka's SSCL is 2.5%); leave out if none
 
 [[tariff.schedules]]
 up_to = 60

@@ -12,7 +12,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from agentc import store
-from agentc.devices.base import Clock, Device, DeviceError, Timer
+from agentc.devices.base import Clock, Plug, PlugError, Timer
 from agentc.devices.tasmota import TasmotaPlug
 
 MAX_DRIFT_S = 120  # a timer firing up to 2 min late does not matter; more does
@@ -27,7 +27,7 @@ class Problem:
 
 def import_all(
     db: Connection, *, site_id: int, plugs: dict[str, str], now: datetime,
-    connect: Callable[[str], Device] = TasmotaPlug,
+    connect: Callable[[str], Plug] = TasmotaPlug,
 ) -> list[Problem]:  # fmt: skip
     """Read every plug (name -> IP); store plug and timers; return what needs the owner."""
     tz = db.execute("SELECT tz FROM sites WHERE id = ?", (site_id,)).fetchone()[0]
@@ -38,11 +38,11 @@ def import_all(
 
 
 def _import_one(
-    db: Connection, site_id: int, name: str, ip: str, device: Device, *, tz: str, now: datetime
+    db: Connection, site_id: int, name: str, ip: str, plug: Plug, *, tz: str, now: datetime
 ) -> list[Problem]:
     try:
-        info, timer_set, clock = device.info(), device.timers(), device.clock()
-    except DeviceError as err:
+        info, timer_set, clock = plug.info(), plug.timers(), plug.clock()
+    except PlugError as err:
         store.plug_failed(db, name=name, error=str(err))
         return [Problem(name, "unreachable", f"{name} did not answer; retried next pass")]
     store.plug_seen(db, site_id=site_id, mac=info.mac, name=name, ip=ip,
