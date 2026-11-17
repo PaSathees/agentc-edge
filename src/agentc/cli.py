@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 import anthropic
 
-from agentc import calc, config, jobs, llm, store, timers
+from agentc import calc, config, evals, jobs, llm, store, timers
 from agentc.config import Config
 from agentc.options import Proposal
 from agentc.responder import fix_words
@@ -34,7 +34,17 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     replay = commands.add_parser("replay", help="play past days through the Watcher")
     replay.add_argument("--days", type=int, default=14, help="how many days to play")
     replay.add_argument("--respond", action="store_true", help="ask the model too (costs money)")
+    score = commands.add_parser("eval", help="score the Responder on the eval cases")
+    score.add_argument("--live", action="store_true", help="ask the real model and record (costs)")
+    score.add_argument("--samples", type=int, default=10, help="tries per case when live")
     args = parser.parse_args(argv)
+
+    if args.command == "eval":  # needs no config.toml: the evals bring their own
+        model = _send(send) if args.live else None
+        if args.live and model is None:
+            print(NO_KEY)
+            return 1
+        return show_eval(model, samples=args.samples)
 
     cfg = config.load(args.config)
     db = store.connect(cfg.app_db)
@@ -138,6 +148,18 @@ def show_watch(db: Connection, cfg: Config, *, site_id: int, ask: jobs.Ask | Non
     if ask is None:
         print(NO_KEY)
     return 0
+
+
+def show_eval(send: llm.Send | None, *, samples: int) -> int:
+    """Score each live eval case; 1 if any fails. send: ask the model; None: replay."""
+    try:
+        scores = evals.run(send, samples=samples)
+    except evals.Stale as err:
+        print(err)
+        return 1
+    for s in scores:
+        print(s.line())
+    return 0 if all(s.passed for s in scores) else 1
 
 
 def show_replay(

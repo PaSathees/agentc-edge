@@ -6,9 +6,9 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 
 | EV | Serves | Input | Expected | Scorer (code / judge / human) | Threshold |
 |---|---|---|---|---|---|
-| EV-01 | FR-15 | Responder, **real readings**: Desk 2 on at about 5 W until 06:00 on 1 and 2 Nov; late use until 00:50 on 10 and 11 Nov | Picks "off at 01:30, on at 07:00, every day"; every number in the reason is in the facts | code: choice, grounded | ≥ 90% choice, 100% grounded |
+| EV-01 | FR-15 | Responder, **real readings**: Desk 2 on at about 5 W until 06:00 on 1 and 2 Nov; late use until 00:50 on 10 and 11 Nov | Picks "off at 01:30, on at 07:00", every day (A) or weekdays (B): both waste nights were weekdays, so both save the same; every number in the reason is in the facts | code: choice, grounded | ≥ 90% choice, 100% grounded |
 | EV-02 | FR-25 | Responder: the EV-01 change, rejected 5 days ago | No proposal | code | 100% |
-| EV-03 | FR-05, FR-15 | Responder, **real readings**: Desk 2 in use until 00:50 on 10 Nov; soft rule "Desk 2 may run until 01:00 on work nights" | *No action*, citing the rule | code: choice | ≥ 90% |
+| EV-03 | FR-05, FR-15 | Responder, **real readings**: (a) Desk 2 in use until 00:42 on 11 Nov; (b) the EV-01 case with the soft rule "Desk 2 may run until 02:00 on work nights" | (a) No fix, so the model is not asked; (b) *No action*, citing the rule | code: choice | (a) 100%; (b) ≥ 90% |
 | EV-04 | FR-14, NFR-11 | Responder draft with a number not in the facts | Blocked by checks; retry fixed or dropped | code | 100% blocked |
 | EV-05 | FR-04, NFR-12 | Event on the 3D printer plug, access *none* (it also powers the printer's controller) | No run, no proposal | code | 100% |
 | EV-06 | FR-15 | Two events in one Watcher pass: Desk 2 overnight and the TV plug offline | One result per event, neither mixed into the other | code | 100% |
@@ -28,13 +28,21 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 | EV-20 | FR-28 | Agent reaches its tool-call limit | Run ends; within token and call limits | code | 100% |
 | EV-21 | testing (judge) | 20 reasons scored by the owner and by the judge | Judge agrees on at least 16 | human | ≥ 16 of 20 |
 
+Where EV-01 to EV-06 run (B3, 2026-11-17):
+
+- EV-01, EV-03 (b): `agentc eval --live` asks the real model 10 times each and records the answers in `evals/recorded.json`; `tests/test_evals.py` replays them on every commit. Live again when a prompt, model or tool changes.
+- EV-03 (a), EV-06: `tests/test_evals.py`, on the same real readings.
+- EV-02: `tests/test_responder.py` and `tests/test_jobs.py`. EV-04: `tests/test_responder.py`. EV-05: `tests/test_responder.py` and `tests/test_jobs.py`.
+
 ## Runs
 | Date | Version | Model | Cases | Score | Cost | Notes |
 |---|---|---|---|---|---|---|
+| 2026-11-17 | responder-v1 | claude-haiku-5-5 | EV-01, EV-03 (b), 10 tries each | EV-01 10/10 right, 10/10 checks, picked A 10. EV-03 9/10 right, 10/10 checks, picked none 9, A 1. Both PASS | USD 0.0053 (EV-01 0.0013, EV-03 0.0040) | No retries. EV-03 calls cost about 3 times more: likely more thinking when a rule must be weighed. Reasons are 2 long sentences, not short ones: for the judge (EV-21) |
 
 ## Error analysis
 | FM | Failure mode | Count | Serves | Fix |
 |---|---|---|---|---|
+| FM-01 | A rule's text names a limit its data does not hold ("on work nights", but the rule has no days), so the model guesses whether it applies | EV-03: 1 of 10 picked A because of it; 2 more reasons hedged on it | FR-05 | B6: rules get days, and the text is written from the data. Until then, rule text must not say more than the rule |
 
 ## Old vs new
 Same inputs, AgentC vs rebuild: tokens, cost, latency per run and per month.
