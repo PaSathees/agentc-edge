@@ -2,20 +2,15 @@
 
 import statistics
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from agentc.calc import ProfileHour
 from agentc.devices.base import Timer
+from agentc.policy import DEFAULT, Policy
 
 MIN_DAYS = 3  # an hour with fewer days than this uses the same hour across the week
-RARELY_ON = 0.2  # alert only at hours the plug is on under 20% of the time
-FACTOR = 2.0  # unusual = more than 2 x usual ...
-MORE_W = 10.0  # ... and at least 10 W more, so 0 W to 3 W is not an alert
-RUN = timedelta(minutes=30)  # how long it must last
-SMALL_W = 3.0  # a small load left on: at least 3 W more ...
-LONG_RUN = timedelta(hours=3)  # ... counts only if it lasts 3 hours
 MAX_GAP = timedelta(minutes=5)  # a longer gap in readings restarts the count
 OFFLINE_ROUNDS = 3  # failed logger rounds in a row before a plug counts as offline
 BLACKOUT_ROUNDS = 2  # every plug silent this many rounds in a row = power cut; 1 is a Wi-Fi blip
@@ -59,36 +54,35 @@ def usual_week(profile: list[ProfileHour]) -> dict[int, Usual]:
     return usual
 
 
-def is_unusual(
-    watts: float, usual: Usual | None, *, factor: float = FACTOR, more_w: float = MORE_W
-) -> bool:
+def is_unusual(watts: float, usual: Usual | None, policy: Policy = DEFAULT) -> bool:
     """Power well above usual, at an hour the plug is rarely on."""
     if usual is None:
         return False
     return (
-        usual.on_share < RARELY_ON
-        and watts > factor * usual.watts
-        and watts - usual.watts >= more_w
+        usual.on_share < policy.rarely_on
+        and watts > policy.factor * usual.watts
+        and watts - usual.watts >= policy.more_w
     )
 
 
 def unusual_runs(
     readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
-    factor: float = FACTOR,
+    policy: Policy = DEFAULT,
 ) -> list[Run]:  # fmt: skip
-    """Unusual stretches, oldest first: 10 W more for 30 min, or 3 W more for 3 hours.
+    """Unusual stretches, oldest first: more_w more for run_min, or small_w for long_run_min.
 
     A long stretch holds any short one inside it, so that stretch is one run, not two.
     """
-    short = _runs(readings, usual, tz=tz, factor=factor, more_w=MORE_W, length=RUN)
-    long = _runs(readings, usual, tz=tz, factor=factor, more_w=SMALL_W, length=LONG_RUN)
+    short = _runs(readings, usual, tz, policy, timedelta(minutes=policy.run_min))
+    small = replace(policy, more_w=policy.small_w)  # the same test, with the small load's watts
+    long = _runs(readings, usual, tz, small, timedelta(minutes=policy.long_run_min))
     inside = [r for r in short if any(x.start <= r.start <= x.end for x in long)]
     return sorted([r for r in short if r not in inside] + long, key=lambda r: r.start)
 
 
 def _runs(
-    readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
-    factor: float, more_w: float, length: timedelta,
+    readings: list[tuple[datetime, float]], usual: dict[int, Usual], tz: str, policy: Policy,
+    length: timedelta,
 ) -> list[Run]:  # fmt: skip
     """Stretches of unusual power that last `length` or more, oldest first."""
     zone = ZoneInfo(tz)
@@ -96,7 +90,7 @@ def _runs(
     def high(at: datetime, watts: float) -> bool:
         local = at.astimezone(zone)
         hour = usual.get(local.weekday() * 24 + local.hour)
-        return is_unusual(watts, hour, factor=factor, more_w=more_w)
+        return is_unusual(watts, hour, policy)
 
     return [Run(s[0][0], s[-1][0], max(w for _, w in s)) for s in stretches(readings, high, length)]
 

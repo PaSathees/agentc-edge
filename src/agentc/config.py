@@ -7,6 +7,7 @@ from typing import Any, Literal, get_args
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from agentc.calc import Band, Factor, Period, Schedule, TimeOfUse, month_lkr
+from agentc.policy import DEFAULT, Policy, override
 
 Tariff = tuple[Schedule, ...] | TimeOfUse
 
@@ -54,6 +55,7 @@ class Device:
     access: str = "advice"  # new devices start at advice
     slots: tuple[int, ...] = SLOTS
     rules: tuple[Rule, ...] = ()
+    policy: Policy = DEFAULT  # the site's, with this device's own values on top
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,7 @@ class Config:
     tiers: dict[str, Tier]
     budget: Budget
     devices: dict[str, Device]  # plug name -> device; a plug not listed is a Device of its name
+    policy: Policy  # the site's thresholds: the defaults, with [policy] on top
     app_db: Path
     energy_db: Path
 
@@ -80,6 +83,7 @@ def load(path: str | Path) -> Config:
         raw = tomllib.load(f)
     site, paths, tariff, carbon = raw["site"], raw.get("paths", {}), raw["tariff"], raw["carbon"]
     llm = raw.get("llm", {})  # model calls: optional, defaults above
+    site_policy = override(DEFAULT, raw.get("policy", {}), where="[policy]")
     try:
         ZoneInfo(site["tz"])
     except ZoneInfoNotFoundError:
@@ -95,22 +99,24 @@ def load(path: str | Path) -> Config:
         factor=Factor(carbon["id"], carbon["factor"], carbon["source"], carbon["valid_from"]),
         tiers={**TIERS, **{k: _tier(t) for k, t in llm.get("tiers", {}).items()}},
         budget=Budget(llm.get("month_usd", BUDGET.month_usd), llm.get("run_usd", BUDGET.run_usd)),
-        devices={plug: _device(d) for plug, d in raw.get("devices", {}).items()},
+        devices={plug: _device(plug, d, site_policy) for plug, d in raw.get("devices", {}).items()},
+        policy=site_policy,
         app_db=path.parent / paths.get("app_db", "app.db"),
         energy_db=path.parent / paths.get("energy_db", "energy.db"),
     )
 
 
-def _device(d: dict[str, Any]) -> Device:
+def _device(plug: str, d: dict[str, Any], site: Policy) -> Device:
     if (access := d.get("access", "advice")) not in ACCESS:
         raise ValueError(f"access must be one of {', '.join(ACCESS)}, not {access!r}")
     rules = tuple(Rule(**r) for r in d.get("rules", []))
-    return Device(d["name"], access, tuple(d.get("slots", SLOTS)), rules)
+    policy = override(site, d.get("policy", {}), where=f'[devices."{plug}".policy]')
+    return Device(d["name"], access, tuple(d.get("slots", SLOTS)), rules, policy)
 
 
 def device(cfg: Config, plug: str) -> Device:
-    """The device on a plug, by the plug's name."""
-    return cfg.devices.get(plug, Device(plug))
+    """The device on a plug, by the plug's name. A plug not listed gets the site's policy."""
+    return cfg.devices.get(plug, Device(plug, policy=cfg.policy))
 
 
 def _tier(t: dict[str, Any]) -> Tier:

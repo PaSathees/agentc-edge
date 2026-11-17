@@ -5,6 +5,7 @@ import pytest
 from agentc import config
 from agentc.calc import Band, Factor, Period, Schedule, TimeOfUse
 from agentc.config import Budget, Device, Rule, Tier
+from agentc.policy import DEFAULT
 
 EXAMPLE = Path(__file__).parent.parent / "config.example.toml"
 
@@ -134,4 +135,32 @@ def test_a_device_can_use_other_slots(tmp_path):
 def test_an_unknown_access_fails_on_load(tmp_path):
     text = TOU + '\n[devices."Plug-2"]\nname = "TV"\naccess = "full"\n'
     with pytest.raises(ValueError, match="access must be one of none, advice, write"):
+        config.load(write(tmp_path, text))
+
+
+# thresholds: the site's [policy], then each device's own
+
+
+def test_without_a_policy_section_the_defaults_apply(tmp_path):
+    c = config.load(write(tmp_path, TOU))
+    assert c.policy == DEFAULT and config.device(c, "Plug-2").policy == DEFAULT
+
+
+def test_the_site_policy_reaches_every_device(tmp_path):
+    text = TOU + '\n[policy]\nmax_off_h = 16\n[devices."Plug-1"]\nname = "TV"\n'
+    c = config.load(write(tmp_path, text))
+    assert config.device(c, "Plug-1").policy.max_off_h == 16  # listed
+    assert config.device(c, "Plug-2").policy.max_off_h == 16  # not listed
+
+
+def test_a_device_policy_sits_on_top_of_the_site_one(tmp_path):
+    text = TOU + '\n[policy]\nmax_off_h = 16\n[devices."Plug-1"]\nname = "TV"\n'
+    text += '[devices."Plug-1".policy]\nmore_w = 20\n'
+    p = config.device(config.load(write(tmp_path, text)), "Plug-1").policy
+    assert (p.max_off_h, p.more_w) == (16, 20)
+
+
+def test_a_policy_typo_fails_on_load_and_says_where(tmp_path):
+    text = TOU + '\n[devices."Plug-1"]\nname = "TV"\n[devices."Plug-1".policy]\nmore_ww = 20\n'
+    with pytest.raises(ValueError, match=r'\[devices."Plug-1".policy\]: unknown policy more_ww'):
         config.load(write(tmp_path, text))

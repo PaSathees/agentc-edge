@@ -1,0 +1,62 @@
+"""Every threshold the agents decide with, in one place, each with why (B3a).
+
+Defaults are here. config.toml can change them for the whole site ([policy]) or for one
+device ([devices."Plug-6".policy]). Code reads only a device's own policy.
+"""
+
+from dataclasses import dataclass, field, fields, replace
+from typing import Any
+
+
+def value(default: float, why: str) -> Any:  # noqa: ANN401 (a dataclass field)
+    """A policy value with its reason, in plain words."""
+    return field(default=default, metadata={"why": why})
+
+
+@dataclass(frozen=True)
+class Policy:
+    # unusual use (the Watcher)
+    factor: float = value(2.0, "Unusual: more than this many times the usual power for the hour")
+    more_w: float = value(10.0, "... and at least this many watts more, so 0 W to 3 W is no alert")
+    run_min: int = value(30, "... for at least this many minutes")
+    small_w: float = value(3.0, "A small load left on: at least this many watts more ...")
+    long_run_min: int = value(180, "... counts only after this many minutes")
+    rarely_on: float = value(0.2, "Alert only at hours the plug is on for under this share of time")
+    # the plug's usual week (profile)
+    on_w: float = value(2.0, "Above this many watts, a plug counts as on")
+    min_days: int = value(7, "Days of readings needed before a profile or an answer")
+    # use and the fix (options)
+    use_w: float = value(10.0, "In use: at least this many watts above standby ...")
+    use_min: int = value(20, "... for at least this many minutes; a shorter check is not use")
+    step_min: int = value(30, "Timer times round to this many minutes ...")
+    margin_min: int = value(30, "... then this many more, so normal use is never cut")
+    max_off_h: float = value(12, "No fix keeps a plug off longer than this many hours")
+    # answers (jobs, checks, Responder)
+    history_days: int = value(14, "Days of readings behind an answer; a rejected fix waits as long")
+    same_within_min: int = value(30, "A repeat: same action, a shared day, within this many min")
+    expires_h: float = value(24, "An open proposal expires after this many hours")
+
+
+DEFAULT = Policy()
+NAMES = tuple(f.name for f in fields(Policy))
+
+
+def override(base: Policy, values: dict[str, Any], *, where: str) -> Policy:
+    """`base` with some values changed. A wrong name or a non-number fails here, at load."""
+    if bad := sorted(set(values) - set(NAMES)):
+        raise ValueError(f"{where}: unknown policy {', '.join(bad)}. Known: {', '.join(NAMES)}")
+    if bad := sorted(k for k, v in values.items() if isinstance(v, bool) or
+                     not isinstance(v, int | float)):  # fmt: skip
+        raise ValueError(f"{where}: {', '.join(bad)} must be a number")
+    return replace(base, **values)
+
+
+def explain(policy: Policy, site: Policy) -> list[tuple[str, float, str, str]]:
+    """Each value as (name, value, where it came from, why). site: the site's policy."""
+    rows = []
+    for f in fields(Policy):
+        v = getattr(policy, f.name)
+        source = ("device" if v != getattr(site, f.name) else
+                  "site" if v != getattr(DEFAULT, f.name) else "default")  # fmt: skip
+        rows.append((f.name, v, source, f.metadata["why"]))
+    return rows

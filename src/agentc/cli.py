@@ -13,6 +13,7 @@ import anthropic
 from agentc import calc, config, evals, jobs, llm, store, timers
 from agentc.config import Config
 from agentc.options import Proposal
+from agentc.policy import explain
 from agentc.responder import fix_words
 from agentc.watcher import Event
 
@@ -34,6 +35,8 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     replay = commands.add_parser("replay", help="play past days through the Watcher")
     replay.add_argument("--days", type=int, default=14, help="how many days to play")
     replay.add_argument("--respond", action="store_true", help="ask the model too (costs money)")
+    policy = commands.add_parser("policy", help="show each threshold, where it came from, and why")
+    policy.add_argument("plug", nargs="?", help="a name from config.toml; none: the whole site")
     score = commands.add_parser("eval", help="score the Responder on the eval cases")
     score.add_argument("--live", action="store_true", help="ask the real model and record (costs)")
     score.add_argument("--samples", type=int, default=10, help="tries per case when live")
@@ -47,12 +50,14 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
         return show_eval(model, samples=args.samples)
 
     cfg = config.load(args.config)
+    if args.command == "policy":
+        return show_policy(cfg, args.plug)
     db = store.connect(cfg.app_db)
     site_id = store.add_site(db, name=cfg.site, tz=cfg.tz)
     if args.command == "profile":
         return show_profile(db, cfg, site_id=site_id, plug=args.plug, days=args.days)
     if args.command == "watch":
-        return show_watch(db, cfg, site_id=site_id, ask=_ask(db, cfg, site_id, send))
+        return show_watch(db, cfg, site_id=site_id, model=_llm(db, cfg, site_id, send))
     if args.command == "replay":
         model = _send(send) if args.respond else None
         if args.respond and model is None:
@@ -60,6 +65,23 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
             return 1
         return show_replay(db, cfg, site_id=site_id, days=args.days, send=model)
     show_timers(db, site_id=site_id, plugs=cfg.plugs)
+    return 0
+
+
+def show_policy(cfg: Config, plug: str | None) -> int:
+    """Each threshold: its value, where it came from (default, site or device), and why."""
+    if plug and plug not in cfg.plugs:
+        print(f"{plug} is not in {', '.join(cfg.plugs)}.")
+        return 1
+    if plug:
+        device = config.device(cfg, plug)
+        print(f"{plug}: {device.name}")
+        policy = device.policy
+    else:
+        print(f"Site: {cfg.site}")
+        policy = cfg.policy
+    for name, value, source, why in explain(policy, cfg.policy):
+        print(f"  {name:<16}{value:>6g}  {source:<8}{why}")
     return 0
 
 
@@ -93,9 +115,11 @@ def show_profile(db: Connection, cfg: Config, *, site_id: int, plug: str, days: 
     end = datetime.now(UTC)
     start = end - timedelta(days=days)
     energy = store.open_readings(cfg.energy_db)
-    profile = calc.build_profile(store.readings(energy, plug=plug, start=start, end=end), tz=cfg.tz)
+    policy = config.device(cfg, plug).policy
+    readings = store.readings(energy, plug=plug, start=start, end=end)
+    profile = calc.build_profile(readings, tz=cfg.tz, policy=policy)
     if profile is None:
-        print(f"{plug}: not enough data yet. A profile needs {calc.MIN_DAYS} days.")
+        print(f"{plug}: not enough data yet. A profile needs {policy.min_days} days.")
         return 1
     store.save_profile(db, site_id=site_id, mac=mac, profile=profile)
     print(week_table(profile))
@@ -125,19 +149,18 @@ def _send(send: llm.Send | None) -> llm.Send | None:
     return send
 
 
-def _ask(db: Connection, cfg: Config, site_id: int, send: llm.Send | None) -> jobs.Ask | None:
-    """What the respond step needs, with model calls traced in `db`. None without a model."""
+def _llm(db: Connection, cfg: Config, site_id: int, send: llm.Send | None) -> llm.Llm | None:
+    """The door to the model, with its calls traced in `db`. None without a model."""
     if (s := _send(send)) is None:
         return None
-    return jobs.Ask(cfg, llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, s))
+    return llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, s)
 
 
-def show_watch(db: Connection, cfg: Config, *, site_id: int, ask: jobs.Ask | None) -> int:
+def show_watch(db: Connection, cfg: Config, *, site_id: int, model: llm.Llm | None) -> int:
     """Run the jobs that are due now; print new events, then new proposals."""
     energy = store.open_readings(cfg.energy_db)
     now = datetime.now(UTC)
-    events, made = jobs.run_due(db, energy, site_id=site_id, tz=cfg.tz, plugs=cfg.plugs,
-                                now=now, ask=ask)  # fmt: skip
+    events, made = jobs.run_due(db, energy, cfg, site_id=site_id, now=now, llm=model)
     names = {mac: name for name, mac in store.plug_macs(db, site_id=site_id).items()}
     for e in events:
         print(event_words(e, names, tz=cfg.tz))
@@ -145,7 +168,7 @@ def show_watch(db: Connection, cfg: Config, *, site_id: int, ask: jobs.Ask | Non
         print(proposal_words(p))
     if not events and not made:
         print("Nothing new.")
-    if ask is None:
+    if model is None:
         print(NO_KEY)
     return 0
 
@@ -179,22 +202,22 @@ def show_replay(
     for name, mac in store.plug_macs(copy, site_id=site_id).items():
         names[mac] = name
         readings = store.readings(energy, plug=name, start=start, end=end)
-        profile = calc.build_profile(readings, tz=cfg.tz)
+        profile = calc.build_profile(readings, tz=cfg.tz, policy=config.device(cfg, name).policy)
         if profile:
             store.save_profile(copy, site_id=site_id, mac=mac, profile=profile)
-    ask = _ask(copy, cfg, site_id, send) if send else None  # its calls go in the copy too
+    model = _llm(copy, cfg, site_id, send) if send else None  # its calls go in the copy too
     events: list[Event] = []
     made: list[Proposal] = []
     at = start + jobs.WATCH_EVERY
     while at <= end:
-        events += jobs.watch_pass(copy, energy, site_id=site_id, tz=cfg.tz, now=at)
-        if ask:
-            made += jobs.respond_pass(copy, energy, ask, site_id=site_id, now=at)
+        events += jobs.watch_pass(copy, energy, cfg, site_id=site_id, now=at)
+        if model:
+            made += jobs.respond_pass(copy, energy, cfg, model, site_id=site_id, now=at)
         at += jobs.WATCH_EVERY
     for n, e in enumerate(events, 1):
         print(f"{n}. {event_words(e, names, tz=cfg.tz)}")
     print(f"Events in {days} days: {len(events)}")
-    if ask:
+    if model:
         for p in made:
             print(proposal_words(p))
         usd = store.llm_usd(copy, site_id=site_id)

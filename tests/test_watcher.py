@@ -5,6 +5,7 @@ import pytest
 
 from agentc.calc import ProfileHour
 from agentc.devices.base import Timer
+from agentc.policy import DEFAULT, Policy
 from agentc.watcher import (
     Event,
     Run,
@@ -71,7 +72,7 @@ def test_is_unusual(watts, usual, unusual):
 
 def test_a_raised_factor_needs_more_power():  # after a "false alarm", the factor goes up
     assert is_unusual(25.0, Usual(10.0, 0.0))
-    assert not is_unusual(25.0, Usual(10.0, 0.0), factor=3.0)
+    assert not is_unusual(25.0, Usual(10.0, 0.0), Policy(factor=3.0))
 
 
 # unusual_runs: stretches of unusual power
@@ -107,6 +108,27 @@ def test_failed_reads_inside_a_run_are_skipped():
 def test_a_gap_over_5_minutes_restarts_the_count():
     readings = minutes(at(1), 20, 30.0) + minutes(at(1, 26), 20, 30.0)  # 6 min missing
     assert runs(readings) == []
+
+
+def test_a_plug_on_often_at_that_hour_needs_a_higher_rarely_on():
+    assert not is_unusual(30.0, Usual(0.0, 0.3))
+    assert is_unusual(30.0, Usual(0.0, 0.3), Policy(rarely_on=0.5))
+
+
+@pytest.mark.parametrize(
+    ("watts", "n", "policy", "count"),
+    [
+        (15.0, 61, DEFAULT, 1),  # 15 W more for an hour: the 10 W rule
+        (15.0, 61, Policy(more_w=20), 0),
+        (15.0, 61, Policy(run_min=61), 0),
+        (5.0, 181, DEFAULT, 1),  # 5 W more for 3 hours: the small-load rule
+        (5.0, 181, Policy(small_w=6), 0),
+        (5.0, 181, Policy(long_run_min=181), 0),
+    ],
+)
+def test_the_policy_sets_how_big_and_how_long(watts, n, policy, count):
+    found = unusual_runs(minutes(at(1), n, watts), OFF, tz="Asia/Colombo", policy=policy)
+    assert len(found) == count
 
 
 def test_a_normal_reading_ends_the_run():

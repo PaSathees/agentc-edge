@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-ON_W = 2.0  # above standby: a plug drawing more than this counts as "on"
-MIN_DAYS = 7  # a profile needs at least a week of readings (FR-02)
+from agentc.policy import DEFAULT, Policy
+
 BILL_DAYS = 30  # tariff bands are set for a 30-day bill
 
 
@@ -20,15 +20,14 @@ BILL_DAYS = 30  # tariff bands are set for a 30-day bill
 class ProfileHour:
     hour: int  # hour of the week in site local time: 0 = Monday 00:00, 167 = Sunday 23:00
     median_w: float
-    on_share: float  # share of the minutes above ON_W, 0 to 1
+    on_share: float  # share of the minutes above the policy's on_w, 0 to 1
     days_used: int  # how many separate days fed this hour
 
 
 def build_profile(
-    readings: list[tuple[datetime, float]], *, tz: str, on_w: float = ON_W,
-min_days: int = MIN_DAYS,
-) -> list[ProfileHour] | None:  # fmt: skip
-    """A plug's usual power for each hour of the week, or None with under min_days of data."""
+    readings: list[tuple[datetime, float]], *, tz: str, policy: Policy = DEFAULT
+) -> list[ProfileHour] | None:
+    """A plug's usual power for each hour of the week, or None under min_days of data (FR-02)."""
     zone = ZoneInfo(tz)
     watts: dict[int, list[float]] = defaultdict(list)  # hour of week -> every reading in it
     days: dict[int, set[str]] = defaultdict(set)  # hour of week -> the dates that fed it
@@ -37,13 +36,13 @@ min_days: int = MIN_DAYS,
         hour = local.weekday() * 24 + local.hour  # weekday(): Monday = 0
         watts[hour].append(w)
         days[hour].add(local.date().isoformat())
-    if len(set().union(*days.values())) < min_days:
+    if len(set().union(*days.values())) < policy.min_days:
         return None
     return [
         ProfileHour(
             hour=h,
             median_w=statistics.median(ws),
-            on_share=sum(w > on_w for w in ws) / len(ws),
+            on_share=sum(w > policy.on_w for w in ws) / len(ws),
             days_used=len(days[h]),
         )
         for h, ws in sorted(watts.items())

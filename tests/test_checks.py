@@ -4,6 +4,7 @@ import pytest
 
 from agentc.checks import Draft, Rule, Verdict, check, made_up
 from agentc.options import Change, Option, Proposal
+from agentc.policy import DEFAULT, Policy
 
 # Desk 2, as in EV-01
 A = Option("A", (Change(9, "off", "01:30", "1111111"), Change(10, "on", "07:00", "1111111")),
@@ -17,10 +18,11 @@ B: the same, weekdays only. Saves 0.031 kWh, LKR 3.2, 0.013 kgCO2e a week."""
 GOOD = Draft("A", "Desk 2 was left on at 5 W. Off at 01:30 and on at 7:00 saves LKR 3.2 a week.")
 
 
-def verdict(draft=GOOD, *, access="advice", slots=tuple(range(9, 17)), rules=(), rejected=()):
+def verdict(draft=GOOD, *, access="advice", slots=tuple(range(9, 17)), rules=(), rejected=(),
+            policy=DEFAULT):  # fmt: skip
     return check(
         draft, options=[A, B], facts=FACTS, access=access, slots=list(slots), rules=list(rules),
-        rejected=list(rejected),
+        rejected=list(rejected), policy=policy,
     )  # fmt: skip
 
 
@@ -134,6 +136,15 @@ def test_times_either_side_of_midnight_are_close():
 def test_a_different_change_is_not_a_repeat(change):
     weekdays = Draft("B", "Off at 01:30 and on at 07:00 on weekdays.")
     assert verdict(weekdays, rejected=[turned_down(change)]).blocked is None
+
+
+def test_the_policy_sets_how_close_and_how_long_a_repeat_is():
+    old = turned_down(Change(9, "off", "02:15", "1111111"))  # 45 minutes apart
+    assert verdict(rejected=[old]).blocked is None
+    wide = Policy(same_within_min=60, history_days=30)
+    assert verdict(rejected=[old], policy=wide).blocked == (
+        "repeat: the owner rejected the same change in the last 30 days"
+    )
 
 
 def test_the_same_times_on_fewer_days_is_a_repeat():  # EV-02

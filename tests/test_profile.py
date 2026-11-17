@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from agentc.calc import ProfileHour, build_profile
+from agentc.policy import Policy
 
 COLOMBO = ZoneInfo("Asia/Colombo")
 MONDAY = datetime(2026, 11, 2, tzinfo=COLOMBO)  # Monday 00:00 local
@@ -54,3 +55,10 @@ def test_hours_use_local_time_not_utc():
 
 def test_under_seven_days_gives_no_profile():
     assert build_profile(week_of_minutes(desk, days=6), tz="Asia/Colombo") is None
+
+
+def test_the_policy_sets_on_and_the_days_needed():
+    week = week_of_minutes(desk)  # 10 W at 01:00, 1 W standby
+    hour1 = by_hour(build_profile(week, tz="Asia/Colombo", policy=Policy(on_w=10)))[1]
+    assert hour1.on_share == 0.0  # 10 W is not above 10 W
+    assert build_profile(week, tz="Asia/Colombo", policy=Policy(min_days=8)) is None

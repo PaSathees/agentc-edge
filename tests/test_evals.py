@@ -171,8 +171,7 @@ def test_two_events_in_one_pass_get_one_result_each(tmp_path):  # EV-06
     store.add_event(app, site_id=1, event=Event("unusual_use", "DD", night, {}), dedupe="desk")
     cfg = evals.settings()
     llm = Llm(app, 1, cfg.tz, cfg.tiers, cfg.budget, FakeModel(), clock=lambda: evals.NOW)
-    made = jobs.respond_pass(app, store.open_readings(energy), jobs.Ask(cfg, llm), site_id=1,
-                             now=evals.NOW)  # fmt: skip
+    made = jobs.respond_pass(app, store.open_readings(energy), cfg, llm, site_id=1, now=evals.NOW)
     assert [p.plug_mac for p in made] == ["DD"]
     assert app.execute("SELECT event_id FROM proposals").fetchall() == [(2,)]
     assert app.execute("SELECT kind, status FROM events ORDER BY id").fetchall() == [
