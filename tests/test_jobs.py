@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import config, jobs, store
+from agentc import config, jobs, learn, store
 from agentc.calc import ProfileHour
 from agentc.config import Budget
 from agentc.llm import Llm
@@ -352,3 +352,50 @@ def test_the_device_policy_sets_which_readings_and_runs_the_answer_sees(app, tmp
     assert answer(app, desk_energy(tmp_path), FakeModel(), cfg=replace(CFG, policy=policy)) == []
     (why,) = app.execute("SELECT detail FROM audit").fetchone()
     assert why == '{"why": "no run in the readings"}'
+
+
+# learning each plug's levels (B3b)
+
+
+def test_learning_saves_each_plugs_values(app, tmp_path):
+    found = jobs.learn_pass(app, desk_energy(tmp_path), CFG, site_id=1, now=END)
+    assert found["Plug-6"] == learn.Levels(standby=5.0, active=30.0)
+    assert {k: v for k, (v, _) in store.learned(app, mac="AA").items()} == {
+        "use_w": 12.5, "more_w": 12.5, "small_w": 2.5
+    }  # fmt: skip
+
+
+def test_a_plug_with_too_few_days_keeps_what_it_learned(app, tmp_path):
+    store.save_learned(app, site_id=1, mac="AA", values={"use_w": (9.0, "old")}, at=END)
+    found = jobs.learn_pass(app, desk_energy(tmp_path), CFG, site_id=1,
+                            now=START + timedelta(days=6, hours=23))  # fmt: skip
+    assert "Plug-6" not in found
+    assert store.learned(app, mac="AA") == {"use_w": (9.0, "old")}
+
+
+def test_learned_values_reach_the_watch_pass(app, tmp_path):
+    db = energy(tmp_path, lambda t: 2.0 if t >= MONDAY + timedelta(minutes=30) else 0.0)
+    assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []  # 2 W: under the 3 W rule
+    store.save_learned(app, site_id=1, mac="AA", values={"small_w": (1.0, "learned")}, at=NOW)
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("unusual_use", "AA")]
+
+
+def test_learned_values_reach_the_respond_step(app, tmp_path):
+    left_on(app, 1)
+    store.save_learned(app, site_id=1, mac="AA", values={"use_w": (40.0, "learned")}, at=END)
+    assert answer(app, desk_energy(tmp_path), FakeModel()) == []  # 30 W at the desk: not use
+    (why,) = app.execute("SELECT detail FROM audit").fetchone()
+    assert why == '{"why": "nothing to offer"}'
+
+
+def test_a_plug_down_to_one_level_forgets_what_it_learned(app, tmp_path):
+    store.save_learned(app, site_id=1, mac="AA", values={"use_w": (9.0, "old")}, at=END)
+    jobs.learn_pass(app, desk_energy(tmp_path, waste=()), CFG, site_id=1, now=END)  # 30 W only
+    assert store.learned(app, mac="AA") == {}
+
+
+def test_learning_runs_once_a_day(app, plugs, tmp_path):
+    ips = {name: p.ip for name, p in plugs.items()}
+    jobs.run_due(app, desk_energy(tmp_path), replace(CFG, plugs=ips), site_id=1, now=END)
+    assert store.last_run(app, site_id=1, job="learn") == END
+    assert store.learned(app, mac="AA") != {}

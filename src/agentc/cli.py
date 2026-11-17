@@ -35,6 +35,7 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     replay = commands.add_parser("replay", help="play past days through the Watcher")
     replay.add_argument("--days", type=int, default=14, help="how many days to play")
     replay.add_argument("--respond", action="store_true", help="ask the model too (costs money)")
+    commands.add_parser("learn", help="learn each plug's levels from its readings, and show them")
     policy = commands.add_parser("policy", help="show each threshold, where it came from, and why")
     policy.add_argument("plug", nargs="?", help="a name from config.toml; none: the whole site")
     score = commands.add_parser("eval", help="score the Responder on the eval cases")
@@ -50,10 +51,12 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
         return show_eval(model, samples=args.samples)
 
     cfg = config.load(args.config)
-    if args.command == "policy":
-        return show_policy(cfg, args.plug)
     db = store.connect(cfg.app_db)
     site_id = store.add_site(db, name=cfg.site, tz=cfg.tz)
+    if args.command == "policy":
+        return show_policy(db, cfg, args.plug)
+    if args.command == "learn":
+        return show_learn(db, cfg, site_id=site_id)
     if args.command == "profile":
         return show_profile(db, cfg, site_id=site_id, plug=args.plug, days=args.days)
     if args.command == "watch":
@@ -68,20 +71,35 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     return 0
 
 
-def show_policy(cfg: Config, plug: str | None) -> int:
-    """Each threshold: its value, where it came from (default, site or device), and why."""
+def show_policy(db: Connection, cfg: Config, plug: str | None) -> int:
+    """Each threshold: its value, where it came from (default, learned, site, device), and why."""
     if plug and plug not in cfg.plugs:
         print(f"{plug} is not in {', '.join(cfg.plugs)}.")
         return 1
     if plug:
-        device = config.device(cfg, plug)
+        mac = store.plug_mac(db, name=plug)
+        device = config.device(cfg, plug, store.learned(db, mac=mac) if mac else None)
         print(f"{plug}: {device.name}")
-        policy = device.policy
+        rows = explain(device.policy, site=cfg.own, device=device.own, learned=device.learned)
     else:
         print(f"Site: {cfg.site}")
-        policy = cfg.policy
-    for name, value, source, why in explain(policy, cfg.policy):
+        rows = explain(cfg.policy, site=cfg.own)
+    for name, value, source, why in rows:
         print(f"  {name:<16}{value:>6g}  {source:<8}{why}")
+    return 0
+
+
+def show_learn(db: Connection, cfg: Config, *, site_id: int) -> int:
+    """Learn each plug's levels now, and say what each one learned."""
+    energy = store.open_readings(cfg.energy_db)
+    found = jobs.learn_pass(db, energy, cfg, site_id=site_id, now=datetime.now(UTC))
+    for name in store.plug_macs(db, site_id=site_id):
+        if name not in found:
+            print(f"{name}: not enough days of readings yet")
+        elif (lv := found[name]) is None:
+            print(f"{name}: one level or none, so it keeps the defaults")
+        else:
+            print(f"{name}: standby {lv.standby:g} W, active {lv.active:g} W")
     return 0
 
 
@@ -191,7 +209,8 @@ def show_replay(
     """Play past days through the Watcher, one pass every 15 min, and list the events.
 
     send: also ask the model after each pass, and list the proposals. It works on a
-    copy of app.db in memory, so the real app.db is not changed.
+    copy of app.db in memory, so the real app.db is not changed. Profiles and learned
+    values come from the same days it plays, so it is a little kinder than real life.
     """
     copy = sqlite3.connect(":memory:")
     db.backup(copy)
@@ -205,6 +224,7 @@ def show_replay(
         profile = calc.build_profile(readings, tz=cfg.tz, policy=config.device(cfg, name).policy)
         if profile:
             store.save_profile(copy, site_id=site_id, mac=mac, profile=profile)
+    jobs.learn_pass(copy, energy, cfg, site_id=site_id, now=end)  # in the copy only
     model = _llm(copy, cfg, site_id, send) if send else None  # its calls go in the copy too
     events: list[Event] = []
     made: list[Proposal] = []

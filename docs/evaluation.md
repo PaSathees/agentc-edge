@@ -43,6 +43,55 @@ Where EV-01 to EV-06 run (B3, 2026-11-17):
 | FM | Failure mode | Count | Serves | Fix |
 |---|---|---|---|---|
 | FM-01 | A rule's text names a limit its data does not hold ("on work nights", but the rule has no days), so the model guesses whether it applies | EV-03: 1 of 10 picked A because of it; 2 more reasons hedged on it | FR-05 | B6: rules get days, and the text is written from the data. Until then, rule text must not say more than the rule |
+| FM-02 | "In use" is any minute used on any day in the window. In irregular homes that covers most of the day, so no gap is left to fix (a TV site in use 1,412 of 1,440 minutes) | REFIT, 3 houses: 0 of 55 runs get a fix; with use on 2 days, 1; on 3 days, 3 | FR-15 | Use needs a minute used on several days. Not enough alone: see FM-03 |
+| FM-03 | Most "unusual runs" in other homes are real use at an odd hour (a TV at 09:22, a computer on a Saturday afternoon), not power left on. A timer cannot fix those, and should not | REFIT: most of the 55 runs | FR-09, FR-15 | Tell "on at an odd hour" from "left on": e.g. power near standby for hours. Then propose only for the second |
+| FM-04 | A must-run device (fridge, freezer) raises alerts from its own cycles | REFIT house 1 fridge: 3.8 a week, fixed and learned | FR-09 | Device type says must run (B6 and the ontology link): no alerts, no fixes |
+
+## Public homes (B3b)
+
+The rules were tuned on one home. Here they run on 3 public homes, 27 appliances with their own meter, 1 to 28 September 2014: REFIT Electrical Load Measurements (Cleaned), Zenodo record 5063428, CC BY 4.0. Script: `evals/refit.py` (it downloads nothing; the CSVs go in the gitignored `data/refit/`). Channel names from NILMTK's REFIT metadata.
+
+| | Fixed values | Learned values |
+|---|---|---|
+| Unusual runs a week, all 27 appliances | 13.6 | 11.9 |
+| Runs with a fix offered | 0 of 55 | 0 of 48 |
+
+What the numbers say:
+
+- **Learning cuts false alarms on big machines.** A dishwasher at 2,272 W active gets `more_w` of about 1,100 W, so its normal cycles stop being unusual (1.8 a week to 0). Same for washing machines. One went up (house 11 washing machine, 0.2 to 1.0 a week): its learned `small_w` of 1 W counts a 2 W standby left on.
+- **Two levels is too few for some machines.** A washing machine gets "standby" 87 W: that is a wash phase, not standby. A dishwasher gets 130 W. The values still work, but the levels are not what a person would call them.
+- **No fixes at all, with either set of values.** The Responder's fix (a timer over the quiet gap that holds left-on power) fits Desk 2, a very regular desk. In these homes, FM-02 and FM-03 below stop it. This is the main finding: the waste the Responder can fix today is narrow.
+- **Fridges and freezers raise alerts but get no fix** (FM-04). No fix is right; the alerts are noise.
+
+| House | Appliance | Levels (standby, active W) | Runs a week: fixed, learned | Runs with a fix: fixed, learned |
+|---|---|---|---|---|
+| 1 | Fridge | one level | 3.8, 3.8 | 0, 0 |
+| 1 | Freezer (1) | one level | 0.0, 0.0 | 0, 0 |
+| 1 | Freezer (2) | one level | 0.0, 0.0 | 0, 0 |
+| 1 | Washer dryer | 2, 1322.25 | 0.0, 0.0 | 0, 0 |
+| 1 | Washing machine | 86.8, 1144.55 | 0.5, 0.0 | 0, 0 |
+| 1 | Dishwasher | 1, 2272.25 | 1.8, 0.0 | 0, 0 |
+| 1 | Computer | 1, 26.8571 | 3.0, 3.0 | 0, 0 |
+| 1 | TV site | one level | 1.2, 1.2 | 0, 0 |
+| 1 | Electric heater | one level | 0.0, 0.0 | 0, 0 |
+| 4 | Fridge | 7.1, 51.1429 | 0.0, 0.0 | 0, 0 |
+| 4 | Freezer | one level | 0.0, 0.0 | 0, 0 |
+| 4 | Fridge-freezer | one level | 0.2, 0.2 | 0, 0 |
+| 4 | Tumble dryer | 4.33333, 399.429 | 0.0, 0.0 | 0, 0 |
+| 4 | Washing machine (1) | 0.909091, 147.05 | 0.0, 0.0 | 0, 0 |
+| 4 | Washing machine (2) | 11, 81.2 | 0.0, 0.0 | 0, 0 |
+| 4 | TV site | 10, 77.8889 | 1.5, 1.5 | 0, 0 |
+| 4 | Microwave | 8.4, 128 | 0.0, 0.0 | 0, 0 |
+| 4 | Kettle | 4.57143, 1717.7 | 0.0, 0.0 | 0, 0 |
+| 11 | Fridge | one level | 0.0, 0.0 | 0, 0 |
+| 11 | Fridge-freezer | one level | 0.2, 0.2 | 0, 0 |
+| 11 | Washing machine | 2, 87.3 | 0.2, 1.0 | 0, 0 |
+| 11 | Dishwasher | 130.395, 2887.27 | 0.2, 0.0 | 0, 0 |
+| 11 | Computer site | 8, 31 | 0.2, 0.2 | 0, 0 |
+| 11 | Microwave | one level | 0.0, 0.0 | 0, 0 |
+| 11 | Kettle | 8.1, 1687.7 | 0.0, 0.0 | 0, 0 |
+| 11 | Router | one level | 0.0, 0.0 | 0, 0 |
+| 11 | Hi-fi | one level | 0.8, 0.8 | 0, 0 |
 
 ## Old vs new
 Same inputs, AgentC vs rebuild: tokens, cost, latency per run and per month.

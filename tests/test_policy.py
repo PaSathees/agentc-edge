@@ -33,11 +33,13 @@ def test_a_value_that_is_not_a_number_fails(value):
         override(DEFAULT, {"max_off_h": value}, where="[policy]")
 
 
-def test_explain_says_where_each_value_came_from():
-    site = override(DEFAULT, {"max_off_h": 16}, where="site")
-    device = override(site, {"more_w": 20}, where="device")
-    rows = {name: (value, source) for name, value, source, _ in explain(device, site)}
-    assert (rows["more_w"], rows["max_off_h"], rows["factor"]) == (
-        (20, "device"), (16, "site"), (2.0, "default")
-    )  # fmt: skip
-    assert list(rows) == list(NAMES)
+def test_explain_says_where_each_value_came_from_and_why():
+    p = override(DEFAULT, {"max_off_h": 16, "more_w": 20, "small_w": 1.5}, where="test")
+    rows = explain(p, site=frozenset({"max_off_h"}), device=frozenset({"more_w"}),
+                   learned={"small_w": "learned: half the standby"})  # fmt: skip
+    got = {name: (value, source, why) for name, value, source, why in rows}
+    assert got["more_w"][:2] == (20, "device")
+    assert got["max_off_h"][:2] == (16, "site")
+    assert got["small_w"] == (1.5, "learned", "learned: half the standby")
+    assert got["factor"][1] == "default"
+    assert list(got) == list(NAMES)

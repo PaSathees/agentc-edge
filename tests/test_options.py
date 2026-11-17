@@ -7,9 +7,10 @@ from agentc.calc import Band, Factor, Period, Schedule, TimeOfUse
 from agentc.devices.base import Timer
 from agentc.options import (
     Change,
+    Gap,
     Money,
-    Use,
     clock,
+    gap,
     lkr,
     minutes,
     of,
@@ -29,6 +30,11 @@ TARIFF = (Schedule(None, (Band(60, 30), Band(None, 50))),)  # every saved unit a
 MONEY = Money(TARIFF, month_kwh=100, levy=0.0, factor=Factor("f", 0.5, "Example", "2025-01-01"))
 
 
+def later(hhmm):
+    """How long after the 06:00 START the clock next reads hhmm: 02:00 is 20 hours."""
+    return timedelta(minutes=(of(hhmm) - of("06:00")) % (24 * 60))
+
+
 def desk(waste=(0, 1)):
     """14 days of Desk 2, one reading a minute, like EV-01.
 
@@ -40,9 +46,9 @@ def desk(waste=(0, 1)):
         local = START + timedelta(minutes=n)
         m = minutes(local)
         w = 0.0
-        if of("07:45") <= m <= of("08:45") or of("19:00") <= m <= of("00:50"):
+        if of("07:45") <= m <= of("08:45") or m >= of("19:00") or m <= of("00:50"):
             w = 30.0
-        elif n // (24 * 60) in waste and m >= of("01:00"):
+        elif n // (24 * 60) in waste and of("01:00") <= m < of("06:00"):
             w = 30.0 if m < of("01:10") else 5.0
         rows.append((local.astimezone(UTC), w))
     return rows
@@ -50,16 +56,16 @@ def desk(waste=(0, 1)):
 
 def night(day):
     """The waste on the night of `day`, as the Watcher would find it."""
-    begin = START + timedelta(days=day, minutes=of("01:00"))
+    begin = START + timedelta(days=day) + later("01:00")
     end = begin + timedelta(hours=4, minutes=59)  # 05:59
     return Run(begin.astimezone(UTC), end.astimezone(UTC), 30.0)
 
 
 def fix(run, readings, *, timers=(), slots=FREE, money=MONEY):
-    u = use(readings, OFF, tz="Asia/Colombo")
-    assert u is not None
+    g = gap(use(readings, OFF, tz="Asia/Colombo"), run, tz="Asia/Colombo")
+    assert g is not None
     return offer(
-        run, readings, u, tz="Asia/Colombo", days=14, timers=list(timers), slots=slots,
+        run, readings, g, tz="Asia/Colombo", days=14, timers=list(timers), slots=slots,
         money=money,
     )  # fmt: skip
 
@@ -68,53 +74,94 @@ def timer(slot, time, action, enable=True):
     return Timer(slot, enable, 0, time, 0, "1111111", True, 1, action)
 
 
-# the day runs 06:00 to 06:00
+# times on the clock: no day start
 
 
-def test_minutes_count_from_06_00():
-    assert minutes(datetime(2026, 11, 2, 6, 0)) == 0
-    assert minutes(datetime(2026, 11, 2, 5, 59)) == 24 * 60 - 1  # the end of the day before
-    assert of("01:30") == 19 * 60 + 30
-    assert clock(of("01:30")) == "01:30"
+def test_minutes_count_from_midnight():
+    assert (minutes(datetime(2026, 11, 2, 0, 52)), of("07:45"), clock(of("01:30"))) == (
+        52, 465, "01:30"
+    )  # fmt: skip
+    assert clock(24 * 60 + 90) == "01:30"
 
 
-# use: when the plug is normally used
+# use: the minutes of the day the plug is used
 
 
 def at(day, hhmm, n, watts):
-    """n readings, one a minute, from hhmm on `day` (06:00 to 06:00), all at `watts`."""
-    begin = START + timedelta(days=day, minutes=of(hhmm))
+    """n readings, one a minute, from the clock's next hhmm after day `day` starts, at `watts`."""
+    begin = START + timedelta(days=day) + later(hhmm)
     return [((begin + timedelta(minutes=k)).astimezone(UTC), watts) for k in range(n)]
 
 
-def test_a_10_minute_check_at_night_is_not_use():
-    # the waste nights start with 10 minutes at 30 W, then 5 W left on: neither is use
-    assert use(desk(), OFF, tz="Asia/Colombo") == Use(latest=of("00:50"), first=of("07:45"))
+def span(start, end):
+    """The clock minutes from start to end, both in."""
+    return frozenset(range(of(start), of(end) + 1))
 
 
 def test_20_minutes_or_more_is_use():
-    assert use(at(0, "02:00", 21, 30.0), OFF, tz="Asia/Colombo") == Use(of("02:20"), of("02:00"))
+    assert use(at(0, "02:00", 21, 30.0), OFF, tz="Asia/Colombo") == span("02:00", "02:20")
 
 
 def test_the_policy_sets_what_use_is():
     readings = at(0, "02:00", 21, 10.0)  # 10 W for 20 minutes
-    assert use(readings, OFF, tz="Asia/Colombo", policy=Policy(use_w=11)) is None
-    assert use(readings, OFF, tz="Asia/Colombo", policy=Policy(use_min=21)) is None
+    assert use(readings, OFF, tz="Asia/Colombo", policy=Policy(use_w=11)) == frozenset()
+    assert use(readings, OFF, tz="Asia/Colombo", policy=Policy(use_min=21)) == frozenset()
 
 
 def test_exactly_10_w_above_standby_is_use():
-    assert use(at(0, "02:00", 21, 10.0), OFF, tz="Asia/Colombo") == Use(of("02:20"), of("02:00"))
+    assert use(at(0, "02:00", 21, 10.0), OFF, tz="Asia/Colombo") == span("02:00", "02:20")
 
 
 def test_a_gap_over_5_minutes_starts_a_new_use():
     readings = at(0, "02:00", 11, 30.0) + at(0, "02:16", 21, 30.0)  # 10 min, 6 min gap, 20 min
-    assert use(readings, OFF, tz="Asia/Colombo") == Use(of("02:36"), of("02:16"))
+    assert use(readings, OFF, tz="Asia/Colombo") == span("02:16", "02:36")
 
 
 def test_standby_is_not_use():
     standby = {h: Usual(watts=8.0, on_share=0.0) for h in range(168)}  # 8 W all the time
     readings = at(0, "02:00", 30, 15.0)  # 7 W above standby: under 10 W more
-    assert use(readings, standby, tz="Asia/Colombo") is None
+    assert use(readings, standby, tz="Asia/Colombo") == frozenset()
+
+
+# gap: the stretch with no use that the run falls in
+
+
+def run_at(start, end):
+    begin = START + later(start)
+    return Run(begin.astimezone(UTC), (begin + (later(end) - later(start))).astimezone(UTC), 30.0)
+
+
+def desk_use():
+    return use(desk(), OFF, tz="Asia/Colombo")
+
+
+def test_night_waste_gets_the_night_gap():
+    # the waste nights start with 10 minutes at 30 W, then 5 W left on: neither is use
+    assert gap(desk_use(), night(0), tz="Asia/Colombo") == Gap(of("00:50"), of("07:45"))
+
+
+def test_daytime_waste_gets_the_daytime_gap():
+    assert gap(desk_use(), run_at("12:00", "14:00"), tz="Asia/Colombo") == Gap(
+        of("08:45"), of("19:00")
+    )  # fmt: skip
+
+
+def test_a_run_that_starts_in_use_takes_the_gap_after_it():
+    assert gap(desk_use(), run_at("00:00", "03:00"), tz="Asia/Colombo") == Gap(
+        of("00:50"), of("07:45")
+    )  # fmt: skip
+
+
+def test_a_gap_over_midnight():
+    days = [(t, 30.0 if of("06:00") <= minutes(t.astimezone(COLOMBO)) < of("22:00") else 0.0)
+            for t, _ in desk()]  # fmt: skip
+    used = use(days, OFF, tz="Asia/Colombo")
+    assert gap(used, run_at("23:00", "23:59"), tz="Asia/Colombo") == Gap(of("21:59"), of("06:00"))
+
+
+def test_no_gap_when_the_run_is_all_in_use_or_there_is_no_use():
+    assert gap(desk_use(), run_at("20:00", "21:00"), tz="Asia/Colombo") is None
+    assert gap(frozenset(), night(0), tz="Asia/Colombo") is None
 
 
 # window: the off and on times
@@ -122,26 +169,33 @@ def test_standby_is_not_use():
 
 def test_off_half_an_hour_after_the_latest_use_on_before_the_first():
     # EV-01: in use until 00:50, first use 07:45
-    assert window(Use(latest=of("00:50"), first=of("07:45"))) == (of("01:30"), of("07:00"))
+    assert window(Gap(latest=of("00:50"), first=of("07:45"))) == (of("01:30"), of("07:00"))
 
 
 def test_a_use_ending_on_the_half_hour_is_not_rounded_up_again():
-    assert window(Use(latest=of("01:00"), first=of("09:00"))) == (of("01:30"), of("08:30"))
+    assert window(Gap(latest=of("01:00"), first=of("09:00"))) == (of("01:30"), of("08:30"))
 
 
 def test_the_policy_sets_the_step_and_the_margin():
-    u = Use(latest=of("00:52"), first=of("07:45"))
-    assert window(u, Policy(step_min=15, margin_min=15)) == (of("01:15"), of("07:30"))
+    g = Gap(latest=of("00:52"), first=of("07:45"))
+    assert window(g, Policy(step_min=15, margin_min=15)) == (of("01:15"), of("07:30"))
 
 
 def test_no_fix_keeps_a_plug_off_longer_than_max_off_h():  # the 18 h fix from thin data
-    u = Use(latest=of("20:14"), first=of("15:40"))
-    assert window(u) is None
-    assert window(u, Policy(max_off_h=18)) == (of("21:00"), of("15:00"))
+    g = Gap(latest=of("20:14"), first=of("15:40"))
+    assert window(g) is None
+    assert window(g, Policy(max_off_h=18)) == (of("21:00"), of("15:00"))
 
 
-def test_no_gap_long_enough_means_no_window():
-    assert window(Use(latest=of("05:50"), first=of("06:10"))) is None
+@pytest.mark.parametrize(("latest", "first"), [("05:50", "06:10"), ("01:00", "01:30")])
+def test_no_gap_long_enough_means_no_window(latest, first):
+    no_cap = Policy(max_off_h=24)  # so only the gap's own length decides
+    assert window(Gap(of(latest), of(first)), no_cap) is None
+
+
+def test_a_window_over_midnight():
+    assert window(Gap(latest=of("22:00"), first=of("06:00"))) == (of("22:30"), of("05:30"))
+    assert window(Gap(latest=of("23:45"), first=of("06:00"))) == (of("00:30"), of("05:30"))
 
 
 # offer: the fixes for one event
@@ -190,22 +244,38 @@ def test_no_free_slot_means_no_fix():
     assert fix(night(0), desk(), slots=[9]) == []  # needs 2: off and on
 
 
+def test_daytime_waste_gets_a_daytime_fix():
+    noon = run_at("12:00", "14:00")
+    readings = [(t, 5.0 if noon.start <= t <= noon.end else w) for t, w in desk()]
+    a, _ = fix(noon, readings)
+    assert [(c.action, c.time) for c in a.changes] == [("off", "09:30"), ("on", "18:30")]
+
+
+def test_a_run_after_one_nights_window_takes_the_next_nights():
+    # Friday 08:00 to Saturday 03:00: the Friday 01:30 window had closed; Saturday's cuts it
+    friday = START + timedelta(days=4)
+    run = Run((friday + later("08:00")).astimezone(UTC), (friday + later("03:00")).astimezone(UTC),
+              30.0)  # fmt: skip
+    readings = desk(waste=(4,))  # left on into Saturday morning
+    _, b = offer(run, readings, Gap(of("00:50"), of("07:45")), tz="Asia/Colombo", days=14,
+                 timers=[], slots=FREE, money=MONEY)  # fmt: skip
+    assert b.changes[0].days == "1000001"  # weekends: Saturday's window
+
+
 def test_a_run_the_timers_would_not_cut_has_no_fix():
-    noon = START + timedelta(hours=6)  # 12:00 to 13:00
-    run = Run(noon.astimezone(UTC), (noon + timedelta(hours=1)).astimezone(UTC), 30.0)
-    assert fix(run, desk()) == []
+    assert fix(run_at("00:52", "01:20"), desk()) == []  # in the gap, but over before 01:30
 
 
-def test_used_all_day_has_no_fix():
+def test_used_all_day_has_no_gap_so_no_fix():
     busy = [(at, 30.0) for at, _ in desk()]
-    assert fix(night(0), busy) == []
+    assert gap(use(busy, OFF, tz="Asia/Colombo"), night(0), tz="Asia/Colombo") is None
 
 
 # saved and lkr
 
 
 def test_a_gap_in_readings_counts_5_minutes_at_most():
-    at = START + timedelta(minutes=of("02:00"))
+    at = START + later("02:00")
     readings = [(at.astimezone(UTC), 60.0), ((at + timedelta(hours=1)).astimezone(UTC), 60.0)]
     assert saved(readings, of("01:30"), of("07:00"), "1111111", COLOMBO) == pytest.approx(0.005)
 

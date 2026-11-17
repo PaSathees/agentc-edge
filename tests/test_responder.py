@@ -6,7 +6,7 @@ import pytest
 from agentc import responder, store
 from agentc.config import Budget, Device, Rule, Tier
 from agentc.llm import Llm
-from agentc.options import Change, Option, Proposal, Use, of
+from agentc.options import Change, Gap, Option, Proposal, of
 from agentc.policy import Policy
 from agentc.watcher import Event, Run, Usual
 from tests.test_options import MONEY, OFF, desk, night
@@ -22,7 +22,7 @@ GOOD = {"option": "A", "reason": "Desk 2 was left on at 5 W. Off at 01:30 saves 
 
 
 def case(device=DESK, options=(A, B), rejected=()):
-    return responder.Case("AA", device, RUN, 1.0, Use(of("00:52"), of("07:45")), list(options),
+    return responder.Case("AA", device, RUN, 1.0, Gap(of("00:52"), of("07:45")), list(options),
                           list(rejected), days=14)  # fmt: skip
 
 
@@ -65,7 +65,7 @@ def test_gather_finds_the_use_and_the_fixes():
     c = responder.gather(night(1), mac="AA", device=DESK, readings=desk(), usual=OFF, timers=[],
                          money=MONEY, rejected=[], tz="Asia/Colombo", days=14)  # fmt: skip
     assert c is not None
-    assert (c.use, c.usual_w, [o.id for o in c.options]) == (Use(of("00:50"), of("07:45")), 0.0,
+    assert (c.gap, c.usual_w, [o.id for o in c.options]) == (Gap(of("00:50"), of("07:45")), 0.0,
                                                               ["A", "B"])  # fmt: skip
 
 
@@ -119,7 +119,7 @@ def test_a_run_past_midnight_gives_the_day_it_started():
     late = Run(
         datetime(2026, 11, 2, 18, 0, tzinfo=UTC), datetime(2026, 11, 2, 20, 0, tzinfo=UTC), 5.0
     )
-    c = responder.Case("AA", DESK, late, 1.0, Use(of("00:52"), of("07:45")), [A], [], days=14)
+    c = responder.Case("AA", DESK, late, 1.0, Gap(of("00:52"), of("07:45")), [A], [], days=14)
     assert "from 23:30 to 01:30 on Mon 02 Nov." in responder.describe(c, tz="Asia/Colombo")
 
 

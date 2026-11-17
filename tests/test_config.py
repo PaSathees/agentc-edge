@@ -164,3 +164,23 @@ def test_a_policy_typo_fails_on_load_and_says_where(tmp_path):
     text = TOU + '\n[devices."Plug-1"]\nname = "TV"\n[devices."Plug-1".policy]\nmore_ww = 20\n'
     with pytest.raises(ValueError, match=r'\[devices."Plug-1".policy\]: unknown policy more_ww'):
         config.load(write(tmp_path, text))
+
+
+# learned values fill in only what the owner did not set (B3b)
+
+LEARNED = {"use_w": (12.0, "learned: half way"), "max_off_h": (20.0, "learned: x")}
+
+
+def test_learned_values_fill_in_and_say_why(tmp_path):
+    d = config.device(config.load(write(tmp_path, TOU)), "Plug-2", LEARNED)
+    assert (d.policy.use_w, d.policy.max_off_h) == (12.0, 20.0)
+    assert d.learned == {"use_w": "learned: half way", "max_off_h": "learned: x"}
+
+
+def test_the_owner_beats_what_was_learned(tmp_path):
+    text = TOU + '\n[policy]\nmax_off_h = 16\n[devices."Plug-1"]\nname = "TV"\n'
+    text += '[devices."Plug-1".policy]\nuse_w = 5\n'
+    c = config.load(write(tmp_path, text))
+    d = config.device(c, "Plug-1", LEARNED)
+    assert (d.policy.use_w, d.policy.max_off_h, d.learned) == (5, 16, {})
+    assert config.device(c, "Plug-2", LEARNED).policy.max_off_h == 16  # site beats learned too

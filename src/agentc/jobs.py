@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 from sqlite3 import Connection
 
-from agentc import config, responder, store, timers, watcher
+from agentc import config, learn, responder, store, timers, watcher
 from agentc.config import Config
 from agentc.llm import Llm, OverBudget
 from agentc.options import Money, Proposal
@@ -13,6 +13,7 @@ from agentc.watcher import MAX_GAP, Event, Run, Usual
 LOOKBACK = timedelta(hours=24)  # how far back each pass looks for unusual runs
 WATCH_EVERY = timedelta(minutes=15)
 TIMERS_EVERY = timedelta(days=1)
+LEARN_EVERY = timedelta(days=1)
 
 
 def run_due(
@@ -33,6 +34,9 @@ def run_due(
     if _due(app, site_id, "timers", TIMERS_EVERY, now):
         events += timer_check(app, cfg, site_id=site_id, now=now)
         store.set_last_run(app, site_id=site_id, job="timers", at=now)
+    if _due(app, site_id, "learn", LEARN_EVERY, now):
+        learn_pass(app, energy, cfg, site_id=site_id, now=now)
+        store.set_last_run(app, site_id=site_id, job="learn", at=now)
     return events, made
 
 
@@ -52,7 +56,7 @@ def watch_pass(
     for name, mac in macs.items():
         usual = watcher.usual_week(store.load_profile(app, mac=mac))  # no profile: never unusual
         readings = store.readings(energy, plug=name, start=now - LOOKBACK, end=now)
-        policy = config.device(cfg, name).policy
+        policy = config.device(cfg, name, store.learned(app, mac=mac)).policy
         runs = watcher.unusual_runs(readings, usual, tz=cfg.tz, policy=policy)
         found += [watcher.unusual_use(mac, run) for run in runs]
     return [
@@ -75,7 +79,7 @@ def respond_pass(
     made: list[Proposal] = []
     for eid, e in store.new_events(app, site_id=site_id, kind="unusual_use"):
         mac = e.plug_mac or ""  # an unusual run always has a plug
-        device = config.device(cfg, names[mac])
+        device = config.device(cfg, names[mac], store.learned(app, mac=mac))
         policy = device.policy
         since = now - timedelta(days=policy.history_days)
         readings = store.readings(energy, plug=names[mac], start=since, end=now)
@@ -109,6 +113,27 @@ def respond_pass(
             made += [p] if p else []
         store.event_done(app, event_id=eid)
     return made
+
+
+def learn_pass(
+    app: Connection, energy: Connection, cfg: Config, *, site_id: int, now: datetime
+) -> dict[str, learn.Levels | None]:
+    """Learn each plug's levels and save the values they give. plug name -> levels.
+
+    A plug with under min_days of readings keeps what it had. One with a single level,
+    or none, learns nothing, so it keeps the defaults.
+    """
+    found: dict[str, learn.Levels | None] = {}
+    for name, mac in store.plug_macs(app, site_id=site_id).items():
+        policy = config.device(cfg, name).policy
+        readings = store.readings(energy, plug=name, end=now,
+                                  start=now - timedelta(days=policy.history_days))  # fmt: skip
+        if not readings or (now - readings[0][0]).days < policy.min_days:
+            continue
+        found[name] = lv = learn.levels([w for _, w in readings])
+        store.save_learned(app, site_id=site_id, mac=mac, at=now,
+                           values=learn.values(lv) if lv else {})  # fmt: skip
+    return found
 
 
 def _run(
