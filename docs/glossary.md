@@ -14,8 +14,6 @@ Plain words for the codes and terms in these docs.
 | A-01 | Something we believe but must check (assumption) | [requirements](requirements.md) 7 |
 | AC | Acceptance criteria: the test that proves a requirement is met | next to each FR |
 | [M] [S] | Priority: M = must have, S = should have | next to each FR |
-| M-01 | A part (module) of the program | [architecture](design/architecture.md) |
-| D-01 | One step, and who does it: code, AI or the owner | [autonomy map](design/autonomy.md) |
 | EV-01 | A test case for the AI agents (evaluation case) | [evaluation](evaluation.md) |
 | ADR-001 | A design decision and why it was made (architecture decision record) | [adr/](adr/) |
 
@@ -25,13 +23,22 @@ Plain words for the codes and terms in these docs.
 |---|---|
 | Hub | The old laptop at the site that runs everything |
 | Logger | A small program that reads every plug once a minute into `energy.db` |
-| Watcher | Code that checks the readings every 15 minutes and records events. It never calls the AI |
+| Watcher | Version 1: code that checks the readings every 15 minutes and records events. It never calls the AI. Becomes Signals in version 2 |
 | Event | Something worth a look: unusual use, a plug offline, a power cut, a timer changed on a plug |
-| Agent | An AI model given a job and a few tools. Here: Responder (one event), Planner (the week), Assistant (chat) |
+| Agent | An AI model given a job and a few tools. Version 2: the housemate (signals), chat and the Planner, three agents on a shared base. Version 1 called them Responder, Assistant and Planner |
 | Proposal | A suggested timer change, with its reason and savings, waiting for approval |
 | Actuator | The only code that writes to plugs, and only after approval |
 | Read-back | After a write, the Actuator reads the plug again to check the change took |
-| Shadow mode | The agents suggest, but nothing is written to any plug |
+| Shadow mode | The agent asks and suggests, but nothing is written to any plug |
+| House model | What the system knows about the home: a card per device, habits, timers with their reason, the plan |
+| Device card | One device: what is plugged in, its kind, room, must it run, notes. Filled by the setup chat |
+| Habit | Something normal for you, like "Desk 2 runs until 02:00 on Thursdays". Comes from your answers |
+| Signal | Something code found worth a look: left on, unusual use, automation drift, a new device, a plug offline. v2 name for an event |
+| Housemate agent | The agent that looks into a signal with tools, then ignores, notes, asks you, or proposes. One of three agents on a shared base |
+| Question | What the agent asks you, with 2 or 3 choices. Each choice maps to an action code knows |
+| Automation drift | A timer keeps a plug on, but the device only draws standby: on for nothing |
+| Change point | The moment a plug's power pattern shifts for good, usually a new device on it |
+| Quiet hours | Hours with no questions (default 23:30 to 07:00) |
 | Solver | A maths tool that finds the best timetable within the rules. The Planner uses it |
 | Tier | A size of AI model: small for quick jobs, mid for planning |
 | Token | A piece of text the AI reads or writes. AI cost is counted in tokens |

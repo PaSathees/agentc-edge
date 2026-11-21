@@ -4,7 +4,7 @@ import pytest
 
 from agentc import store
 
-# The app.db tables from docs/design/data.md (LangGraph makes its own).
+# The app.db tables from docs/design/data.md.
 TABLES = {
     "sites", "plugs", "devices", "placements", "timers", "rules", "profiles",
     "thresholds", "weather", "factors", "goals", "events", "proposals",

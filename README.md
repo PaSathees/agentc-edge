@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/PaSathees/agentc-edge/actions/workflows/ci.yml/badge.svg)](https://github.com/PaSathees/agentc-edge/actions/workflows/ci.yml)
 
-Helps a small site meet a monthly carbon goal, starting with a home. The site's carbon comes from the electricity it uses, so plain code watches every smart plug all the time. AI agents wake only when something looks wrong, and suggest a fix with its saving in kWh, rupees and kgCO2e. A person approves every change before it reaches a device.
+Helps a small site meet a monthly carbon goal, starting with a home. The site's carbon comes from the electricity it uses, so plain code watches every smart plug all the time. When something looks off, an AI agent takes a look with what it knows about the home's devices and habits, and asks the owner a short question while it is happening. A person approves every change before it reaches a device.
 
-> Status: in development. Built in the open, step by step (`docs/`). Words and codes are explained in the [glossary](docs/glossary.md).
+> Status: in development. Design version 2 is being built; the commands below are from version 1. Built in the open, step by step (`docs/`). Words and codes are explained in the [glossary](docs/glossary.md).
 
 ## How it works
 
@@ -17,7 +17,7 @@ flowchart LR
   I -- "approved" --> X["Actuator<br/>code"] --> P
 ```
 
-- **AI only when needed:** the Watcher is plain code and runs every 15 minutes. The AI runs only when it finds something, so a quiet day costs nothing.
+- **AI only when needed:** plain code checks the readings every few minutes. The AI runs only when it finds something, so a quiet day costs nothing.
 - **A person decides:** every change is a proposal. Nothing reaches a plug without approval. It starts in shadow mode: it suggests, but writes nothing.
 - **Code does the maths:** kWh, cost and carbon are worked out in code. The AI explains and suggests.
 - **Runs at the site:** one old laptop. Only the AI calls leave it.
@@ -63,7 +63,7 @@ Five phases, each with its own documents:
 | Phase | Documents |
 |---|---|
 | Specify: what it must do | [requirements](docs/requirements.md), [review of the first version](docs/audit.md) |
-| Design: how it will work | [design overview](docs/design.md), [details](docs/design/), [decision records](docs/adr/) |
+| Design: how it will work | [design](docs/design.md) (version 2), [decision records](docs/adr/) |
 | Evaluate: does it work | [evaluation](docs/evaluation.md) |
 | Operate: running it | [operations](docs/operations.md) |
 

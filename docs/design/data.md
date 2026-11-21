@@ -1,5 +1,7 @@
 # Data
 
+> Version 1 detail, still true for the built parts. Updated for [design.md](../design.md) version 2 in Phase 3.
+
 [Design overview](../design.md)
 
 
@@ -49,7 +51,7 @@ Every table also has `site_id`.
 | `audit` | Time, actor (code, agent, owner), action, reference, detail | Append only; the history page reads it |
 | `llm_calls` | Run, agent, model, prompt version, prompt, output, tokens, USD, latency | Trace and budget |
 | `settings` | Shadow mode, paused, caps, defaults | Each change also goes to `audit` |
-| LangGraph tables | Chat threads | Managed by the library |
+| LangGraph tables | Chat threads | Version 1 plan; not used since ADR-009 |
 
 ## Proposal contract (FR-14)
 

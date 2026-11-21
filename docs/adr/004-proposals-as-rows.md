@@ -14,7 +14,7 @@ Human approval can be built by pausing the agent graph at an interrupt and resum
 
 ## Decision
 
-Option 2, for all three agents. The LangGraph checkpointer is kept only for chat threads.
+Option 2, for all three agents. The LangGraph checkpointer is kept only for chat threads. (Since ADR-009 the agents use our own loop; a checkpointer comes back only if chat needs one.)
 
 ## Consequences
 

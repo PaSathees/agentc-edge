@@ -1,6 +1,6 @@
 # ADR-002: Schedules run as timers on the plug
 
-Status: accepted
+Status: accepted (amended by ADR-008: one-off switch off after a tap)
 Date: 2026-11-12
 Serves: FR-01, FR-20, NFR-06, NFR-09, NFR-12
 
