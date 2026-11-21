@@ -56,11 +56,24 @@ uv run uvicorn agentc.app:app                # the app at localhost:8000/health
 
 Not measured yet. See [evaluation](docs/evaluation.md).
 
+## Roadmap
+
+Built in six phases. Each ends with tests, checks and a merged pull request.
+
+| Phase | What | Status |
+|---|---|---|
+| 1. Design v2 | The housemate design, after a review of the first version | done |
+| 2. Foundation fixes | Logger heartbeat, honest "lost contact" alerts, AI errors that never stop other jobs | done |
+| 3. Housemate v1 | Device cards from a setup chat, new signals, the agent with tools, one-tap questions; shadow mode | next |
+| 4. Actions | Switch off now, safe timer writes, approval inbox | |
+| 5. Chat and Planner | Separate agents on the same house model | |
+| 6. Review and full demo | A walkthrough of the whole system, then the demo on a real home | |
+
 ## How it is built
 
-Five phases, each with its own documents:
+The method has five stages, each with its own documents:
 
-| Phase | Documents |
+| Stage | Documents |
 |---|---|
 | Specify: what it must do | [requirements](docs/requirements.md), [review of the first version](docs/audit.md) |
 | Design: how it will work | [design](docs/design.md) (version 2), [decision records](docs/adr/) |
@@ -68,6 +81,16 @@ Five phases, each with its own documents:
 | Operate: running it | [operations](docs/operations.md) |
 
 The method: [docs/process.md](docs/process.md).
+
+### AI use
+
+This project is built with an AI coding assistant, [Claude Code](https://claude.com/claude-code). What each side does:
+
+- **Me:** the problem and the requirements, every design decision and its trade-offs (the [decision records](docs/adr/)), checks on real data, and the review and merge of every change.
+- **Claude Code:** most of the code and tests, and first drafts of the docs, from a brief I agree first.
+- **Every change, whoever wrote it:** tests written first and seen failing, the code broken on purpose once to prove the tests catch it, lint, type and secret checks, CI on a clean copy, and a review before merge.
+
+Commits from 2026-11-21 on say so with an `Assisted-by:` line, in the Linux kernel's format (`Assisted-by: Claude:claude-opus-5-5`). Earlier commits were built the same way but don't carry the line.
 
 ## Folders
 

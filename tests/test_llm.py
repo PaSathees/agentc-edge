@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 import anthropic
+import httpx2 as httpx  # the HTTP library the anthropic SDK uses
 import pytest
 from anthropic.types import Message
 
@@ -144,3 +145,43 @@ def test_no_text_in_the_answer_is_empty(monkeypatch):
     client = anthropic.Anthropic(api_key="test")
     monkeypatch.setattr(client.messages, "create", lambda **_: answer())
     assert llm.claude(client)(tier=SMALL, system="S", prompt="P", schema=SCHEMA)[0] == ""
+
+
+# the real model unreachable: no internet, rate limit, or the service down
+
+
+def _response(status):
+    return httpx.Response(status, request=httpx.Request("POST", "https://api.anthropic.com"))
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com")),
+        anthropic.APITimeoutError(request=httpx.Request("POST", "https://api.anthropic.com")),
+        anthropic.RateLimitError("slow down", response=_response(429), body=None),
+        anthropic.InternalServerError("down", response=_response(500), body=None),
+        anthropic.InternalServerError("overloaded", response=_response(529), body=None),
+    ],
+)
+def test_a_model_out_of_reach_is_unreachable(monkeypatch, error):
+    client = anthropic.Anthropic(api_key="test", max_retries=0)
+
+    def create(**_):
+        raise error
+
+    monkeypatch.setattr(client.messages, "create", create)
+    with pytest.raises(llm.Unreachable):
+        llm.claude(client)(tier=SMALL, system="S", prompt="P", schema=SCHEMA)
+
+
+def test_a_bad_request_is_not_unreachable(monkeypatch):  # a bug on our side: it must show
+    client = anthropic.Anthropic(api_key="test")
+    error = anthropic.BadRequestError("bad", response=_response(400), body=None)
+
+    def create(**_):
+        raise error
+
+    monkeypatch.setattr(client.messages, "create", create)
+    with pytest.raises(anthropic.BadRequestError):
+        llm.claude(client)(tier=SMALL, system="S", prompt="P", schema=SCHEMA)

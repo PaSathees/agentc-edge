@@ -12,6 +12,7 @@ from agentc.watcher import (
     Usual,
     dedupe_key,
     is_unusual,
+    logger_stopped,
     offline_events,
     timer_mismatch,
     unusual_runs,
@@ -153,11 +154,11 @@ def test_the_key_uses_the_local_day_the_run_started():
 
 
 def test_a_site_wide_event_is_keyed_to_the_site():
-    event = Event("power_cut", None, at(10).astimezone(UTC), {})
-    assert dedupe_key(event, tz="Asia/Colombo") == "site|power_cut|2026-11-02"
+    event = Event("no_contact", None, at(10).astimezone(UTC), {})
+    assert dedupe_key(event, tz="Asia/Colombo") == "site|no_contact|2026-11-02"
 
 
-# offline and power cut: from the logger's last rounds
+# offline and lost contact: from the logger's last rounds
 
 
 def rounds(*answered):
@@ -179,16 +180,16 @@ def test_two_failed_rounds_is_not_offline_yet():
     assert offline_events(rounds(UP, UP, DOWN, DOWN), MACS) == []
 
 
-def test_every_plug_failing_is_one_power_cut_not_many_offline():
+def test_every_plug_failing_is_one_lost_contact_not_many_offline():
     assert offline_events(rounds(CUT, CUT, CUT), MACS) == [
-        Event("power_cut", None, at(9, 0), {"plugs": 2})
+        Event("no_contact", None, at(9, 0), {"plugs": 2})
     ]
 
 
-def test_a_short_blackout_is_a_power_cut_even_if_some_plugs_are_back():
+def test_a_short_blackout_is_lost_contact_even_if_some_plugs_are_back():
     # all plugs failed, then Plug-1 came back first: still one power cut, no offline events
     assert offline_events(rounds(CUT, CUT, DOWN), MACS) == [
-        Event("power_cut", None, at(9, 0), {"plugs": 2})
+        Event("no_contact", None, at(9, 0), {"plugs": 2})
     ]
 
 
@@ -198,7 +199,7 @@ def test_a_one_minute_blackout_is_only_a_wifi_blip():
 
 def test_a_blackout_anywhere_since_the_last_pass_is_found():
     found = offline_events(rounds(UP, CUT, CUT, UP, UP, UP), MACS)
-    assert found == [Event("power_cut", None, at(9, 1), {"plugs": 2})]
+    assert found == [Event("no_contact", None, at(9, 1), {"plugs": 2})]
 
 
 def test_too_few_rounds_says_nothing():
@@ -207,6 +208,28 @@ def test_too_few_rounds_says_nothing():
 
 def test_a_plug_never_reached_has_no_mac_so_no_event():
     assert offline_events(rounds(DOWN, DOWN, DOWN), {"Plug-1": "AA"}) == []
+
+
+# the logger itself: no reading at all for 5 minutes (heartbeat)
+
+
+def test_no_reading_for_5_minutes_means_the_logger_stopped():
+    found = logger_stopped(at(9, 0), now=at(9, 6))
+    assert found == Event("logger_stopped", None, at(9, 0), {"minutes": 6})
+
+
+def test_a_reading_4_minutes_ago_is_fine():
+    assert logger_stopped(at(9, 0), now=at(9, 4)) is None
+
+
+def test_a_logger_that_never_ran_says_nothing():
+    assert logger_stopped(None, now=at(9, 0)) is None
+
+
+def test_each_stop_of_the_logger_is_its_own_event_even_on_one_day():
+    first = Event("logger_stopped", None, at(9, 0).astimezone(UTC), {})
+    second = Event("logger_stopped", None, at(13, 30).astimezone(UTC), {})
+    assert dedupe_key(first, tz="Asia/Colombo") != dedupe_key(second, tz="Asia/Colombo")
 
 
 # timer mismatch: the plug's timers changed since we saved them

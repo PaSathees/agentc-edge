@@ -14,7 +14,7 @@ from agentc.devices.base import Timer
 from agentc.options import Change, Proposal
 from agentc.watcher import Event
 
-SCHEMA_VERSION = 2  # 2: thresholds hold one learned value a row (B3b)
+SCHEMA_VERSION = 3  # 2: thresholds hold one learned value a row (B3b). 3: events.tries
 
 SCHEMA = """
 -- One home or plant room; every other row belongs to one
@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS events (
     device_id INTEGER REFERENCES devices(id),
     start_utc TEXT NOT NULL,
     facts     TEXT NOT NULL DEFAULT '{}',
-    status    TEXT NOT NULL DEFAULT 'new',
+    status    TEXT NOT NULL DEFAULT 'new',  -- new, done or parked
+    tries     INTEGER NOT NULL DEFAULT 0,  -- failed attempts to answer it
     dedupe    TEXT NOT NULL UNIQUE
 );
 -- Agent output, one row per version; body is the JSON contract
@@ -218,6 +219,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
     if db.execute("PRAGMA user_version").fetchone()[0] == 1:
         db.execute("DROP TABLE IF EXISTS thresholds")  # version 1's shape; never written to
     db.executescript(SCHEMA)
+    if "tries" not in [col[1] for col in db.execute("PRAGMA table_info(events)")]:
+        db.execute("ALTER TABLE events ADD COLUMN tries INTEGER NOT NULL DEFAULT 0")  # before 3
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
 
@@ -485,6 +488,21 @@ def event_done(db: sqlite3.Connection, *, event_id: int) -> None:
         db.execute("UPDATE events SET status = 'done' WHERE id = ?", (event_id,))
 
 
+def event_failed(db: sqlite3.Connection, *, event_id: int, limit: int) -> bool:
+    """Count one failed try. At `limit` tries the event is parked: no more tries. True if so."""
+    with db:
+        db.execute("UPDATE events SET tries = tries + 1 WHERE id = ?", (event_id,))
+        db.execute("UPDATE events SET status = 'parked' WHERE id = ? AND tries >= ?",
+                   (event_id, limit))  # fmt: skip
+    (status,) = db.execute("SELECT status FROM events WHERE id = ?", (event_id,)).fetchone()
+    return status == "parked"
+
+
+def count_events(db: sqlite3.Connection, *, site_id: int, status: str) -> int:
+    sql = "SELECT COUNT(*) FROM events WHERE site_id = ? AND status = ?"
+    return db.execute(sql, (site_id, status)).fetchone()[0]
+
+
 def _event(kind: str, mac: str | None, start: str, facts: str) -> Event:
     return Event(kind, mac, datetime.fromisoformat(start), json.loads(facts))
 
@@ -552,6 +570,13 @@ def last_rounds(
     for ts, plug, answered in db.execute(sql, (end.astimezone(UTC).isoformat(), n)):
         rounds.setdefault(ts, {})[plug] = bool(answered)
     return [(datetime.fromisoformat(ts), plugs) for ts, plugs in rounds.items()]
+
+
+def last_round(db: sqlite3.Connection, *, end: datetime) -> datetime | None:
+    """When the logger's newest round before `end` was, failed reads included. None if none."""
+    sql = "SELECT MAX(ts_utc) FROM readings WHERE ts_utc < ?"
+    (ts,) = db.execute(sql, (end.astimezone(UTC).isoformat(),)).fetchone()
+    return datetime.fromisoformat(ts) if ts else None
 
 
 def answered(db: sqlite3.Connection, *, plug: str | None, start: datetime, end: datetime) -> bool:

@@ -139,6 +139,17 @@ def test_watch_shows_new_events_once(cfg, capsys, tmp_path):
     assert run(cfg, capsys, "watch")[1] == f"Nothing new.\n{cli.NO_KEY}\n"  # 15 min: not yet
 
 
+def test_watch_flags_parked_events(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    spike_days(tmp_path)
+    db = store.connect(tmp_path / "app.db")
+    store.add_event(db, site_id=1, event=Event("unusual_use", None, AT, {}), dedupe="x")
+    for _ in range(3):
+        store.event_failed(db, event_id=1, limit=3)
+    out = run(cfg, capsys, "watch")[1]
+    assert "1 event parked after 3 failed tries: see the audit log\n" in out
+
+
 def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
     run(cfg, capsys, "timers")
     spike_days(tmp_path)
@@ -154,8 +165,11 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
     [
         (Event("offline", "AA", AT, {"plug": "Plug-6", "rounds": 3}),
          "Plug-6: not answering since Tue 03 Nov 01:00"),
-        (Event("power_cut", None, AT, {"plugs": 10}),
-         "Power cut at Tue 03 Nov 01:00: all 10 plugs stopped answering"),
+        (Event("no_contact", None, AT, {"plugs": 10}),
+         "Lost contact with all 10 plugs at Tue 03 Nov 01:00: "
+         "a power cut, or the hub's Wi-Fi is down"),
+        (Event("logger_stopped", None, AT, {"minutes": 12}),
+         "No readings since Tue 03 Nov 01:00: the logger has stopped"),
         (Event("timer_mismatch", "AA", AT, {"slots": "1, 9"}),
          "Plug-6: timers changed on the plug (slots 1, 9)"),
     ],
@@ -213,7 +227,8 @@ def test_replay_can_ask_the_model_too(cfg, capsys, tmp_path):
     desk_till_yesterday(tmp_path)
     code, out = run(cfg, capsys, "replay", "--respond", send=FakeModel())
     assert code == 0
-    assert "Events in 14 days: 1\nProposal for Desk 2: off at 01:30, on at 07:00, every day." in out
+    assert "2. No readings since " in out  # the data ends a day ago: the heartbeat sees it
+    assert "Events in 14 days: 2\nProposal for Desk 2: off at 01:30, on at 07:00, every day." in out
     assert out.endswith("\n  It stays on all night.\nProposals: 1. Model calls cost USD 0.0001.\n")
     assert store.load_proposals(store.connect(tmp_path / "app.db"), site_id=1) == []  # a copy
 

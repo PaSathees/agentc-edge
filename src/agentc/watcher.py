@@ -13,14 +13,15 @@ from agentc.policy import DEFAULT, Policy
 MIN_DAYS = 3  # an hour with fewer days than this uses the same hour across the week
 MAX_GAP = timedelta(minutes=5)  # a longer gap in readings restarts the count
 OFFLINE_ROUNDS = 3  # failed logger rounds in a row before a plug counts as offline
-BLACKOUT_ROUNDS = 2  # every plug silent this many rounds in a row = power cut; 1 is a Wi-Fi blip
+BLACKOUT_ROUNDS = 2  # every plug silent this many rounds in a row = lost contact; 1 is a Wi-Fi blip
+HEARTBEAT = timedelta(minutes=5)  # no logger round at all for this long = the logger stopped
 PASS_ROUNDS = 17  # rounds each pass reads: 15 since the last pass, plus 2 of overlap
 
 
 @dataclass(frozen=True)
 class Event:
-    kind: str  # unusual_use, offline, power_cut or timer_mismatch
-    plug_mac: str | None  # None for an event about the whole site, like a power cut
+    kind: str  # unusual_use, offline, no_contact, logger_stopped or timer_mismatch
+    plug_mac: str | None  # None for an event about the whole site, like lost contact
     start: datetime
     facts: dict[str, float | str]  # the numbers an agent may quote later
 
@@ -122,15 +123,23 @@ def unusual_use(mac: str, run: Run) -> Event:
 
 
 def dedupe_key(event: Event, *, tz: str) -> str:
-    """Same plug, kind and local day = same event, saved once (FR-13)."""
-    day = event.start.astimezone(ZoneInfo(tz)).date().isoformat()
+    """Same plug, kind and local day = same event, saved once (FR-13).
+
+    A logger stop is keyed by its minute: it can stop twice in a day, and its start (the
+    last reading) stays the same for as long as it is stopped.
+    """
+    local = event.start.astimezone(ZoneInfo(tz))
+    day = local.strftime("%Y-%m-%dT%H:%M") if event.kind == "logger_stopped" else local.date()
     return f"{event.plug_mac or 'site'}|{event.kind}|{day}"
 
 
 def offline_events(
     rounds: list[tuple[datetime, dict[str, bool]]], macs: dict[str, str]
 ) -> list[Event]:
-    """A power cut if every plug was silent 2 rounds in a row; else plugs down 3 rounds.
+    """Lost contact if every plug was silent 2 rounds in a row; else plugs down 3 rounds.
+
+    From inside the hub, a power cut and the hub's own Wi-Fi going down look the same,
+    so the event says "lost contact", not "power cut".
 
     rounds: the logger's rounds since the last pass, oldest first; each maps plug -> answered.
     macs: plug name -> MAC, for the plugs the app knows.
@@ -140,7 +149,7 @@ def offline_events(
     silent = [not any(answered.values()) for _, answered in rounds]
     for i in range(len(rounds) - BLACKOUT_ROUNDS + 1):
         if all(silent[i : i + BLACKOUT_ROUNDS]):  # the whole house: one event, not one per plug
-            return [Event("power_cut", None, rounds[i][0], {"plugs": len(rounds[i][1])})]
+            return [Event("no_contact", None, rounds[i][0], {"plugs": len(rounds[i][1])})]
     last = rounds[-OFFLINE_ROUNDS:]
     down = [p for p in last[-1][1] if not any(answered.get(p, False) for _, answered in last)]
     return [
@@ -148,6 +157,19 @@ def offline_events(
         for p in down
         if p in macs
     ]
+
+
+def logger_stopped(last_round: datetime | None, *, now: datetime) -> Event | None:
+    """No logger round at all for HEARTBEAT: the logger itself stopped (FR-35).
+
+    Checked from the app, outside the logger, because a stopped program can't say it
+    stopped. A round with failed reads still counts: the logger is running.
+    last_round: the newest round before now; None if the logger never ran.
+    """
+    if last_round is None or now - last_round <= HEARTBEAT:
+        return None
+    minutes = round((now - last_round).total_seconds() / 60)
+    return Event("logger_stopped", None, last_round, {"minutes": minutes})
 
 
 def timer_mismatch(
