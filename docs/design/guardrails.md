@@ -1,5 +1,7 @@
 # Guardrails
 
+> Version 1 detail, still true for the built parts. Updated for [design.md](../design.md) version 2 in Phase 3.
+
 [Design overview](../design.md)
 
 

@@ -1,6 +1,6 @@
 # ADR-003: A solver builds the schedule; the model explains it
 
-Status: accepted
+Status: on hold until Phase 6 (Planner); see design.md version 2
 Date: 2026-11-12
 Serves: FR-05, FR-16, FR-23, NFR-11
 
