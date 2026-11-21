@@ -24,7 +24,7 @@ Plain words for the codes and terms in these docs.
 | Hub | The old laptop at the site that runs everything |
 | Logger | A small program that reads every plug once a minute into `energy.db` |
 | Watcher | Version 1: code that checks the readings every 15 minutes and records events. It never calls the AI. Becomes Signals in version 2 |
-| Event | Something worth a look: unusual use, a plug offline, a power cut, a timer changed on a plug |
+| Event | Something worth a look: unusual use, a plug offline, lost contact with every plug, the logger stopped, a timer changed on a plug |
 | Agent | An AI model given a job and a few tools. Version 2: the housemate (signals), chat and the Planner, three agents on a shared base. Version 1 called them Responder, Assistant and Planner |
 | Proposal | A suggested timer change, with its reason and savings, waiting for approval |
 | Actuator | The only code that writes to plugs, and only after approval |

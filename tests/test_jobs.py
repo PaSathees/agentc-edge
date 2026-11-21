@@ -8,7 +8,7 @@ import pytest
 from agentc import config, jobs, learn, store
 from agentc.calc import ProfileHour
 from agentc.config import Budget
-from agentc.llm import Llm
+from agentc.llm import Llm, Unreachable
 from agentc.policy import Policy
 from agentc.watcher import Event
 from tests.fake_model import FakeModel
@@ -84,13 +84,13 @@ def test_a_plug_that_stopped_answering_is_offline(app, tmp_path):
 def test_a_blackout_between_passes_is_found(app, tmp_path):
     blackout = {MONDAY + timedelta(hours=3, minutes=m) for m in (50, 51)}  # 03:50 to 03:51
     db = energy(tmp_path, lambda t: 1.0, failed=blackout)  # all back well before the pass
-    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("power_cut", None)]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("no_contact", None)]
 
 
-def test_a_power_cut_is_one_site_event(app, tmp_path):
+def test_lost_contact_with_every_plug_is_one_site_event(app, tmp_path):
     last = {MONDAY + timedelta(hours=3, minutes=m) for m in range(55, 60)}
     db = energy(tmp_path, lambda t: 1.0, failed=last)
-    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("power_cut", None)]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("no_contact", None)]
 
 
 # the daily timer check
@@ -182,11 +182,51 @@ def test_a_plug_that_answered_in_between_is_a_new_outage(app, tmp_path):
     assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("offline", "AA")]
 
 
-def test_a_long_power_cut_is_one_event(app, tmp_path):
-    reported_at(app, "power_cut", None, MONDAY + timedelta(hours=1))
+def test_a_long_loss_of_contact_is_one_event(app, tmp_path):
+    reported_at(app, "no_contact", None, MONDAY + timedelta(hours=1))
     every = {MONDAY + timedelta(minutes=m) for m in range(60, 4 * 60)}  # all down from 01:00
     db = energy(tmp_path, lambda t: 1.0, failed=every)
     assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
+
+
+# the logger itself: a heartbeat from outside it
+
+
+def gappy(tmp_path, *stretches):
+    """energy.db with Plug-6 at 1 W only in these (from, to) local hour stretches."""
+    rows = [
+        ((MONDAY + timedelta(minutes=m)).astimezone(UTC).isoformat(), "Plug-6", 1.0, None)
+        for a, b in stretches for m in range(int(a * 60), int(b * 60))
+    ]  # fmt: skip
+    path = tmp_path / "energy.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
+        db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
+    db.close()
+    return store.open_readings(path)
+
+
+def test_a_logger_that_stopped_is_reported_once(app, tmp_path):
+    db = gappy(tmp_path, (0, 1))  # last reading 00:59
+    at = MONDAY + timedelta(hours=1, minutes=10)
+    (e,) = jobs.watch_pass(app, db, CFG, site_id=1, now=at)
+    last = MONDAY + timedelta(minutes=59)
+    assert (e.kind, e.start, e.facts) == ("logger_stopped", last, {"minutes": 11})
+    assert jobs.watch_pass(app, db, CFG, site_id=1, now=at + timedelta(minutes=15)) == []
+
+
+def test_a_logger_that_stops_again_is_a_new_event(app, tmp_path):
+    db = gappy(tmp_path, (0, 1), (2, 3))
+    jobs.watch_pass(app, db, CFG, site_id=1, now=MONDAY + timedelta(hours=1, minutes=10))
+    found = jobs.watch_pass(app, db, CFG, site_id=1, now=MONDAY + timedelta(hours=3, minutes=10))
+    assert kinds(found) == [("logger_stopped", None)]
+
+
+def test_failed_reads_still_mean_the_logger_runs(app, tmp_path):
+    every = {MONDAY + timedelta(minutes=m) for m in range(3 * 60, 4 * 60)}
+    db = energy(tmp_path, lambda t: 1.0, failed=every)
+    found = jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)
+    assert "logger_stopped" not in [e.kind for e in found]
 
 
 # the respond step: each finished unusual run gets one answer
@@ -399,3 +439,73 @@ def test_learning_runs_once_a_day(app, plugs, tmp_path):
     jobs.run_due(app, desk_energy(tmp_path), replace(CFG, plugs=ips), site_id=1, now=END)
     assert store.last_run(app, site_id=1, job="learn") == END
     assert store.learned(app, mac="AA") != {}
+
+
+# when the model fails: other events and other jobs go on (blast radius)
+
+
+class Failing(FakeModel):
+    """Raises `error` on the calls listed in `on` (1 = the first call); else answers."""
+
+    def __init__(self, error, on=None):
+        super().__init__()
+        self.error, self.on = error, on
+
+    def __call__(self, **kwargs):
+        if self.on is None or self.calls + 1 in self.on:
+            self.calls += 1
+            raise self.error
+        return super().__call__(**kwargs)
+
+
+def tries(app):
+    return [t for (t,) in app.execute("SELECT tries FROM events ORDER BY id")]
+
+
+def test_an_unreachable_model_leaves_every_event_waiting(app, tmp_path):
+    model = Failing(Unreachable("no internet"))
+    left_on(app, 0)
+    left_on(app, 1)
+    assert answer(app, desk_energy(tmp_path), model) == []
+    assert (statuses(app), tries(app), model.calls) == (["new", "new"], [0, 0], 1)  # stops at once
+
+
+def test_a_failing_event_is_tried_again_on_the_next_pass(app, tmp_path):
+    model = Failing(ValueError("bad answer"))
+    left_on(app, 1)
+    answer(app, desk_energy(tmp_path), model)
+    assert (statuses(app), tries(app)) == (["new"], [1])
+
+
+def test_one_bad_event_does_not_block_the_next(app, tmp_path):
+    model = Failing(ValueError("bad answer"), on={1})
+    left_on(app, 0)
+    left_on(app, 1)
+    made = answer(app, desk_energy(tmp_path), model)
+    assert (len(made), statuses(app), tries(app)) == (1, ["new", "done"], [1, 0])
+
+
+def test_after_3_failed_tries_an_event_is_parked_and_left_alone(app, tmp_path):
+    model, energy = Failing(ValueError("bad answer")), desk_energy(tmp_path)
+    left_on(app, 1)
+    for _ in range(3):
+        answer(app, energy, model)
+    assert (statuses(app), tries(app)) == (["parked"], [3])
+    answer(app, energy, model)
+    assert model.calls == 3  # a parked event is not tried again
+    actions = [a for (a,) in app.execute("SELECT action FROM audit ORDER BY id")]
+    assert actions == ["respond_failed"] * 3 + ["event_parked"]
+
+
+def test_other_jobs_still_run_when_the_respond_step_breaks(app, plugs, quiet, monkeypatch):
+    def broken(*args, **kwargs):
+        raise RuntimeError("a bug")
+
+    monkeypatch.setattr(jobs, "respond_pass", broken)
+    ips = {name: p.ip for name, p in plugs.items()}
+    model = Llm(app, 1, CFG.tz, CFG.tiers, Budget(3.0, 0.05), FakeModel(), clock=lambda: NOW)
+    jobs.run_due(app, quiet, replace(CFG, plugs=ips), site_id=1, now=NOW, llm=model)
+    ran = {job: store.last_run(app, site_id=1, job=job) for job in ("watch", "timers", "learn")}
+    assert ran == {"watch": NOW, "timers": NOW, "learn": NOW}
+    (action,) = app.execute("SELECT action FROM audit").fetchone()
+    assert action == "respond_pass_failed"

@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
@@ -31,8 +32,8 @@ def test_the_same_event_is_saved_only_once(db):
 
 
 def test_a_site_wide_event_has_no_plug(db):
-    cut = Event("power_cut", None, NOW, {"plugs": 10})
-    store.add_event(db, site_id=1, event=cut, dedupe="site|power_cut|2026-11-03")
+    cut = Event("no_contact", None, NOW, {"plugs": 10})
+    store.add_event(db, site_id=1, event=cut, dedupe="site|no_contact|2026-11-03")
     assert store.load_events(db, site_id=1) == [cut]
 
 
@@ -43,9 +44,27 @@ def test_event_times_are_saved_in_utc(db):  # so the newest one sorts last as te
 
 
 def test_new_events_are_one_kind_not_yet_handled(db):
-    cut = Event("power_cut", None, NOW, {"plugs": 10})
+    cut = Event("no_contact", None, NOW, {"plugs": 10})
     store.add_event(db, site_id=1, event=LEFT_ON, dedupe="a")
     store.add_event(db, site_id=1, event=cut, dedupe="b")
     store.add_event(db, site_id=1, event=LEFT_ON, dedupe="c")
     store.event_done(db, event_id=1)
     assert store.new_events(db, site_id=1, kind="unusual_use") == [(3, LEFT_ON)]
+
+
+def test_a_failed_try_is_counted_and_the_third_parks_it(db):
+    store.add_event(db, site_id=1, event=LEFT_ON, dedupe="a")
+    assert [store.event_failed(db, event_id=1, limit=3) for _ in range(3)] == [False, False, True]
+    assert db.execute("SELECT status, tries FROM events").fetchone() == ("parked", 3)
+    assert store.new_events(db, site_id=1, kind="unusual_use") == []
+    assert store.count_events(db, site_id=1, status="parked") == 1
+
+
+def test_an_app_db_from_before_phase_2_gets_the_tries_column(tmp_path):
+    old = sqlite3.connect(tmp_path / "app.db")
+    old.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, site_id, kind, plug_mac,"
+                " device_id, start_utc, facts, status, dedupe UNIQUE)")  # fmt: skip
+    old.execute("PRAGMA user_version = 2")
+    old.close()
+    db = store.connect(tmp_path / "app.db")
+    assert "tries" in [row[1] for row in db.execute("PRAGMA table_info(events)")]

@@ -18,6 +18,9 @@ import anthropic
 from agentc import store
 from agentc.config import Budget, Tier
 
+# no connection or timeout, 429 too many requests, 5xx the service is down or overloaded
+OUT_OF_REACH = (anthropic.APIConnectionError, anthropic.RateLimitError,
+                anthropic.InternalServerError)  # fmt: skip
 MAX_TOKENS = 4000  # thinking counts too; a pick and a 2-sentence reason need far less
 IP = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 MAC = re.compile(r"\b[0-9A-Fa-f]{2}(?:[:-][0-9A-Fa-f]{2}){5}\b")
@@ -33,6 +36,14 @@ class Send(Protocol):
 
 class OverBudget(Exception):
     """The month or the run reached its cap: no more model calls (FR-28)."""
+
+
+class Unreachable(Exception):
+    """The model can't be reached now: no internet, rate limit, or the service is down.
+
+    Not a fault of the event, so callers stop and let events wait (FR-37). Other errors,
+    like a bad request, are bugs on our side and are raised as they are.
+    """
 
 
 @dataclass(frozen=True)
@@ -97,12 +108,15 @@ def claude(client: anthropic.Anthropic) -> Send:
     """The real model, through the Anthropic SDK. The key comes from ANTHROPIC_API_KEY."""
 
     def send(*, tier: Tier, system: str, prompt: str, schema: Schema) -> tuple[str, int, int]:
-        msg = client.messages.create(
-            model=tier.model, max_tokens=MAX_TOKENS, system=system,
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"effort": tier.effort,
-                           "format": {"type": "json_schema", "schema": schema}},
-        )  # fmt: skip
+        try:
+            msg = client.messages.create(
+                model=tier.model, max_tokens=MAX_TOKENS, system=system,
+                messages=[{"role": "user", "content": prompt}],
+                output_config={"effort": tier.effort,
+                               "format": {"type": "json_schema", "schema": schema}},
+            )  # fmt: skip
+        except OUT_OF_REACH as err:
+            raise Unreachable(f"{type(err).__name__}: {err}") from err
         text = next((b.text for b in msg.content if b.type == "text"), "")
         return text, msg.usage.input_tokens, msg.usage.output_tokens
 

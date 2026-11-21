@@ -186,6 +186,9 @@ def show_watch(db: Connection, cfg: Config, *, site_id: int, model: llm.Llm | No
         print(proposal_words(p))
     if not events and not made:
         print("Nothing new.")
+    if parked := store.count_events(db, site_id=site_id, status="parked"):
+        print(f"{parked} event{'s' if parked > 1 else ''} parked after {jobs.MAX_TRIES} failed"
+              " tries: see the audit log")  # fmt: skip
     if model is None:
         print(NO_KEY)
     return 0
@@ -254,8 +257,11 @@ def event_words(e: Event, names: dict[str, str], *, tz: str) -> str:
         return f"{name}: on at an unusual time from {when}, {size}"
     if e.kind == "offline":
         return f"{name}: not answering since {when}"
-    if e.kind == "power_cut":
-        return f"Power cut at {when}: all {e.facts['plugs']} plugs stopped answering"
+    if e.kind == "no_contact":
+        n = e.facts["plugs"]
+        return f"Lost contact with all {n} plugs at {when}: a power cut, or the hub's Wi-Fi is down"
+    if e.kind == "logger_stopped":
+        return f"No readings since {when}: the logger has stopped"
     return f"{name}: timers changed on the plug (slots {e.facts['slots']})"
 
 

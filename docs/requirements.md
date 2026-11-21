@@ -96,7 +96,7 @@ Watching
 - FR-09 [M] (J-04) **v2: Signals.** Every 5 min, code raises use signals: left on (power near the device's standby level for 30 min at an hour it is usually off), unusual use (over 2 times usual and at least 10 W more for 30 min, at an hour it is on under 20% of the time). Must-run devices raise neither. AC: the Desk 2 night of 1 to 2 Nov raises 1 left-on signal by 02:25 (standby from 01:51, plus 30 minutes, plus one 5-minute pass); a normal-day fixture raises 0. (Version 1 rule: small loads needed 3 h, so the first alert came at 04:37.)
 - FR-10 [M] (J-05) Goal drift event when month-to-date plus projected kgCO2e exceeds the goal. AC: fixture month over goal raises 1 event; under goal raises 0.
 - FR-11 [M] (J-07) Plug offline event after 3 failed rounds; timer mismatch event from a daily read-back. AC: fixture with a changed timer raises 1 mismatch event.
-- FR-12 [S] (J-07) Every plug silent 2 minutes in a row: "lost contact with every plug: power cut or the hub's Wi-Fi" (it can't tell which from inside). Shown only, never acted on. AC: fixture raises 1 notice, not 10 offline events.
+- FR-12 [S] (J-07) **Wording built (Phase 2).** Every plug silent 2 minutes in a row: "lost contact with every plug: power cut or the hub's Wi-Fi" (it can't tell which from inside). Shown only, never acted on. AC: fixture raises 1 notice, not 10 offline events.
 - FR-13 [M] (J-04, J-05) No repeats: one event per run of unusual use, and one per outage (a plug must answer again before a new one). AC: a 6-hour anomaly raises 1 event, not 24; an outage past midnight raises 1, not 2.
 
 Agents and proposals
@@ -128,9 +128,9 @@ New in v2
 - FR-32 [M] (J-04) Switch off now: one `Power Off` after the owner's tap, with the write-time checks (ADR-008). AC: shadow mode sends 0 commands; never sent to a must-run or access-none device.
 - FR-33 [M] (J-09) Habits from answers: a tap becomes a habit row built by code from the question, with its scope shown back (device, days, hours); free text becomes a habit drafted by the agent and confirmed by the owner. Habits are re-checked after 30 days or a change point. AC: a habit stops the matching question in a replay.
 - FR-34 [S] (J-13) Automation signals: drift (a timer keeps it on, but only standby) and override (a timer turned it off, but it draws power). AC: fixture TV timer on at 06:00 with use from 19:00 raises 1 drift signal.
-- FR-35 [M] (J-07) Health: no reading for 5 minutes raises "logger stopped"; health notices need no AI and reach the local inbox with the internet down. AC: a stopped logger fixture raises 1 notice.
+- FR-35 [M] (J-07) **Built (Phase 2).** Health: no reading for 5 minutes raises "logger stopped"; health notices need no AI and reach the local inbox with the internet down. AC: a stopped logger fixture raises 1 notice.
 - FR-36 [M] (J-04) Quiet hours (23:30 to 07:00): at night, ask only above `night_wake_w` (default 50 W) or for devices with night questions on; otherwise a morning question. At most 5 questions a day. AC: the Desk 2 night (5 W) gives 0 questions at night and 1 at 07:00; a 1,500 W fixture asks at once.
-- FR-37 [M] (NFR-10) A failing AI call never stops other jobs; a signal that fails 3 times is parked and flagged. AC: with the model down, the timer check and health notices still run.
+- FR-37 [M] (NFR-10) **Built (Phase 2).** A failing AI call never stops other jobs; with the model out of reach (no internet, rate limit, service down) events wait without counting a try; a signal that fails 3 times is parked and flagged. AC: with the model down, the timer check and health notices still run.
 
 Later (not v1)
 - FR-29 (J-11) Emission factor revision: document uploaded in chat, vector search, extracted factor as a proposal with page and source.
