@@ -65,7 +65,7 @@ flowchart TB
 | Checks | Validates everything the agent produces before you see it | code (built, extended) |
 | You | Answer questions, approve actions, chat | owner |
 | Actuator | Writes to a plug after approval, reads it back, logs it | code |
-| Chat and Planner agents | Own prompts, tools and models, on the same base | AI (Phase 6) |
+| Chat and Planner agents | Own prompts, tools and models, on the same base | AI (Phase 5) |
 
 ## 1. House model: the context
 
@@ -77,7 +77,7 @@ The agent is only as good as what it knows. Version 1 had a name per device. Ver
 | Placement | Desk 2 on Plug-6 since 1 Nov | Setup; a change point asks again |
 | Habit | "Desk 2 runs until 02:00 on Thursdays" | Your taps and chat |
 | Automation | Timer 3 on Plug-4: TV on at 06:00 daily. Why: "morning news" | Imported timers; the why from setup chat |
-| Plan | Next week's intended on and off times | The Planner (Phase 6) |
+| Plan | Next week's intended on and off times | The Planner (Phase 5) |
 | Tariff and factor | Block tariff; 0.4242 kgCO2e/kWh (SLSEA, 2023) | Config, with source |
 | Past signals | Desk 2 left on: 3 times, you said "switch off" twice | Kept by code |
 
@@ -127,7 +127,7 @@ flowchart LR
 | `automations(device)` | Its timers in plain words, with why |
 | `habits(device)` | Habits and past answers about it |
 | `past_signals(device, kind)` | Similar signals and what you said each time |
-| `plan(device)` | What the plan says should happen (Phase 6) |
+| `plan(device)` | What the plan says should happen (Phase 5) |
 | `cost(device, from, to)` | kWh, LKR and kgCO2e for a stretch, from code |
 
 **What it may produce**
@@ -166,7 +166,7 @@ Prompt caching (re-using the unchanged start of a prompt at a lower price) cuts 
 - **Rate limit.** At most 5 questions a day, and never the same question about the same device twice in a day.
 - **Every answer is kept.** A tap like "That's normal on Mondays" becomes a habit row. Code builds it from the question, so no AI is needed, and shows the scope back: "Saved: Desk 2 is normal on Mondays, 01:00 to 07:00". Too wide hides waste; too narrow keeps asking. A free-text answer is turned into a habit by the agent and shown back for you to confirm.
 - **Habits get re-checked.** After 30 days, or after a change point on that plug, it asks once: "Still true?"
-- **Later, earned auto-off.** After you answer "switch off" 3 times for the same situation, it may ask once: "Next time, switch Desk 2 off on its own if you don't answer in 30 minutes?" Only if you opt in, per device, only for low-power standby, never for must-run or access *none* devices, and back to asking after one "that was wrong". Silence alone never counts as yes. It needs its own decision record (Phase 5 or later). It is better than a timer: a timer cuts every night, this only acts when the device really is left on.
+- **Later, earned auto-off.** After you answer "switch off" 3 times for the same situation, it may ask once: "Next time, switch Desk 2 off on its own if you don't answer in 30 minutes?" Only if you opt in, per device, only for low-power standby, never for must-run or access *none* devices, and back to asking after one "that was wrong". Silence alone never counts as yes. It needs its own decision record (Phase 4 or later). It is better than a timer: a timer cuts every night, this only acts when the device really is left on.
 
 ## 5. Actions: the only writes
 
@@ -196,7 +196,7 @@ The checks from version 1 stay, extended to the new outputs:
 
 On failure the agent gets one retry with the reason, then the draft is dropped and logged. Device names and notes are passed as data, never as instructions. `llm()` removes IP and MAC addresses, records every call, and stops at the budget caps.
 
-## 7. Chat and Planner (Phase 6)
+## 7. Chat and Planner (Phase 5)
 
 - **Chat** is a separate agent on the shared base, started by your message. It has the read tools, plus draft tools that create a habit, a rule or a proposal, which go through the same checks. "Keep the TVs on until 1 on Fridays" becomes a rule you confirm.
 - **Planner** is a separate agent on the shared base, started every Sunday. It reads the week's signals, answers and automations, and proposes timer changes as one plan. On a time-of-use tariff it also suggests moving use to cheaper hours. Version 1 planned a solver for this (CP-SAT, a tool that finds the best timetable within the rules; [ADR-003](adr/003-solver-not-llm-loop.md)). It is on hold until plans are big enough to need it.
@@ -257,7 +257,7 @@ New tables: `device` card fields (description, kind, must run), `habits`, `quest
 |---|---|---|
 | [001](adr/001-event-driven.md) | AI wakes on events (now: signals), not on a daily run | accepted |
 | [002](adr/002-timers-on-device.md) | Schedules run as timers on the plug | accepted, with an exception in 008 |
-| [003](adr/003-solver-not-llm-loop.md) | A solver builds the schedule; the model explains it | on hold until Phase 6 |
+| [003](adr/003-solver-not-llm-loop.md) | A solver builds the schedule; the model explains it | on hold until Phase 5 |
 | [004](adr/004-proposals-as-rows.md) | Proposals are rows, not paused agent runs. Questions are rows too | accepted |
 | [005](adr/005-llm-wrapper-and-tiers.md) | One `llm()` call site and model tiers | accepted |
 | [006](adr/006-two-programs-sqlite-one-hub.md) | Two programs, SQLite, one hub | accepted |
