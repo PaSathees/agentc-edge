@@ -1,6 +1,7 @@
 """A fake Tasmota plug for tests. Same HTTP API as a real one (/cm?cmnd=...).
 
-Response shapes were copied from a real plug of the reference home (2026-11-12).
+Response shapes were copied from a real plug of the reference home (2026-11-12;
+PulseTime and Rule on 2026-11-22).
 State lives in memory; `offline = True` makes it drop every request.
 """
 
@@ -27,6 +28,8 @@ class FakePlug:
         self.timezone = "+05:30"
         self.timers = {n: dict(EMPTY_TIMER) for n in range(1, 17)}
         self.offline = False
+        self.pulse_set = 0  # PulseTime1 "Set": 0 none, 1 to 111 tenths of a second, else s + 100
+        self.rules = {n: ("", False) for n in (1, 2, 3)}  # rule text, and whether it is on
         self.commands: list[str] = []  # every command received, in order
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), _handler_for(self))
         self.ip = f"127.0.0.1:{self._server.server_port}"  # same use as a real IP
@@ -60,6 +63,12 @@ class FakePlug:
                     **{f"Timer{n}": t for n, t in self.timers.items()}}  # fmt: skip
         if (n := key.removeprefix("timer")).isdigit():  # Timer1 .. Timer16
             return self._timer(int(n), arg)
+        if key == "pulsetime1":
+            return {"PulseTime1": {"Set": self.pulse_set, "Remaining": 0}}
+        if key in ("rule1", "rule2", "rule3"):
+            text, on = self.rules[int(key[-1])]
+            state = {"State": "ON" if on else "OFF", "Once": "OFF", "StopOnError": "OFF"}
+            return {name: {**state, "Length": len(text), "Free": 511 - len(text), "Rules": text}}
         if key == "timezone":
             return {"Timezone": self.timezone}
         return {"Command": "Unknown"}

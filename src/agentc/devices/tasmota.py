@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
-from agentc.devices.base import Clock, Info, PlugError, Timer, TimerSet
+from agentc.devices.base import Automations, Clock, Info, PlugError, PlugRule, Timer, TimerSet
 
 
 class TasmotaPlug:
@@ -32,6 +32,19 @@ class TasmotaPlug:
         utc = datetime.fromisoformat(tim["UTC"]).replace(tzinfo=UTC)
         return Clock(utc=utc, timezone=tim["Timezone"])
 
+    def automations(self) -> Automations:
+        """Auto-off (PulseTime1) and the 3 rules. Asking with no value only reads them."""
+        try:
+            pulse = self._get("PulseTime1", "PulseTime1")["Set"]
+            rules = []
+            for n in (1, 2, 3):
+                r = self._get(f"Rule{n}", f"Rule{n}")
+                if r["Rules"]:
+                    rules.append(PlugRule(n, r["State"] == "ON", r["Rules"]))
+        except (KeyError, TypeError) as err:
+            raise PlugError(f"{self.ip}: unreadable PulseTime or Rule answer: {err!r}") from err
+        return Automations(_pulse_seconds(pulse), tuple(rules))
+
     def _get(self, cmnd: str, key: str) -> dict[str, Any]:
         """Run a command and return one section of its answer."""
         r = self._cmd(cmnd)
@@ -54,3 +67,10 @@ def _timer(slot: int, t: dict[str, Any]) -> Timer:
         window=t["Window"], days=t["Days"], repeat=t["Repeat"] == 1,
         output=t["Output"], action=t["Action"],
     )  # fmt: skip
+
+
+def _pulse_seconds(value: int) -> float | None:
+    """Tasmota's PulseTime: 0 = none, 1 to 111 = tenths of a second, more = seconds + 100."""
+    if value == 0:
+        return None
+    return value / 10 if value <= 111 else value - 100

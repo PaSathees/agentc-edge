@@ -9,11 +9,12 @@ def test_every_value_says_why():
     assert all(f.metadata["why"] for f in fields(Policy))
 
 
-def test_the_defaults_are_the_numbers_the_code_used_before():
+def test_the_defaults():  # left_on_min was 180 before Phase 3b
     assert DEFAULT == Policy(
-        factor=2.0, more_w=10.0, run_min=30, small_w=3.0, long_run_min=180, rarely_on=0.2,
+        factor=2.0, more_w=10.0, run_min=30, small_w=3.0, left_on_min=30, rarely_on=0.2,
         on_w=2.0, min_days=7, use_w=10.0, use_min=20, step_min=30, margin_min=30,
-        max_off_h=12, history_days=14, same_within_min=30, expires_h=24,
+        max_off_h=12, history_days=14, same_within_min=30, expires_h=24, drift_h=3,
+        override_min=30,
     )  # fmt: skip
 
 

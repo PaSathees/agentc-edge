@@ -74,3 +74,12 @@ def test_every_problem_has_plain_words(db, plugs):
     plugs["Plug-6"].timers[1]["Enable"] = 1
     (problem,) = run(db, plugs)
     assert "Plug-6" in problem.text and "timers" in problem.text.lower()
+
+
+def test_the_plugs_own_automations_are_saved_with_its_timers(db, plugs):
+    plug = next(iter(plugs.values()))
+    plug.pulse_set = 14500
+    run(db, plugs)
+    mac = store.plug_mac(db, name=next(iter(plugs)))
+    assert mac is not None
+    assert store.load_automations(db, mac=mac).auto_off_s == 14400

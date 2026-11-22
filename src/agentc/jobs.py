@@ -15,9 +15,10 @@ from agentc.policy import Policy
 from agentc.watcher import MAX_GAP, Event, Run, Usual
 
 LOOKBACK = timedelta(hours=24)  # how far back each pass looks for unusual runs
-WATCH_EVERY = timedelta(minutes=15)
+WATCH_EVERY = timedelta(minutes=5)  # signals should come while it happens
 TIMERS_EVERY = timedelta(days=1)
-LEARN_EVERY = timedelta(days=1)
+LEARN_EVERY = timedelta(days=1)  # learning and the change check
+RECENT = timedelta(days=2)  # a change point compares these last days with the ones before
 MAX_TRIES = 3  # failed tries before an event is parked
 
 
@@ -46,6 +47,7 @@ def run_due(
         store.set_last_run(app, site_id=site_id, job="timers", at=now)
     if _due(app, site_id, "learn", LEARN_EVERY, now):
         learn_pass(app, energy, cfg, site_id=site_id, now=now)
+        events += change_check(app, energy, cfg, site_id=site_id, now=now)
         store.set_last_run(app, site_id=site_id, job="learn", at=now)
     return events, made
 
@@ -68,11 +70,13 @@ def watch_pass(
     for name, mac in macs.items():
         usual = watcher.usual_week(store.load_profile(app, mac=mac))  # no profile: never unusual
         readings = store.readings(energy, plug=name, start=now - LOOKBACK, end=now)
+        policy = config.device(cfg, name, store.learned(app, mac=mac)).policy
+        found += watcher.automation_events(mac, store.load_timers(app, mac=mac), readings, usual,
+                                           now=now, tz=cfg.tz, policy=policy)  # fmt: skip
         if house.runs_always(store.load_card(app, mac=mac)):
             continue  # a fridge's or router's cycles are normal (FM-04)
-        policy = config.device(cfg, name, store.learned(app, mac=mac)).policy
         runs = watcher.unusual_runs(readings, usual, tz=cfg.tz, policy=policy)
-        found += [watcher.unusual_use(mac, run) for run in runs]
+        found += [watcher.run_event(mac, run) for run in runs]
     return [
         e for e in found
         if store.add_event(app, site_id=site_id, event=e, dedupe=watcher.dedupe_key(e, tz=cfg.tz))
@@ -92,7 +96,9 @@ def respond_pass(
     names = {mac: name for name, mac in store.plug_macs(app, site_id=site_id).items()}
     money = Money(cfg.tariff, cfg.month_kwh, cfg.levy, cfg.factor)
     made: list[Proposal] = []
-    for eid, e in store.new_events(app, site_id=site_id, kind="unusual_use"):
+    waiting = [*store.new_events(app, site_id=site_id, kind="unusual_use"),
+               *store.new_events(app, site_id=site_id, kind="left_on")]  # fmt: skip
+    for eid, e in sorted(waiting, key=lambda pair: pair[0]):
         try:
             finished, p = _answer(app, energy, cfg, llm, eid, e, names, money, site_id, now)
         except (OverBudget, Unreachable):
@@ -153,6 +159,29 @@ def _failed(app: Connection, site_id: int, eid: int, err: Exception, now: dateti
     if store.event_failed(app, event_id=eid, limit=MAX_TRIES):
         store.add_audit(app, site_id=site_id, at=now, actor="code", action="event_parked",
                         ref=ref, detail={"tries": str(MAX_TRIES)})  # fmt: skip
+
+
+def change_check(
+    app: Connection, energy: Connection, cfg: Config, *, site_id: int, now: datetime
+) -> list[Event]:
+    """Daily: has a new device appeared on any plug? At most once per history_days a plug."""
+    found = []
+    for name, mac in store.plug_macs(app, site_id=site_id).items():
+        since = now - timedelta(days=config.device(cfg, name).policy.history_days)
+        last = store.last_event_start(app, site_id=site_id, kind="change_point", plug_mac=mac)
+        if last is not None and last >= since:
+            continue  # asked already; the owner's answer or the new levels settle it
+        readings = store.readings(energy, plug=name, start=since, end=now)
+        recent = [r for r in readings if r[0] >= now - RECENT]
+        before = [
+            [r for r in readings if now - RECENT * (k + 1) <= r[0] < now - RECENT * k]
+            for k in range(1, int((now - since) / RECENT))
+        ]  # the earlier windows, each as long as `recent`
+        if (e := watcher.change_point(mac, before, recent, now=now)) and store.add_event(
+            app, site_id=site_id, event=e, dedupe=watcher.dedupe_key(e, tz=cfg.tz)
+        ):
+            found.append(e)
+    return found
 
 
 def learn_pass(

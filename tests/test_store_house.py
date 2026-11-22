@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from agentc import store
+from agentc.devices.base import Automations, PlugRule
 from agentc.house import Card, Habit
 
 NOW = datetime(2026, 11, 21, 7, 0, tzinfo=UTC)
@@ -54,3 +55,18 @@ def test_a_card_is_saved_and_replaced(db):
     second = Card("fridge", "kitchen", "", "", False, {})
     store.save_card(db, site_id=1, mac="AA", card=second, now=NOW)
     assert store.load_card(db, mac="AA") == second
+
+
+# the plug's own automations, read with its timers
+
+
+def test_a_plug_never_read_has_no_automations(db):
+    assert store.load_automations(db, mac="AA") == Automations(None, ())
+
+
+def test_automations_are_saved_and_replaced(db):
+    first = Automations(14400, (PlugRule(1, True, "ON Time#Initialized DO Power 1 ENDON"),))
+    store.save_automations(db, site_id=1, mac="AA", automations=first, now=NOW)
+    assert store.load_automations(db, mac="AA") == first
+    store.save_automations(db, site_id=1, mac="AA", automations=Automations(None, ()), now=NOW)
+    assert store.load_automations(db, mac="AA") == Automations(None, ())

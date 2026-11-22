@@ -31,6 +31,23 @@ class Timer:
 
 
 @dataclass(frozen=True)
+class PlugRule:
+    """A rule stored on the plug (Tasmota Rule1 to Rule3), e.g. a boot rule."""
+
+    n: int  # 1, 2 or 3
+    on: bool  # a rule can be set but switched off
+    text: str  # the rule as Tasmota holds it
+
+
+@dataclass(frozen=True)
+class Automations:
+    """What the plug does on its own, apart from its timers."""
+
+    auto_off_s: float | None  # after switching on, it switches off after this long (PulseTime)
+    rules: tuple[PlugRule, ...]  # only the rules that hold text
+
+
+@dataclass(frozen=True)
 class TimerSet:
     enabled: bool  # the plug's global Timers switch: off means no timer fires
     timers: list[Timer]
@@ -48,6 +65,7 @@ class Plug(Protocol):
     def info(self) -> Info: ...
     def timers(self) -> TimerSet: ...
     def clock(self) -> Clock: ...
+    def automations(self) -> Automations: ...
 
 
 # a timer in plain words, for the owner and the agent

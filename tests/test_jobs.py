@@ -8,6 +8,7 @@ import pytest
 from agentc import config, jobs, learn, store
 from agentc.calc import ProfileHour
 from agentc.config import Budget
+from agentc.devices.base import Timer
 from agentc.house import Card
 from agentc.llm import Llm, Unreachable
 from agentc.policy import Policy
@@ -83,7 +84,7 @@ def test_a_plug_that_stopped_answering_is_offline(app, tmp_path):
 
 
 def test_a_blackout_between_passes_is_found(app, tmp_path):
-    blackout = {MONDAY + timedelta(hours=3, minutes=m) for m in (50, 51)}  # 03:50 to 03:51
+    blackout = {MONDAY + timedelta(hours=3, minutes=m) for m in (55, 56)}  # since the 03:55 pass
     db = energy(tmp_path, lambda t: 1.0, failed=blackout)  # all back well before the pass
     assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("no_contact", None)]
 
@@ -151,9 +152,9 @@ def test_the_first_start_runs_every_job(app, quiet, plugs):
 
 def test_a_job_runs_again_only_when_its_time_comes(app, quiet, plugs):
     due(app, quiet, plugs, NOW)
-    later = NOW + timedelta(minutes=10)
+    later = NOW + timedelta(minutes=4)
     assert due(app, quiet, plugs, later) == {"watch": NOW, "timers": NOW}  # too soon
-    later = NOW + timedelta(minutes=15)
+    later = NOW + timedelta(minutes=5)
     assert due(app, quiet, plugs, later) == {"watch": later, "timers": NOW}  # daily: not yet
 
 
@@ -196,6 +197,41 @@ def test_a_must_run_device_raises_no_unusual_use(app, tmp_path):  # FM-04: a fri
     assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
     store.save_card(app, site_id=1, mac="AA", card=Card("fan"), now=NOW)
     assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("unusual_use", "AA")]
+
+
+def test_a_saved_timer_that_switched_on_for_nothing_is_drift(app, tmp_path):
+    on = Timer(1, True, 0, "00:30", 0, "1111111", True, 1, 1)
+    store.save_timers(app, site_id=1, mac="AA", timers=[on], now=NOW)
+    db = energy(tmp_path, lambda t: 1.0)  # standby all night
+    assert ("automation_drift", "AA") in kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW))
+
+
+def test_the_watch_pass_runs_every_5_minutes(app, quiet, plugs):
+    due(app, quiet, plugs, NOW)
+    assert due(app, quiet, plugs, NOW + timedelta(minutes=5))["watch"] == NOW + timedelta(minutes=5)
+
+
+def changed_energy(tmp_path):
+    """14 days of Plug-6: 25 W when on, then 60 W in the last 2 days."""
+    rows = []
+    for d in range(14):
+        active = 60.0 if d >= 12 else 25.0
+        for m in range(0, 24 * 60, 5):
+            local = START + timedelta(days=d, minutes=m)
+            rows.append((local.astimezone(UTC).isoformat(), "Plug-6", 2.0 if m < 720 else active,
+                         None))  # fmt: skip
+    path = tmp_path / "energy.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
+        db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
+    db.close()
+    return store.open_readings(path)
+
+
+def test_a_new_device_is_found_once_by_the_daily_check(app, tmp_path):
+    db = changed_energy(tmp_path)
+    assert kinds(jobs.change_check(app, db, CFG, site_id=1, now=END)) == [("change_point", "AA")]
+    assert jobs.change_check(app, db, CFG, site_id=1, now=END + timedelta(days=1)) == []
 
 
 # the logger itself: a heartbeat from outside it
@@ -257,9 +293,9 @@ def desk_energy(tmp_path, waste=(0, 1)):
     return store.open_readings(path)
 
 
-def left_on(app, day, mac="AA", late=timedelta(0)):
+def left_on(app, day, mac="AA", late=timedelta(0), kind="unusual_use"):
     """The night of `day` saved as an event. late: the event starts that long after the run."""
-    event = Event("unusual_use", mac, night(day).start + late, {})
+    event = Event(kind, mac, night(day).start + late, {})
     store.add_event(app, site_id=1, event=event, dedupe=f"{mac}|{day}")
 
 
@@ -282,6 +318,11 @@ def test_a_finished_run_gets_one_proposal(app, tmp_path):
     assert statuses(app) == ["done"]
     assert answer(app, energy, model) == []  # answered once only
     assert model.calls == 1
+
+
+def test_a_left_on_event_is_answered_too(app, tmp_path):
+    left_on(app, 1, kind="left_on")
+    assert len(answer(app, desk_energy(tmp_path), FakeModel())) == 1
 
 
 def test_a_run_still_going_waits_for_its_end(app, tmp_path):
@@ -426,7 +467,7 @@ def test_learned_values_reach_the_watch_pass(app, tmp_path):
     db = energy(tmp_path, lambda t: 2.0 if t >= MONDAY + timedelta(minutes=30) else 0.0)
     assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []  # 2 W: under the 3 W rule
     store.save_learned(app, site_id=1, mac="AA", values={"small_w": (1.0, "learned")}, at=NOW)
-    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("unusual_use", "AA")]
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("left_on", "AA")]
 
 
 def test_learned_values_reach_the_respond_step(app, tmp_path):

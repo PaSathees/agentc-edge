@@ -20,6 +20,9 @@ from agentc.watcher import Event
 
 DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 WHEN = "%a %d %b %H:%M"  # Tue 03 Nov 01:00
+REPLAY_EVERY = timedelta(
+    minutes=15
+)  # replay steps coarser than the 5-min pass: same events, faster
 NO_KEY = "No ANTHROPIC_API_KEY: the Responder did not run. Run with `uv run --env-file .env`."
 
 
@@ -112,7 +115,8 @@ def _card(db: Connection, cfg: Config, name: str) -> str:
     saved = store.load_timers(db, mac=mac) if mac else []
     found = [h for _, h in store.habits(db, mac=mac)] if mac else []
     c = store.load_card(db, mac=mac) if mac else house.Card()
-    return house.card(config.device(cfg, name), c, timers=saved, habits=found)
+    auto = store.load_automations(db, mac=mac) if mac else house.NO_AUTOMATIONS
+    return house.card(config.device(cfg, name), c, timers=saved, habits=found, automations=auto)
 
 
 def show_policy(db: Connection, cfg: Config, plug: str | None) -> int:
@@ -223,7 +227,10 @@ def show_watch(db: Connection, cfg: Config, *, site_id: int, model: llm.Llm | No
     energy = store.open_readings(cfg.energy_db)
     now = datetime.now(UTC)
     events, made = jobs.run_due(db, energy, cfg, site_id=site_id, now=now, llm=model)
-    names = {mac: name for name, mac in store.plug_macs(db, site_id=site_id).items()}
+    names = {
+        mac: config.device(cfg, name).name
+        for name, mac in store.plug_macs(db, site_id=site_id).items()
+    }
     for e in events:
         print(event_words(e, names, tz=cfg.tz))
     for p in made:
@@ -253,7 +260,7 @@ def show_eval(send: llm.Send | None, *, samples: int) -> int:
 def show_replay(
     db: Connection, cfg: Config, *, site_id: int, days: int, send: llm.Send | None
 ) -> int:
-    """Play past days through the Watcher, one pass every 15 min, and list the events.
+    """Play past days through the Watcher, one pass every 15 min (REPLAY_EVERY), and list them.
 
     send: also ask the model after each pass, and list the proposals. It works on a
     copy of app.db in memory, so the real app.db is not changed. Profiles and learned
@@ -266,7 +273,7 @@ def show_replay(
     start = end - timedelta(days=days)
     names = {}
     for name, mac in store.plug_macs(copy, site_id=site_id).items():
-        names[mac] = name
+        names[mac] = config.device(cfg, name).name  # the device, not the plug
         readings = store.readings(energy, plug=name, start=start, end=end)
         profile = calc.build_profile(readings, tz=cfg.tz, policy=config.device(cfg, name).policy)
         if profile:
@@ -275,12 +282,12 @@ def show_replay(
     model = _llm(copy, cfg, site_id, send) if send else None  # its calls go in the copy too
     events: list[Event] = []
     made: list[Proposal] = []
-    at = start + jobs.WATCH_EVERY
+    at = start + REPLAY_EVERY
     while at <= end:
         events += jobs.watch_pass(copy, energy, cfg, site_id=site_id, now=at)
         if model:
             made += jobs.respond_pass(copy, energy, cfg, model, site_id=site_id, now=at)
-        at += jobs.WATCH_EVERY
+        at += REPLAY_EVERY
     for n, e in enumerate(events, 1):
         print(f"{n}. {event_words(e, names, tz=cfg.tz)}")
     print(f"Events in {days} days: {len(events)}")
@@ -299,6 +306,19 @@ def event_words(e: Event, names: dict[str, str], *, tz: str) -> str:
     if e.kind == "unusual_use":
         size = f"{e.facts['minutes']} min, peak {e.facts['peak_w']:.0f} W"
         return f"{name}: on at an unusual time from {when}, {size}"
+    if e.kind == "left_on":
+        size = f"{e.facts['minutes']} min so far, about {e.facts['peak_w']:.0f} W"
+        return f"{name}: left on since {when}, {size}"
+    if e.kind == "automation_drift":
+        day = e.start.astimezone(ZoneInfo(tz)).strftime("%a %d %b")
+        return (f"{name}: timer {e.facts['slot']} switched it on at {e.facts['time']} on {day},"
+                f" but it did nothing for {e.facts['hours']:g} h")  # fmt: skip
+    if e.kind == "override":
+        return (f"{name}: timer {e.facts['slot']} should have switched it off at"
+                f" {e.facts['time']}, but it still drew {e.facts['peak_w']:.0f} W")  # fmt: skip
+    if e.kind == "change_point":
+        return (f"{name}: new device? Its power when on went from about"
+                f" {e.facts['old_w']:.0f} W to {e.facts['new_w']:.0f} W")  # fmt: skip
     if e.kind == "offline":
         return f"{name}: not answering since {when}"
     if e.kind == "no_contact":
