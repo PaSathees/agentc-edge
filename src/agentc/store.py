@@ -510,6 +510,13 @@ def load_events(db: sqlite3.Connection, *, site_id: int) -> list[Event]:
     return [_event(*row) for row in db.execute(sql, (site_id,))]
 
 
+def get_event(db: sqlite3.Connection, *, event_id: int) -> Event | None:
+    """One event by its id."""
+    sql = "SELECT kind, plug_mac, start_utc, facts FROM events WHERE id = ?"
+    row = db.execute(sql, (event_id,)).fetchone()
+    return _event(*row) if row else None
+
+
 def new_events(db: sqlite3.Connection, *, site_id: int, kind: str) -> list[tuple[int, Event]]:
     """Events of one kind that nothing has handled yet, as (id, event), oldest first."""
     sql = """SELECT id, kind, plug_mac, start_utc, facts FROM events

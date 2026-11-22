@@ -66,7 +66,7 @@ def test_every_call_is_traced(db):  # FR-27
 
 def test_addresses_never_reach_the_model(db):  # NFR-14
     model = FakeModel()
-    ask(make(db, model), prompt="Plug at 192.168.1.66, MAC 4C:EB:D6:AA:BB:0C.")
+    ask(make(db, model), prompt="Plug at 192.0.2.66, MAC 4C:EB:D6:AA:BB:0C.")
     assert model.calls[0]["prompt"] == "Plug at [ip], MAC [mac]."
     assert db.execute("SELECT prompt FROM llm_calls").fetchone() == ("Plug at [ip], MAC [mac].",)
 
@@ -185,3 +185,54 @@ def test_a_bad_request_is_not_unreachable(monkeypatch):  # a bug on our side: it
     monkeypatch.setattr(client.messages, "create", create)
     with pytest.raises(anthropic.BadRequestError):
         llm.claude(client)(tier=SMALL, system="S", prompt="P", schema=SCHEMA)
+
+
+# one step of an agent loop: tools offered, blocks back, traced like any call
+
+
+def test_a_step_is_traced_and_priced(db):
+    def step(*, tier, system, messages, tools):
+        return [{"type": "text", "text": "ok"}], "end_turn", 1000, 100
+
+    m = llm.Llm(db, 1, "Asia/Colombo", {"small": SMALL}, CAPS, send=None, step_send=step,
+                clock=lambda: NOW)  # fmt: skip
+    reply = m.step(tier="small", agent="housemate", run_id="run-1", prompt_version="v",
+                   system="S at 192.0.2.5", messages=[{"role": "user", "content": "hi"}],
+                   tools=[])  # fmt: skip
+    assert (reply.blocks, reply.stop_reason, reply.usd) == ([{"type": "text", "text": "ok"}],
+                                                            "end_turn", 0.002)  # fmt: skip
+    (prompt,) = db.execute("SELECT prompt FROM llm_calls").fetchone()
+    assert "[ip]" in prompt and "192.0.2" not in prompt
+
+
+def test_the_real_step_sends_tools_with_a_cached_system(monkeypatch):
+    client = anthropic.Anthropic(api_key="test")
+    seen = {}
+
+    def create(**kwargs):
+        seen.update(kwargs)
+        msg = answer({"type": "tool_use", "id": "t1", "name": "power", "input": {"hours": 1}})
+        return msg.model_copy(update={"stop_reason": "tool_use"})
+
+    monkeypatch.setattr(client.messages, "create", create)
+    tools = [{"name": "power", "description": "d", "input_schema": {"type": "object"}}]
+    blocks, stop, tin, tout = llm.claude_step(client)(
+        tier=SMALL, system="S", messages=[{"role": "user", "content": "P"}], tools=tools
+    )
+    assert blocks == [{"type": "tool_use", "id": "t1", "name": "power", "input": {"hours": 1}}]
+    assert (stop, tin, tout) == ("tool_use", 1000, 100)
+    assert seen["system"] == [{"type": "text", "text": "S", "cache_control": {"type": "ephemeral"}}]
+    assert seen["tools"] == tools and seen["output_config"] == {"effort": "low"}
+
+
+def test_the_real_step_out_of_reach_is_unreachable(monkeypatch):
+    client = anthropic.Anthropic(api_key="test", max_retries=0)
+
+    def create(**_):
+        raise anthropic.APIConnectionError(
+            request=httpx.Request("POST", "https://api.anthropic.com")
+        )
+
+    monkeypatch.setattr(client.messages, "create", create)
+    with pytest.raises(llm.Unreachable):
+        llm.claude_step(client)(tier=SMALL, system="S", messages=[], tools=[])

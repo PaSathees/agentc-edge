@@ -42,8 +42,8 @@ def cfg(tmp_path, plugs):
     return path
 
 
-def run(cfg, capsys, *args, send=None):
-    code = cli.main(["--config", str(cfg), *args], send=send)
+def run(cfg, capsys, *args, send=None, step=None):
+    code = cli.main(["--config", str(cfg), *args], send=send, step=step)
     return code, capsys.readouterr().out
 
 
@@ -346,3 +346,91 @@ def test_learn_says_when_a_plug_has_one_level(cfg, capsys, tmp_path):
     run(cfg, capsys, "timers")
     write_energy_db(tmp_path / "energy.db", "Plug-2", days=8, watts=lambda _: 5.0)
     assert "Plug-2: one level or none, so it keeps the defaults\n" in run(cfg, capsys, "learn")[1]
+
+
+# look: the housemate agent on one saved event (3c)
+
+
+def saved_event(cfg, capsys, tmp_path):
+    """Plug-1 (Desk 2) read, 2 days of readings, and one left-on event saved. Returns its id."""
+    run(cfg, capsys, "timers")
+    write_energy_db(tmp_path / "energy.db", "Plug-1", 2)
+    db = store.connect(tmp_path / "app.db")
+    mac = store.plug_mac(db, name="Plug-1")
+    start = datetime.now(UTC) - timedelta(minutes=40)
+    event = Event("left_on", mac, start, {"minutes": 33, "peak_w": 5.0})
+    store.add_event(db, site_id=1, event=event, dedupe="e")
+    return 1
+
+
+def decides(action):
+    def step(*, tier, system, messages, tools):
+        text = "Desk 2 is still on. Switch it off?" if action == "ask" else "Normal."
+        pairs = (("Off", "switch_off_now"), ("Normal", "save_habit")) if action == "ask" else ()
+        choices = [{"label": a, "does": b, "off": None, "on": None, "days": None} for a, b in pairs]
+        args = {"action": action, "text": text, "choices": choices}
+        return (
+            [{"type": "tool_use", "id": "t1", "name": "decide", "input": args}],
+            "tool_use",
+            900,
+            90,
+        )
+
+    return step
+
+
+def test_look_shows_the_agents_decision(cfg, capsys, tmp_path):
+    eid = saved_event(cfg, capsys, tmp_path)
+    code, out = run(cfg, capsys, "look", str(eid), step=decides("ask"))
+    assert code == 0
+    assert out.startswith("Signal: Desk 2: left on since ")
+    assert "Decision: ask. Desk 2 is still on. Switch it off?\n  [Off] switch_off_now\n" in out
+    assert out.endswith("Model calls cost USD 0.0001.\n")
+
+
+def test_look_of_an_unknown_event(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    assert run(cfg, capsys, "look", "9", step=decides("ask")) == (1, "No event 9.\n")
+
+
+def test_look_needs_a_model(cfg, capsys, tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    eid = saved_event(cfg, capsys, tmp_path)
+    assert run(cfg, capsys, "look", str(eid)) == (1, cli.NO_KEY + "\n")
+
+
+def test_look_of_a_whole_site_event(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    db = store.connect(tmp_path / "app.db")
+    store.add_event(db, site_id=1, event=Event("no_contact", None, AT, {"plugs": 2}), dedupe="s")
+    assert run(cfg, capsys, "look", "1", step=decides("ask"))[1].startswith(
+        "Event 1 is about the whole site"
+    )
+
+
+def test_look_uses_the_real_model_when_a_key_is_set(cfg, capsys, tmp_path, monkeypatch):
+    eid = saved_event(cfg, capsys, tmp_path)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setattr(cli.llm, "claude_step", lambda client: decides("ignore"))  # no real call
+    assert "Decision: ignore. Normal.\n" in run(cfg, capsys, "look", str(eid))[1]
+
+
+def test_look_with_no_decision_says_why(cfg, capsys, tmp_path):
+    eid = saved_event(cfg, capsys, tmp_path)
+
+    def mute(**_):
+        return [{"type": "text", "text": "Hmm."}], "end_turn", 900, 90
+
+    assert "No decision: format: no decision\n" in run(cfg, capsys, "look", str(eid), step=mute)[1]
+
+
+def test_look_can_look_as_of_a_past_time(cfg, capsys, tmp_path):
+    eid = saved_event(cfg, capsys, tmp_path)
+    seen = {}
+
+    def step(**kw):
+        seen["brief"] = kw["messages"][0]["content"]
+        return decides("ignore")(**kw)
+
+    run(cfg, capsys, "look", str(eid), "--at", "2026-11-02 02:10", step=step)
+    assert "Now: Mon 02 Nov 02:10" in seen["brief"]

@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 import anthropic
 
-from agentc import calc, config, evals, house, jobs, llm, store, timers
+from agentc import agent, agent_tools, calc, config, evals, house, jobs, llm, store, timers
 from agentc.config import Config
 from agentc.devices.base import describe
 from agentc.options import Proposal
@@ -26,31 +26,13 @@ REPLAY_EVERY = timedelta(
 NO_KEY = "No ANTHROPIC_API_KEY: the Responder did not run. Run with `uv run --env-file .env`."
 
 
-def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
-    """send: a stand-in for the model in tests. None means the real model, if a key is set."""
-    parser = argparse.ArgumentParser(prog="agentc")
-    parser.add_argument("--config", type=Path, default=Path("config.toml"))
-    commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("timers", help="read each plug's timers and show them in plain words")
-    profile = commands.add_parser("profile", help="build one plug's week of use and save it")
-    profile.add_argument("plug", help="a name from config.toml, e.g. Plug-2")
-    profile.add_argument("--days", type=int, default=28, help="how far back to look")
-    commands.add_parser("watch", help="run the checks that are due now and show new events")
-    replay = commands.add_parser("replay", help="play past days through the Watcher")
-    replay.add_argument("--days", type=int, default=14, help="how many days to play")
-    replay.add_argument("--respond", action="store_true", help="ask the model too (costs money)")
-    commands.add_parser("learn", help="learn each plug's levels from its readings, and show them")
-    card = commands.add_parser("house", help="show or set what the system knows about devices")
-    card.add_argument("plug", nargs="?", help="a name from config.toml; none: every plug")
-    card.add_argument("set", nargs="*", metavar="key=value",
-                      help="change the card: kind, room, what, notes, must_run (yes or no), "
-                           "why.N (why timer N is set)")  # fmt: skip
-    policy = commands.add_parser("policy", help="show each threshold, where it came from, and why")
-    policy.add_argument("plug", nargs="?", help="a name from config.toml; none: the whole site")
-    score = commands.add_parser("eval", help="score the Responder on the eval cases")
-    score.add_argument("--live", action="store_true", help="ask the real model and record (costs)")
-    score.add_argument("--samples", type=int, default=10, help="tries per case when live")
-    args = parser.parse_args(argv)
+def main(
+    argv: list[str] | None = None, *, send: llm.Send | None = None,
+    step: llm.StepSend | None = None,
+) -> int:  # fmt: skip
+    """send, step: stand-ins for the model in tests (one call; one agent step). None means
+    the real model, if a key is set."""
+    args = _parser().parse_args(argv)
 
     if args.command == "eval":  # needs no config.toml: the evals bring their own
         model = _send(send) if args.live else None
@@ -64,6 +46,8 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     site_id = store.add_site(db, name=cfg.site, tz=cfg.tz)
     if args.command == "policy":
         return show_policy(db, cfg, args.plug)
+    if args.command == "look":
+        return show_look(db, cfg, site_id=site_id, event_id=args.event, step=step, at=args.at)
     if args.command == "house":
         return show_house(db, cfg, args.plug, args.set, site_id=site_id)
     if args.command == "learn":
@@ -117,6 +101,80 @@ def _card(db: Connection, cfg: Config, name: str) -> str:
     c = store.load_card(db, mac=mac) if mac else house.Card()
     auto = store.load_automations(db, mac=mac) if mac else house.NO_AUTOMATIONS
     return house.card(config.device(cfg, name), c, timers=saved, habits=found, automations=auto)
+
+
+def _parser() -> argparse.ArgumentParser:
+    """The commands and their arguments."""
+    parser = argparse.ArgumentParser(prog="agentc")
+    parser.add_argument("--config", type=Path, default=Path("config.toml"))
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("timers", help="read each plug's timers and show them in plain words")
+    profile = commands.add_parser("profile", help="build one plug's week of use and save it")
+    profile.add_argument("plug", help="a name from config.toml, e.g. Plug-2")
+    profile.add_argument("--days", type=int, default=28, help="how far back to look")
+    commands.add_parser("watch", help="run the checks that are due now and show new events")
+    replay = commands.add_parser("replay", help="play past days through the Watcher")
+    replay.add_argument("--days", type=int, default=14, help="how many days to play")
+    replay.add_argument("--respond", action="store_true", help="ask the model too (costs money)")
+    commands.add_parser("learn", help="learn each plug's levels from its readings, and show them")
+    card = commands.add_parser("house", help="show or set what the system knows about devices")
+    card.add_argument("plug", nargs="?", help="a name from config.toml; none: every plug")
+    card.add_argument("set", nargs="*", metavar="key=value",
+                      help="change the card: kind, room, what, notes, must_run (yes or no), "
+                           "why.N (why timer N is set)")  # fmt: skip
+    peek = commands.add_parser("look", help="run the housemate agent on one saved event (costs)")
+    peek.add_argument("event", type=int, help="the event's id in app.db")
+    peek.add_argument("--at", help="look as of this local time, YYYY-MM-DD HH:MM (default: now)")
+    policy = commands.add_parser("policy", help="show each threshold, where it came from, and why")
+    policy.add_argument("plug", nargs="?", help="a name from config.toml; none: the whole site")
+    score = commands.add_parser("eval", help="score the Responder on the eval cases")
+    score.add_argument("--live", action="store_true", help="ask the real model and record (costs)")
+    score.add_argument("--samples", type=int, default=10, help="tries per case when live")
+    return parser
+
+
+def show_look(
+    db: Connection, cfg: Config, *, site_id: int, event_id: int, step: llm.StepSend | None,
+    at: str | None = None,
+) -> int:  # fmt: skip
+    """Run the housemate agent on one saved event, as of now (or `at`), and show what it decided.
+
+    It reads only; the model calls are traced in app.db like any other.
+    """
+    if (e := store.get_event(db, event_id=event_id)) is None:
+        print(f"No event {event_id}.")
+        return 1
+    names = {mac: name for name, mac in store.plug_macs(db, site_id=site_id).items()}
+    if e.plug_mac not in names:
+        print(f"Event {event_id} is about the whole site: there is no device to look at.")
+        return 1
+    if step is None and os.environ.get("ANTHROPIC_API_KEY"):
+        step = llm.claude_step(anthropic.Anthropic())
+    if step is None:
+        print(NO_KEY)
+        return 1
+    now = (
+        datetime.strptime(at, "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo(cfg.tz))
+        if at
+        else datetime.now(UTC)
+    )
+    run_id = f"look:{event_id}:{now:%Y%m%dT%H%M}"
+    model = llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, None, step)
+    tools = agent_tools.Tools(db, store.open_readings(cfg.energy_db), cfg, site_id, now)
+    device = config.device(cfg, names[e.plug_mac]).name
+    signal = event_words(e, {e.plug_mac: device}, tz=cfg.tz)
+    print(f"Signal: {signal}")
+    result = agent.look(signal, device, tools=tools, llm=model, run_id=run_id)
+    print(f"Tools used: {', '.join(result.tools) or 'none'}")
+    if (d := result.decision) is None:
+        print(f"No decision: {result.blocked}")
+    else:
+        print(f"Decision: {d.action}. {d.text}")
+        for c in d.choices:
+            timer = f" off {c.off}, on {c.on}, {c.days}" if c.does == "set_timer" else ""
+            print(f"  [{c.label}] {c.does}{timer}")
+    print(f"Model calls cost USD {store.llm_usd(db, site_id=site_id, run_id=run_id):.4f}.")
+    return 0
 
 
 def show_policy(db: Connection, cfg: Config, plug: str | None) -> int:
