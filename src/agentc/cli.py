@@ -10,8 +10,9 @@ from zoneinfo import ZoneInfo
 
 import anthropic
 
-from agentc import calc, config, evals, jobs, llm, store, timers
+from agentc import calc, config, evals, house, jobs, llm, store, timers
 from agentc.config import Config
+from agentc.devices.base import describe
 from agentc.options import Proposal
 from agentc.policy import explain
 from agentc.responder import fix_words
@@ -36,6 +37,11 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     replay.add_argument("--days", type=int, default=14, help="how many days to play")
     replay.add_argument("--respond", action="store_true", help="ask the model too (costs money)")
     commands.add_parser("learn", help="learn each plug's levels from its readings, and show them")
+    card = commands.add_parser("house", help="show or set what the system knows about devices")
+    card.add_argument("plug", nargs="?", help="a name from config.toml; none: every plug")
+    card.add_argument("set", nargs="*", metavar="key=value",
+                      help="change the card: kind, room, what, notes, must_run (yes or no), "
+                           "why.N (why timer N is set)")  # fmt: skip
     policy = commands.add_parser("policy", help="show each threshold, where it came from, and why")
     policy.add_argument("plug", nargs="?", help="a name from config.toml; none: the whole site")
     score = commands.add_parser("eval", help="score the Responder on the eval cases")
@@ -55,6 +61,8 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
     site_id = store.add_site(db, name=cfg.site, tz=cfg.tz)
     if args.command == "policy":
         return show_policy(db, cfg, args.plug)
+    if args.command == "house":
+        return show_house(db, cfg, args.plug, args.set, site_id=site_id)
     if args.command == "learn":
         return show_learn(db, cfg, site_id=site_id)
     if args.command == "profile":
@@ -69,6 +77,42 @@ def main(argv: list[str] | None = None, *, send: llm.Send | None = None) -> int:
         return show_replay(db, cfg, site_id=site_id, days=args.days, send=model)
     show_timers(db, site_id=site_id, plugs=cfg.plugs)
     return 0
+
+
+def show_house(
+    db: Connection, cfg: Config, plug: str | None, changes: list[str], *, site_id: int
+) -> int:
+    """Each device card, as the agent will read it, or change one plug's card.
+
+    Reads only app.db, never the plugs. A change is the owner's own, so it is saved at
+    once, with an audit row.
+    """
+    if plug is not None and plug not in cfg.plugs:
+        print(f"{plug}: not in config.toml.")
+        return 1
+    if plug and changes:
+        if (mac := store.plug_mac(db, name=plug)) is None:
+            print(f"{plug}: not seen yet. Run `agentc timers` first.")
+            return 1
+        try:
+            new = house.updated(store.load_card(db, mac=mac), changes)
+        except ValueError as err:
+            print(err)
+            return 1
+        now = datetime.now(UTC)
+        store.save_card(db, site_id=site_id, mac=mac, card=new, now=now)
+        store.add_audit(db, site_id=site_id, at=now, actor="owner", action="card_set",
+                        ref=f"plug:{plug}", detail={"set": "; ".join(changes)})  # fmt: skip
+    print("\n\n".join(_card(db, cfg, name) for name in ([plug] if plug else cfg.plugs)))
+    return 0
+
+
+def _card(db: Connection, cfg: Config, name: str) -> str:
+    mac = store.plug_mac(db, name=name)
+    saved = store.load_timers(db, mac=mac) if mac else []
+    found = [h for _, h in store.habits(db, mac=mac)] if mac else []
+    c = store.load_card(db, mac=mac) if mac else house.Card()
+    return house.card(config.device(cfg, name), c, timers=saved, habits=found)
 
 
 def show_policy(db: Connection, cfg: Config, plug: str | None) -> int:
@@ -115,7 +159,7 @@ def show_timers(db: Connection, *, site_id: int, plugs: dict[str, str]) -> None:
         mac = store.plug_mac(db, name=name)
         set_timers = [t for t in store.load_timers(db, mac=mac) if t.enable] if mac else []
         for t in set_timers:
-            print(f"  Timer{t.slot}: {timers.describe(t)}")
+            print(f"  Timer{t.slot}: {describe(t)}")
         if not set_timers:
             print("  No timers set")
     if problems:

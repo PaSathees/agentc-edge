@@ -1,7 +1,6 @@
 import pytest
 
-from agentc.devices.base import Timer
-from agentc.timers import describe
+from agentc.devices.base import Timer, describe
 
 
 def t(action=1, time="07:30", days="1111111", mode=0, repeat=True, window=0, enable=True):

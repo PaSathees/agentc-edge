@@ -8,6 +8,7 @@ import pytest
 from agentc import config, jobs, learn, store
 from agentc.calc import ProfileHour
 from agentc.config import Budget
+from agentc.house import Card
 from agentc.llm import Llm, Unreachable
 from agentc.policy import Policy
 from agentc.watcher import Event
@@ -187,6 +188,14 @@ def test_a_long_loss_of_contact_is_one_event(app, tmp_path):
     every = {MONDAY + timedelta(minutes=m) for m in range(60, 4 * 60)}  # all down from 01:00
     db = energy(tmp_path, lambda t: 1.0, failed=every)
     assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
+
+
+def test_a_must_run_device_raises_no_unusual_use(app, tmp_path):  # FM-04: a fridge's cycles
+    db = energy(tmp_path, lambda t: 30.0 if t >= MONDAY + timedelta(hours=1) else 0.0)
+    store.save_card(app, site_id=1, mac="AA", card=Card("fridge"), now=NOW)
+    assert jobs.watch_pass(app, db, CFG, site_id=1, now=NOW) == []
+    store.save_card(app, site_id=1, mac="AA", card=Card("fan"), now=NOW)
+    assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("unusual_use", "AA")]
 
 
 # the logger itself: a heartbeat from outside it

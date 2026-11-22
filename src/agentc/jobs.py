@@ -7,7 +7,7 @@ timer check, learning or the heartbeat.
 from datetime import datetime, timedelta
 from sqlite3 import Connection
 
-from agentc import config, learn, responder, store, timers, watcher
+from agentc import config, house, learn, responder, store, timers, watcher
 from agentc.config import Config
 from agentc.llm import Llm, OverBudget, Unreachable
 from agentc.options import Money, Proposal
@@ -68,6 +68,8 @@ def watch_pass(
     for name, mac in macs.items():
         usual = watcher.usual_week(store.load_profile(app, mac=mac))  # no profile: never unusual
         readings = store.readings(energy, plug=name, start=now - LOOKBACK, end=now)
+        if house.runs_always(store.load_card(app, mac=mac)):
+            continue  # a fridge's or router's cycles are normal (FM-04)
         policy = config.device(cfg, name, store.learned(app, mac=mac)).policy
         runs = watcher.unusual_runs(readings, usual, tz=cfg.tz, policy=policy)
         found += [watcher.unusual_use(mac, run) for run in runs]

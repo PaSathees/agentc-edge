@@ -41,6 +41,9 @@ effort = "medium"
 # What is plugged into each plug. Optional: a plug not listed keeps its own name,
 # access "advice" and timer slots 9 to 16. The name is the only one a model sees.
 # access: "none" = never changed; "advice" = proposals only; "write" = written after approval.
+# What each device is (its card: kind, room, what is plugged in, why its timers are set)
+# lives in app.db, not here: `agentc house` shows it, `agentc house Plug-1 kind=computer`
+# sets it. This file holds only what the agent may never change: names, access, rules.
 [devices."Plug-1"]
 name = "Desk 2"
 rules = [
