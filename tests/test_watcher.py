@@ -11,6 +11,7 @@ from agentc.watcher import (
     Run,
     Usual,
     automation_events,
+    change_point,
     dedupe_key,
     is_unusual,
     logger_stopped,
@@ -363,3 +364,58 @@ def test_the_policy_sets_how_long_drift_and_override_wait():
     off = auto([on_at(2, "01:00", action=0)], minutes(at(1), 60, 60.0), now=at(2),
                policy=Policy(override_min=90))  # fmt: skip
     assert (on, off) == ([], [])
+
+
+# change point: the plug's power levels shift for good (a new device on it)
+
+
+def levels_readings(start, days, standby, active):
+    """Readings of a device in 2-day windows from `start`: 12 h standby, 12 h active a day."""
+    windows = []
+    for w in range(0, days, 2):
+        out = []
+        for d in (w, w + 1):
+            day = start + timedelta(days=d)
+            out += minutes(day, 12 * 60, standby) + minutes(day + timedelta(hours=12), 12 * 60,
+                                                             active)  # fmt: skip
+        windows.append(out)
+    return windows
+
+
+def test_a_new_device_is_a_change_point():  # was a 25 W monitor, now a 60 W one
+    before = levels_readings(MONDAY, 12, 2.0, 25.0)
+    (recent,) = levels_readings(MONDAY + timedelta(days=12), 2, 2.0, 60.0)
+    found = change_point("AA", before, recent, now=at(14 * 24))
+    assert found == Event("change_point", "AA", at(14 * 24).astimezone(UTC),
+                          {"old_w": 25.0, "new_w": 60.0})  # fmt: skip
+
+
+def test_a_smaller_new_device_is_a_change_point_too():  # 60 W swapped for a 25 W one
+    before = levels_readings(MONDAY, 12, 2.0, 60.0)
+    (recent,) = levels_readings(MONDAY + timedelta(days=12), 2, 2.0, 25.0)
+    found = change_point("AA", before, recent, now=at(14 * 24))
+    assert found is not None and found.facts == {"old_w": 60.0, "new_w": 25.0}
+
+
+def test_the_same_device_is_no_change_point():
+    before = levels_readings(MONDAY, 12, 2.0, 25.0)
+    (recent,) = levels_readings(MONDAY + timedelta(days=12), 2, 2.0, 30.0)
+    assert change_point("AA", before, recent, now=at(14 * 24)) is None
+
+
+def test_a_device_that_swings_by_itself_is_no_change_point():  # a laptop charger: 9 to 33 W
+    before = [w for a in (9.0, 33.0, 18.0) for w in levels_readings(MONDAY, 2, 2.0, a)]
+    (recent,) = levels_readings(MONDAY + timedelta(days=6), 2, 2.0, 40.0)
+    assert change_point("AA", before, recent, now=at(8 * 24)) is None
+
+
+def test_too_little_history_is_no_change_point():  # 2 earlier windows: not enough to judge
+    before = levels_readings(MONDAY, 4, 2.0, 6.0)
+    (recent,) = levels_readings(MONDAY + timedelta(days=4), 2, 2.0, 15.0)
+    assert change_point("AA", before, recent, now=at(6 * 24)) is None
+
+
+def test_a_device_with_no_clear_levels_is_no_change_point():  # e.g. off all the time lately
+    before = levels_readings(MONDAY, 12, 2.0, 25.0)
+    recent = minutes(MONDAY + timedelta(days=12), 2 * 24 * 60, 0.0)
+    assert change_point("AA", before, recent, now=at(14 * 24)) is None

@@ -42,12 +42,14 @@ def _import_one(
 ) -> list[Problem]:
     try:
         info, timer_set, clock = plug.info(), plug.timers(), plug.clock()
+        automations = plug.automations()
     except PlugError as err:
         store.plug_failed(db, name=name, error=str(err))
         return [Problem(name, "unreachable", f"{name} did not answer; retried next pass")]
     store.plug_seen(db, site_id=site_id, mac=info.mac, name=name, ip=ip,
                     timers_on=timer_set.enabled, now=now)  # fmt: skip
     store.save_timers(db, site_id=site_id, mac=info.mac, timers=timer_set.timers, now=now)
+    store.save_automations(db, site_id=site_id, mac=info.mac, automations=automations, now=now)
     problems = check_clock(name, clock, tz=tz, now=now)
     set_slots = [t.slot for t in timer_set.timers if t.enable]
     if not timer_set.enabled and set_slots:  # off with no timers set blocks nothing yet

@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from agentc.devices.base import PlugError, Timer
+from agentc.devices.base import PlugError, PlugRule, Timer
 from agentc.devices.tasmota import TasmotaPlug
 
 
@@ -48,3 +48,33 @@ def test_timers_answer_missing_a_slot_raises_plug_error(plug, monkeypatch):
     monkeypatch.setattr(plug, "handle", lambda cmnd: {"Timers": "ON", "Timer1": {}})
     with pytest.raises(PlugError):
         TasmotaPlug(plug.ip).timers()
+
+
+# automations on the plug itself: auto-off and rules (3b2)
+
+
+@pytest.mark.parametrize(("pulse", "seconds"), [(0, None), (14500, 14400), (50, 5.0), (112, 12)])
+def test_reads_the_auto_off_in_seconds(plug, pulse, seconds):  # 14500 = 4 h, the battery charger
+    plug.pulse_set = pulse
+    assert TasmotaPlug(plug.ip).automations().auto_off_s == seconds
+
+
+def test_reads_only_the_rules_that_are_set(plug):
+    plug.rules[1] = ("ON Time#Initialized DO Power 1 ENDON", True)
+    plug.rules[3] = ("ON Power1#State DO Var1 1 ENDON", False)
+    assert TasmotaPlug(plug.ip).automations().rules == (
+        PlugRule(1, True, "ON Time#Initialized DO Power 1 ENDON"),
+        PlugRule(3, False, "ON Power1#State DO Var1 1 ENDON"),
+    )
+
+
+def test_an_unreadable_automations_answer_raises_plug_error(plug, monkeypatch):
+    monkeypatch.setattr(plug, "handle", lambda cmnd: {"Command": "Unknown"})
+    with pytest.raises(PlugError):
+        TasmotaPlug(plug.ip).automations()
+
+
+def test_an_automations_answer_missing_a_field_raises_plug_error(plug, monkeypatch):
+    monkeypatch.setattr(plug, "handle", lambda cmnd: {"PulseTime1": {"Remaining": 0}})
+    with pytest.raises(PlugError, match="unreadable PulseTime or Rule"):
+        TasmotaPlug(plug.ip).automations()

@@ -17,7 +17,8 @@ from agentc.watcher import MAX_GAP, Event, Run, Usual
 LOOKBACK = timedelta(hours=24)  # how far back each pass looks for unusual runs
 WATCH_EVERY = timedelta(minutes=5)  # signals should come while it happens
 TIMERS_EVERY = timedelta(days=1)
-LEARN_EVERY = timedelta(days=1)
+LEARN_EVERY = timedelta(days=1)  # learning and the change check
+RECENT = timedelta(days=2)  # a change point compares these last days with the ones before
 MAX_TRIES = 3  # failed tries before an event is parked
 
 
@@ -46,6 +47,7 @@ def run_due(
         store.set_last_run(app, site_id=site_id, job="timers", at=now)
     if _due(app, site_id, "learn", LEARN_EVERY, now):
         learn_pass(app, energy, cfg, site_id=site_id, now=now)
+        events += change_check(app, energy, cfg, site_id=site_id, now=now)
         store.set_last_run(app, site_id=site_id, job="learn", at=now)
     return events, made
 
@@ -157,6 +159,29 @@ def _failed(app: Connection, site_id: int, eid: int, err: Exception, now: dateti
     if store.event_failed(app, event_id=eid, limit=MAX_TRIES):
         store.add_audit(app, site_id=site_id, at=now, actor="code", action="event_parked",
                         ref=ref, detail={"tries": str(MAX_TRIES)})  # fmt: skip
+
+
+def change_check(
+    app: Connection, energy: Connection, cfg: Config, *, site_id: int, now: datetime
+) -> list[Event]:
+    """Daily: has a new device appeared on any plug? At most once per history_days a plug."""
+    found = []
+    for name, mac in store.plug_macs(app, site_id=site_id).items():
+        since = now - timedelta(days=config.device(cfg, name).policy.history_days)
+        last = store.last_event_start(app, site_id=site_id, kind="change_point", plug_mac=mac)
+        if last is not None and last >= since:
+            continue  # asked already; the owner's answer or the new levels settle it
+        readings = store.readings(energy, plug=name, start=since, end=now)
+        recent = [r for r in readings if r[0] >= now - RECENT]
+        before = [
+            [r for r in readings if now - RECENT * (k + 1) <= r[0] < now - RECENT * k]
+            for k in range(1, int((now - since) / RECENT))
+        ]  # the earlier windows, each as long as `recent`
+        if (e := watcher.change_point(mac, before, recent, now=now)) and store.add_event(
+            app, site_id=site_id, event=e, dedupe=watcher.dedupe_key(e, tz=cfg.tz)
+        ):
+            found.append(e)
+    return found
 
 
 def learn_pass(

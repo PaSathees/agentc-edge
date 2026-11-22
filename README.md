@@ -26,7 +26,7 @@ flowchart LR
 
 | Command | Does |
 |---|---|
-| `agentc timers` | Reads every plug and shows its timers in plain words. Problems come last |
+| `agentc timers` | Reads every plug and shows its timers in plain words. Also reads what each plug does on its own (auto-off, rules) for the house model. Problems come last |
 | `agentc profile Plug-6` | Shows a plug's usual week, hour by hour, and the kWh it used |
 | `agentc watch` | Runs the checks that are due now and shows new events |
 | `agentc replay --days 14` | Plays past days through the Watcher. Your real data is not changed |

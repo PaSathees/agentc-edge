@@ -10,14 +10,13 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from agentc.calc import Factor, ProfileHour
-from agentc.devices.base import Timer
+from agentc.devices.base import Automations, PlugRule, Timer
 from agentc.house import SOURCES, Card, Habit
 from agentc.options import Change, Proposal
 from agentc.watcher import Event
 
-SCHEMA_VERSION = (
-    4  # 2: thresholds, one learned value a row (B3b). 3: events.tries. 4: cards, habits
-)
+# 2: thresholds a row (B3b). 3: events.tries. 4: cards, habits. 5: automations
+SCHEMA_VERSION = 5
 
 SCHEMA = """
 -- One home or plant room; every other row belongs to one
@@ -214,6 +213,14 @@ CREATE TABLE IF NOT EXISTS cards (
     must_run INTEGER CHECK (must_run IN (0, 1)),  -- NULL: from the kind
     why      TEXT NOT NULL DEFAULT '{}',  -- JSON: timer slot -> what it is for
     updated  TEXT NOT NULL
+);
+-- What each plug does on its own besides timers: auto-off and rules; read with the timers
+CREATE TABLE IF NOT EXISTS automations (
+    plug_mac   TEXT PRIMARY KEY REFERENCES plugs(mac),
+    site_id    INTEGER NOT NULL REFERENCES sites(id),
+    auto_off_s REAL,  -- NULL: no auto-off
+    rules      TEXT NOT NULL DEFAULT '[]',  -- JSON: [[n, on, text], ...]
+    read_at    TEXT NOT NULL
 );
 -- What is normal for the owner, from their answers (FR-33); ended habits are kept
 CREATE TABLE IF NOT EXISTS habits (
@@ -547,6 +554,27 @@ def load_card(db: sqlite3.Connection, *, mac: str) -> Card:
     kind, room, what, notes, must, why = row
     return Card(kind, room, what, notes, None if must is None else bool(must),
                 {int(k): v for k, v in json.loads(why).items()})  # fmt: skip
+
+
+def save_automations(
+    db: sqlite3.Connection, *, site_id: int, mac: str, automations: Automations, now: datetime
+) -> None:
+    """Replace what was last read of the plug's own automations."""
+    rules = json.dumps([[r.n, r.on, r.text] for r in automations.rules])
+    with db:
+        db.execute(
+            "INSERT OR REPLACE INTO automations (plug_mac, site_id, auto_off_s, rules, read_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (mac, site_id, automations.auto_off_s, rules, now.astimezone(UTC).isoformat()),
+        )
+
+
+def load_automations(db: sqlite3.Connection, *, mac: str) -> Automations:
+    """The plug's own automations as last read; none if never read."""
+    sql = "SELECT auto_off_s, rules FROM automations WHERE plug_mac = ?"
+    if (row := db.execute(sql, (mac,)).fetchone()) is None:
+        return Automations(None, ())
+    return Automations(row[0], tuple(PlugRule(n, on, text) for n, on, text in json.loads(row[1])))
 
 
 def add_habit(

@@ -13,9 +13,10 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
 from agentc.config import Device
-from agentc.devices.base import Timer, days_words, describe
+from agentc.devices.base import Automations, Timer, days_words, describe
 
 SOURCES = ("tap", "chat", "setup")  # where a habit came from
+NO_AUTOMATIONS = Automations(None, ())  # a plug never read, or one with none
 # What a device is. Code uses the kind: a must-run kind gets no "left on" or "unusual
 # use" alerts, because its cycles are normal (a fridge, a router).
 KINDS = ("charger", "computer", "media", "kitchen", "fridge", "fan", "heater", "light",
@@ -100,8 +101,12 @@ def covers(habit: Habit, local: datetime) -> bool:
     return inside and habit.days[sunday_first] == "1"
 
 
-def card(device: Device, c: Card, *, timers: Sequence[Timer], habits: Sequence[Habit]) -> str:
-    """The device in plain words: what it is, its access, rules, timers and habits."""
+def card(
+    device: Device, c: Card, *, timers: Sequence[Timer], habits: Sequence[Habit],
+    automations: Automations = NO_AUTOMATIONS,
+) -> str:  # fmt: skip
+    """The device in plain words: what it is, its access, rules, timers, what the plug does on
+    its own (auto-off, plug rules), and habits."""
     lines = [_what(device.name, c)]
     if c.notes:
         lines.append(f"Notes: {c.notes}")
@@ -111,6 +116,9 @@ def card(device: Device, c: Card, *, timers: Sequence[Timer], habits: Sequence[H
     lines += [
         f"Timer {t.slot}: {describe(t)}. Why: {c.why.get(t.slot, 'not known')}" for t in set_timers
     ] or ["Timers: none."]
+    if automations.auto_off_s:
+        lines.append(f"Auto-off: after {_duration(automations.auto_off_s)}, set on the plug")
+    lines += [f"Plug rule {r.n} ({'on' if r.on else 'off'}): {r.text}" for r in automations.rules]
     lines += [f"Habit: {h.text} ({days_words(h.days)}, {h.start} to {h.end})" for h in habits] or [
         "Habits: none yet."
     ]
@@ -123,3 +131,11 @@ def _what(name: str, c: Card) -> str:
     where = f" Where: {c.room}." if c.room else ""
     plugged = f" Plugged in: {c.what}." if c.what else ""
     return f"{name}: {c.kind}.{where}{plugged}"
+
+
+def _duration(seconds: float) -> str:
+    """4 h, 1 h 30 min, 2 min, 5 s."""
+    if seconds < 60:
+        return f"{seconds:g} s"
+    h, m = divmod(round(seconds / 60), 60)
+    return " ".join(part for part in (f"{h} h" if h else "", f"{m} min" if m else "") if part)

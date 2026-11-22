@@ -89,7 +89,7 @@ Setup and data
 - FR-04 [M] (J-02) Set up each device: name, room, kind, access level (none, propose, write after approval), allowed timer slots. AC: a device with access none never appears in a question, proposal or action. v2: the device card in FR-30 holds these.
 - FR-05 [M] (J-02) Rules per device, hard or soft: must-run window, min runtime per day, latest off, never off; priority low, medium, high. AC: a proposal that breaks a hard rule is blocked and names the rule; a broken soft rule shows as a warning on the card.
 - FR-06 [S] (J-03) Discover Tasmota plugs on the subnet; key them by MAC. AC: an unknown MAC starts the setup chat; a known MAC with a new IP updates the IP with an audit row and no question.
-- FR-07 [S] (J-03) Change point: a plug's power levels shift for good (2 days). AC: one "new device on this plug?" question; none on a normal fixture.
+- FR-07 [S] (J-03) **Built (Phase 3b2).** Change point: a plug's power when on leaves the whole range of its earlier 2-day windows by 2 times or more (at least 3 earlier windows). AC: one "new device on this plug?" question; none on a normal fixture.
 - FR-08 [S] (J-05) Fetch weather daily (Open-Meteo) for the site location. AC: stored hourly; a failed fetch is retried and never blocks a run.
 
 Watching

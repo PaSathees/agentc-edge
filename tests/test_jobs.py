@@ -211,6 +211,29 @@ def test_the_watch_pass_runs_every_5_minutes(app, quiet, plugs):
     assert due(app, quiet, plugs, NOW + timedelta(minutes=5))["watch"] == NOW + timedelta(minutes=5)
 
 
+def changed_energy(tmp_path):
+    """14 days of Plug-6: 25 W when on, then 60 W in the last 2 days."""
+    rows = []
+    for d in range(14):
+        active = 60.0 if d >= 12 else 25.0
+        for m in range(0, 24 * 60, 5):
+            local = START + timedelta(days=d, minutes=m)
+            rows.append((local.astimezone(UTC).isoformat(), "Plug-6", 2.0 if m < 720 else active,
+                         None))  # fmt: skip
+    path = tmp_path / "energy.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
+        db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
+    db.close()
+    return store.open_readings(path)
+
+
+def test_a_new_device_is_found_once_by_the_daily_check(app, tmp_path):
+    db = changed_energy(tmp_path)
+    assert kinds(jobs.change_check(app, db, CFG, site_id=1, now=END)) == [("change_point", "AA")]
+    assert jobs.change_check(app, db, CFG, site_id=1, now=END + timedelta(days=1)) == []
+
+
 # the logger itself: a heartbeat from outside it
 
 

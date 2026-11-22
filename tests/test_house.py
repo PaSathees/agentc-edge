@@ -5,7 +5,7 @@ import pytest
 
 from agentc import house
 from agentc.config import Device, Rule
-from agentc.devices.base import Timer
+from agentc.devices.base import Automations, PlugRule, Timer
 from agentc.house import Card, Habit
 
 COLOMBO = ZoneInfo("Asia/Colombo")
@@ -124,3 +124,19 @@ def test_a_card_is_changed_key_by_key():
 def test_a_wrong_change_fails_before_anything_is_saved(change, error):
     with pytest.raises(ValueError, match=error):
         house.updated(CARD, [change])
+
+
+def test_a_card_shows_the_plugs_own_auto_off_and_rules():
+    auto = Automations(14400, (PlugRule(1, True, "ON Time#Initialized DO Power 1 ENDON"),
+                               PlugRule(2, False, "ON x DO y ENDON")))  # fmt: skip
+    text = house.card(DESK, CARD, timers=[], habits=[], automations=auto)
+    assert "Auto-off: after 4 h, set on the plug" in text
+    assert "Plug rule 1 (on): ON Time#Initialized DO Power 1 ENDON" in text
+    assert "Plug rule 2 (off): ON x DO y ENDON" in text
+
+
+@pytest.mark.parametrize(("seconds", "words"), [(14400, "4 h"), (36000, "10 h"), (90, "2 min"),
+                                                (5.0, "5 s"), (5400, "1 h 30 min")])  # fmt: skip
+def test_auto_off_in_plain_words(seconds, words):
+    text = house.card(DESK, CARD, timers=[], habits=[], automations=Automations(seconds, ()))
+    assert f"Auto-off: after {words}, set on the plug" in text

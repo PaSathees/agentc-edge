@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from agentc.calc import ProfileHour
 from agentc.devices.base import Timer
+from agentc.learn import levels
 from agentc.policy import DEFAULT, Policy
 
 MIN_DAYS = 3  # an hour with fewer days than this uses the same hour across the week
@@ -16,6 +17,8 @@ OFFLINE_ROUNDS = 3  # failed logger rounds in a row before a plug counts as offl
 BLACKOUT_ROUNDS = 2  # every plug silent this many rounds in a row = lost contact; 1 is a Wi-Fi blip
 HEARTBEAT = timedelta(minutes=5)  # no logger round at all for this long = the logger stopped
 PASS_ROUNDS = 7  # rounds each pass reads: 5 since the last pass, plus 2 of overlap
+CHANGE = 2.0  # a change point: power when on this many times outside the range seen before
+MIN_WINDOWS = 3  # earlier windows with clear levels needed before judging a change
 COVER = 0.8  # an automation check needs readings for this share of its minutes
 GRACE = timedelta(minutes=5)  # a timer may fire a little late; the override check starts after
 
@@ -165,6 +168,29 @@ def automation_events(
         elif not on and all(w > policy.on_w for w in seen):
             found.append(Event("override", mac, fired, facts))
     return found
+
+
+def change_point(
+    mac: str, before: list[list[tuple[datetime, float]]], recent: list[tuple[datetime, float]],
+    *, now: datetime,
+) -> Event | None:  # fmt: skip
+    """A new device on the plug (FR-07): its power when on left the whole range seen before.
+
+    before: earlier windows of the same length as `recent` (2 days each). A device's power
+    when on swings by itself (a laptop charger draws less as the battery fills), so the new
+    level must be outside the range of every earlier window by CHANGE times or more. At
+    least MIN_WINDOWS earlier windows must show clear levels, and so must `recent`: a device
+    that is only off lately is not a change.
+    """
+    known = [lv.active for w in before if (lv := levels([x for _, x in w]))]
+    new = levels([x for _, x in recent])
+    if new is None or len(known) < MIN_WINDOWS:
+        return None
+    if min(known) / CHANGE < new.active < max(known) * CHANGE:
+        return None
+    return Event("change_point", mac, now.astimezone(UTC),
+                 {"old_w": round(statistics.median(known), 1),
+                  "new_w": round(new.active, 1)})  # fmt: skip
 
 
 def _fired(t: Timer, upto: datetime, tz: str) -> datetime | None:

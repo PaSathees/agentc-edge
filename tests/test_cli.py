@@ -66,7 +66,8 @@ def test_problems_are_listed_at_the_end(cfg, plugs, capsys):
 def test_timers_only_reads_the_plugs(cfg, plugs, capsys):
     run(cfg, capsys, "timers")
     for p in plugs.values():
-        assert set(p.commands) <= {"Status 5", "Timers", "Status 7"}  # no write commands
+        reads = {"Status 5", "Timers", "Status 7", "PulseTime1", "Rule1", "Rule2", "Rule3"}
+        assert set(p.commands) <= reads  # each asked with no value: nothing is written
 
 
 def test_the_site_is_added_once(cfg, capsys, tmp_path):
@@ -137,7 +138,7 @@ def test_watch_shows_new_events_once(cfg, capsys, tmp_path):
     run(cfg, capsys, "profile", "Plug-2")
     code, out = run(cfg, capsys, "watch")
     assert code == 0
-    assert "Plug-2: on at an unusual time from " in out and ", 119 min, peak 30 W\n" in out
+    assert "3D printer: on at an unusual time from " in out and ", 119 min, peak 30 W\n" in out
     assert run(cfg, capsys, "watch")[1] == f"Nothing new.\n{cli.NO_KEY}\n"  # 15 min: not yet
 
 
@@ -194,7 +195,7 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
     spike_days(tmp_path)
     code, out = run(cfg, capsys, "replay", "--days", "8")
     assert code == 0
-    assert out.startswith("1. Plug-2: on at an unusual time from ")
+    assert out.startswith("1. 3D printer: on at an unusual time from ")  # the device's name
     assert out.endswith("Events in 8 days: 1\n")
     assert store.load_events(store.connect(tmp_path / "app.db"), site_id=1) == []
 
@@ -216,6 +217,8 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
          "Plug-6: timer 1 switched it on at 06:00 on Tue 03 Nov, but it did nothing for 3 h"),
         (Event("override", "AA", AT, {"slot": 2, "time": "01:00", "peak_w": 60.0}),
          "Plug-6: timer 2 should have switched it off at 01:00, but it still drew 60 W"),
+        (Event("change_point", "AA", AT, {"old_w": 25.0, "new_w": 60.0}),
+         "Plug-6: new device? Its power when on went from about 25 W to 60 W"),
         (Event("timer_mismatch", "AA", AT, {"slots": "1, 9"}),
          "Plug-6: timers changed on the plug (slots 1, 9)"),
     ],
