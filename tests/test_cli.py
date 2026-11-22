@@ -150,6 +150,43 @@ def test_watch_flags_parked_events(cfg, capsys, tmp_path):
     assert "1 event parked after 3 failed tries: see the audit log\n" in out
 
 
+def test_house_shows_each_card_without_reading_the_plugs(cfg, capsys, plugs):
+    run(cfg, capsys, "timers")
+    plugs["Plug-1"].offline = True  # house reads only what is saved
+    code, out = run(cfg, capsys, "house")
+    assert code == 0
+    assert out.startswith("Desk 2: nothing known yet. Ask the owner what is plugged in.\n")
+    assert "\n\n3D printer: nothing known yet." in out
+
+
+def test_house_sets_a_card_and_audits_it(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    code, out = run(cfg, capsys, "house", "Plug-1", "kind=computer", "room=study", "what=monitor")
+    assert (code, out.splitlines()[0]) == (
+        0,
+        "Desk 2: computer. Where: study. Plugged in: monitor.",
+    )
+    assert run(cfg, capsys, "house", "Plug-1")[1].startswith("Desk 2: computer. Where: study.")
+    db = store.connect(tmp_path / "app.db")
+    assert db.execute("SELECT actor, action FROM audit").fetchall() == [("owner", "card_set")]
+
+
+def test_house_refuses_a_wrong_change(cfg, capsys):
+    run(cfg, capsys, "timers")
+    assert run(cfg, capsys, "house", "Plug-1", "kind=telly")[0] == 1
+
+
+def test_house_needs_the_plug_seen_first(cfg, capsys):
+    assert run(cfg, capsys, "house", "Plug-1", "kind=fan") == (
+        1,
+        "Plug-1: not seen yet. Run `agentc timers` first.\n",
+    )
+
+
+def test_house_of_an_unknown_plug(cfg, capsys):
+    assert run(cfg, capsys, "house", "Plug-9") == (1, "Plug-9: not in config.toml.\n")
+
+
 def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
     run(cfg, capsys, "timers")
     spike_days(tmp_path)

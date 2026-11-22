@@ -30,6 +30,8 @@ flowchart LR
 | `agentc profile Plug-6` | Shows a plug's usual week, hour by hour, and the kWh it used |
 | `agentc watch` | Runs the checks that are due now and shows new events |
 | `agentc replay --days 14` | Plays past days through the Watcher. Your real data is not changed |
+| `agentc house` | Shows what the system knows about each device: its card, timers and habits, as the agent will read it |
+| `agentc house Plug-6 kind=computer room=study` | Changes a device's card. Keys: kind, room (where it is), what, notes, must_run, why.N (why timer N is set) |
 
 None of these change a plug. They only read.
 

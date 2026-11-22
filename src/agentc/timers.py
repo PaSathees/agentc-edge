@@ -12,7 +12,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from agentc import store
-from agentc.devices.base import Clock, Plug, PlugError, Timer
+from agentc.devices.base import Clock, Plug, PlugError
 from agentc.devices.tasmota import TasmotaPlug
 
 MAX_DRIFT_S = 120  # a timer firing up to 2 min late does not matter; more does
@@ -77,39 +77,3 @@ def utc_offset(tz: str, at: datetime) -> str:
     minutes = int(offset.total_seconds() // 60)
     sign = "+" if minutes >= 0 else "-"
     return f"{sign}{abs(minutes) // 60:02d}:{abs(minutes) % 60:02d}"
-
-
-ACTIONS = {0: "Off", 1: "On", 2: "Toggle", 3: "Rule"}
-WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-
-
-def describe(t: Timer) -> str:
-    """A timer as the owner reads it: 'On at 07:30, Monday to Friday'."""
-    if not t.enable:
-        return "Not set"
-    when = {1: "at sunrise", 2: "at sunset"}.get(t.mode, f"at {t.time}")
-    if t.mode in (1, 2) and t.time != "00:00":
-        when += f" (offset {t.time})"  # for sunrise and sunset, Time is an offset
-    parts = [f"{ACTIONS.get(t.action, '?')} {when}", _days(t.days)]
-    if not t.repeat:
-        parts.append("once")
-    if t.window:
-        parts.append(f"up to {t.window} min later")
-    return ", ".join(parts)
-
-
-def _days(days: str) -> str:
-    """Tasmota's 7 chars, Sunday first ('0111110') -> 'Monday to Friday'."""
-    on_sun_first = [c not in "0-" for c in days]
-    # Re-index Monday first: Monday is position 1 in Tasmota's string, Sunday wraps to 6
-    on = [i for i in range(7) if on_sun_first[(i + 1) % 7]]
-    if len(on) == 7:
-        return "every day"
-    if on == [5, 6]:
-        return "weekends"
-    if not on:
-        return "no days"
-    if len(on) >= 3 and on == list(range(on[0], on[-1] + 1)):
-        return f"{WEEK[on[0]]} to {WEEK[on[-1]]}"
-    names = [WEEK[i] for i in on]
-    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"

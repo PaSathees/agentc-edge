@@ -123,7 +123,7 @@ Learning, history, cost
 - FR-28 [M] (J-10) Budget caps per run and per month. AC: at the cap, AI signals wait; health notices still go out.
 
 New in v2
-- FR-30 [M] (J-02, J-12) House model and setup chat: a device card per plug (what is plugged in, kind from a fixed list, room, must run, notes), placements with dates, and a "why" for each timer. The agent asks about 5 questions per plug and the owner confirms before saving. AC: no card is saved without confirmation; a must-run kind stops left-on and unusual signals.
+- FR-30 [M] (J-02, J-12) **Cards and habits built (Phase 3a); setup chat in 3d.** House model and setup chat: a device card per plug (what is plugged in, kind from a fixed list, room, must run, notes), placements with dates, and a "why" for each timer. The agent asks about 5 questions per plug and the owner confirms before saving. AC: no card is saved without confirmation; a must-run kind stops left-on and unusual signals.
 - FR-31 [M] (J-04) Questions: text plus 2 or 3 choices, each mapped to a known action (switch off now, set a timer, save a habit, remind later). AC: a choice with no known action is blocked by the checks.
 - FR-32 [M] (J-04) Switch off now: one `Power Off` after the owner's tap, with the write-time checks (ADR-008). AC: shadow mode sends 0 commands; never sent to a must-run or access-none device.
 - FR-33 [M] (J-09) Habits from answers: a tap becomes a habit row built by code from the question, with its scope shown back (device, days, hours); free text becomes a habit drafted by the agent and confirmed by the owner. Habits are re-checked after 30 days or a change point. AC: a habit stops the matching question in a replay.

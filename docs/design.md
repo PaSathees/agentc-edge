@@ -69,7 +69,7 @@ flowchart TB
 
 ## 1. House model: the context
 
-The agent is only as good as what it knows. Version 1 had a name per device. Version 2 keeps a small model of the house, in plain tables plus short notes you can read and edit.
+The agent is only as good as what it knows. Version 1 had a name per device. Version 2 keeps a small model of the house in `app.db`: each device's card, why each timer is there, and habits. It lives in the database so the setup chat and chat can propose changes for you to approve. `config.toml` keeps only what no agent may ever change: names, access levels, rules, budget. `agentc house` shows the house model exactly as the agent will read it, and `agentc house Plug-6 room=study` changes a card.
 
 | What | Example | Comes from |
 |---|---|---|
@@ -81,7 +81,7 @@ The agent is only as good as what it knows. Version 1 had a name per device. Ver
 | Tariff and factor | Block tariff; 0.4242 kgCO2e/kWh (SLSEA, 2023) | Config, with source |
 | Past signals | Desk 2 left on: 3 times, you said "switch off" twice | Kept by code |
 
-**Setup chat.** For each plug the agent asks about five questions: what is plugged in, when it is used, must it stay on, which room, and is anything else on the same socket. It shows the card back, and you confirm before anything is saved. Device kinds come from a short fixed list (charger, computer, TV and media, kitchen, fridge or freezer, fan, light, router, printer, other), because code uses the kind: a fridge raises no "left on" signals.
+**Setup chat.** For each plug the agent asks about five questions: what is plugged in, when it is used, must it stay on, which room, and is anything else on the same socket. It shows the card back, and you confirm before anything is saved. Until the setup chat is built, you set the card yourself with `agentc house`. Device kinds come from a short fixed list (charger, computer, media, kitchen, fridge, fan, heater, light, router, printer, other), because code uses the kind: a fridge or router must run, so it raises no "left on" or "unusual use" signals.
 
 Later, the ontology work (ontolab) can turn these cards into a formal model. The tables come first because they are enough to start, and easy to read.
 

@@ -11,10 +11,13 @@ from pathlib import Path
 
 from agentc.calc import Factor, ProfileHour
 from agentc.devices.base import Timer
+from agentc.house import SOURCES, Card, Habit
 from agentc.options import Change, Proposal
 from agentc.watcher import Event
 
-SCHEMA_VERSION = 3  # 2: thresholds hold one learned value a row (B3b). 3: events.tries
+SCHEMA_VERSION = (
+    4  # 2: thresholds, one learned value a row (B3b). 3: events.tries. 4: cards, habits
+)
 
 SCHEMA = """
 -- One home or plant room; every other row belongs to one
@@ -199,6 +202,31 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     latency_ms     INTEGER,
     proposal_id    INTEGER,
     ts_utc         TEXT NOT NULL
+);
+-- What the device on each plug is: the house model's card (FR-30). One row a plug
+CREATE TABLE IF NOT EXISTS cards (
+    plug_mac TEXT PRIMARY KEY REFERENCES plugs(mac),
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    kind     TEXT NOT NULL,
+    room     TEXT NOT NULL,
+    what     TEXT NOT NULL,
+    notes    TEXT NOT NULL,
+    must_run INTEGER CHECK (must_run IN (0, 1)),  -- NULL: from the kind
+    why      TEXT NOT NULL DEFAULT '{}',  -- JSON: timer slot -> what it is for
+    updated  TEXT NOT NULL
+);
+-- What is normal for the owner, from their answers (FR-33); ended habits are kept
+CREATE TABLE IF NOT EXISTS habits (
+    id       INTEGER PRIMARY KEY,
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    plug_mac TEXT NOT NULL REFERENCES plugs(mac),
+    text     TEXT NOT NULL,
+    days     TEXT NOT NULL,  -- 7 chars, Sunday first, as Tasmota
+    start    TEXT NOT NULL,  -- local HH:MM
+    end_hm   TEXT NOT NULL,  -- local HH:MM; earlier than start = the next day
+    source   TEXT NOT NULL CHECK (source IN ('tap', 'chat', 'setup')),
+    created  TEXT NOT NULL,
+    ended    TEXT  -- set when the owner ends it; NULL = active
 );
 -- Shadow mode, pause, caps; key-value
 CREATE TABLE IF NOT EXISTS settings (
@@ -496,6 +524,59 @@ def event_failed(db: sqlite3.Connection, *, event_id: int, limit: int) -> bool:
                    (event_id, limit))  # fmt: skip
     (status,) = db.execute("SELECT status FROM events WHERE id = ?", (event_id,)).fetchone()
     return status == "parked"
+
+
+def save_card(db: sqlite3.Connection, *, site_id: int, mac: str, card: Card, now: datetime) -> None:
+    """Save the card for the device on a plug, replacing the one before."""
+    must = None if card.must_run is None else int(card.must_run)
+    with db:
+        db.execute(
+            "INSERT OR REPLACE INTO cards (plug_mac, site_id, kind, room, what, notes, must_run,"
+            " why, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (mac, site_id, card.kind, card.room, card.what, card.notes, must,
+             json.dumps({str(k): v for k, v in card.why.items()}),
+             now.astimezone(UTC).isoformat()),
+        )  # fmt: skip
+
+
+def load_card(db: sqlite3.Connection, *, mac: str) -> Card:
+    """The plug's card; an empty one if the owner has said nothing yet."""
+    sql = "SELECT kind, room, what, notes, must_run, why FROM cards WHERE plug_mac = ?"
+    if (row := db.execute(sql, (mac,)).fetchone()) is None:
+        return Card()
+    kind, room, what, notes, must, why = row
+    return Card(kind, room, what, notes, None if must is None else bool(must),
+                {int(k): v for k, v in json.loads(why).items()})  # fmt: skip
+
+
+def add_habit(
+    db: sqlite3.Connection, *, site_id: int, mac: str, habit: Habit, now: datetime
+) -> int:
+    """Save a habit for a plug; return its id."""
+    if habit.source not in SOURCES:
+        raise ValueError(f"habit source must be one of {', '.join(SOURCES)}, not {habit.source!r}")
+    with db:
+        cur = db.execute(
+            "INSERT INTO habits (site_id, plug_mac, text, days, start, end_hm, source, created)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (site_id, mac, habit.text, habit.days, habit.start, habit.end, habit.source,
+             now.astimezone(UTC).isoformat()),
+        )  # fmt: skip
+    return cur.lastrowid or 0
+
+
+def habits(db: sqlite3.Connection, *, mac: str) -> list[tuple[int, Habit]]:
+    """A plug's active habits as (id, habit), oldest first."""
+    sql = """SELECT id, text, days, start, end_hm, source FROM habits
+             WHERE plug_mac = ? AND ended IS NULL ORDER BY id"""
+    return [(hid, Habit(*row)) for hid, *row in db.execute(sql, (mac,))]
+
+
+def end_habit(db: sqlite3.Connection, *, habit_id: int, now: datetime) -> None:
+    """The owner says a habit is no longer true. The row stays, for the audit trail."""
+    with db:
+        db.execute("UPDATE habits SET ended = ? WHERE id = ?",
+                   (now.astimezone(UTC).isoformat(), habit_id))  # fmt: skip
 
 
 def count_events(db: sqlite3.Connection, *, site_id: int, status: str) -> int:
