@@ -10,13 +10,14 @@ from agentc.watcher import (
     Event,
     Run,
     Usual,
+    automation_events,
     dedupe_key,
     is_unusual,
     logger_stopped,
     offline_events,
+    run_event,
     timer_mismatch,
     unusual_runs,
-    unusual_use,
     usual_week,
 )
 
@@ -119,17 +120,17 @@ def test_a_plug_on_often_at_that_hour_needs_a_higher_rarely_on():
 @pytest.mark.parametrize(
     ("watts", "n", "policy", "count"),
     [
-        (15.0, 61, DEFAULT, 1),  # 15 W more for an hour: the 10 W rule
-        (15.0, 61, Policy(more_w=20), 0),
-        (15.0, 61, Policy(run_min=61), 0),
-        (5.0, 181, DEFAULT, 1),  # 5 W more for 3 hours: the small-load rule
-        (5.0, 181, Policy(small_w=6), 0),
-        (5.0, 181, Policy(long_run_min=181), 0),
+        (15.0, 61, DEFAULT, ["unusual_use"]),  # 15 W more for an hour: the 10 W rule
+        (15.0, 61, Policy(more_w=20), ["left_on"]),  # not big enough: a small load left on
+        (15.0, 61, Policy(run_min=61), ["left_on"]),
+        (5.0, 31, DEFAULT, ["left_on"]),  # 5 W more for 30 min: the small-load rule
+        (5.0, 31, Policy(small_w=6), []),
+        (5.0, 31, Policy(left_on_min=31), []),
     ],
 )
 def test_the_policy_sets_how_big_and_how_long(watts, n, policy, count):
     found = unusual_runs(minutes(at(1), n, watts), OFF, tz="Asia/Colombo", policy=policy)
-    assert len(found) == count
+    assert [r.kind for r in found] == count
 
 
 def test_a_normal_reading_ends_the_run():
@@ -140,11 +141,26 @@ def test_a_normal_reading_ends_the_run():
 # events: what gets saved, and the key that stops repeats
 
 
-def test_a_run_becomes_an_unusual_use_event():
+def test_a_run_becomes_an_event_of_its_kind():
     run = Run(start=at(1).astimezone(UTC), end=at(3).astimezone(UTC), peak_w=30.0)
-    assert unusual_use("AA", run) == Event(
+    assert run_event("AA", run) == Event(
         "unusual_use", "AA", run.start, {"peak_w": 30.0, "minutes": 120}
     )
+    left = Run(run.start, run.end, 5.0, kind="left_on")
+    assert run_event("AA", left).kind == "left_on"
+
+
+def test_a_small_load_is_left_on_and_a_big_one_is_unusual_use():  # FR-09 v2
+    (small,) = runs(minutes(at(1), 31, 5.0))
+    (big,) = runs(minutes(at(1), 31, 30.0))
+    assert (small.kind, big.kind) == ("left_on", "unusual_use")
+
+
+def test_the_desk_2_night_is_left_on_by_02_10():  # 30 W 01:37 to 01:51, then 5 W
+    readings = minutes(at(1, 37), 14, 30.0) + minutes(at(1, 51), 60, 5.0)
+    early = [r for r in readings if r[0] <= at(2, 6).astimezone(UTC)]
+    late = [r for r in readings if r[0] <= at(2, 10).astimezone(UTC)]
+    assert (runs(early), [r.kind for r in runs(late)]) == ([], ["left_on"])
 
 
 def test_the_key_uses_the_local_day_the_run_started():
@@ -257,15 +273,15 @@ def test_the_first_read_is_no_mismatch():  # nothing saved yet to compare with
 # a small load left on for hours: 3 W more for 3 hours
 
 
-def test_a_small_load_left_on_3_hours_is_a_run():
-    readings = minutes(at(1), 181, 5.0)  # 01:00 to 04:00, 5 W
+def test_a_small_load_left_on_30_minutes_is_a_run():
+    readings = minutes(at(1), 31, 5.0)  # 01:00 to 01:30, 5 W
     assert unusual_runs(readings, OFF, tz="Asia/Colombo") == [
-        Run(start=readings[0][0], end=readings[-1][0], peak_w=5.0)
+        Run(start=readings[0][0], end=readings[-1][0], peak_w=5.0, kind="left_on")
     ]
 
 
-def test_a_small_load_for_under_3_hours_is_not():
-    assert unusual_runs(minutes(at(1), 180, 5.0), OFF, tz="Asia/Colombo") == []  # 2 h 59 min
+def test_a_small_load_for_under_30_minutes_is_not():
+    assert unusual_runs(minutes(at(1), 30, 5.0), OFF, tz="Asia/Colombo") == []  # 29 min
 
 
 def test_under_3_w_more_is_never_a_run():
@@ -278,3 +294,72 @@ def test_a_big_rise_inside_a_long_small_one_is_one_run():
     assert unusual_runs(readings, OFF, tz="Asia/Colombo") == [
         Run(start=readings[0][0], end=readings[-1][0], peak_w=30.0)
     ]
+
+
+# automations: what the plug's own timers should have done
+
+
+def on_at(slot, hhmm, days="1111111", action=1):
+    return Timer(slot, True, 0, hhmm, 0, days, True, 1, action)
+
+
+def auto(timers, readings, now, policy=DEFAULT):
+    return automation_events("TV", timers, readings, OFF, now=now, tz="Asia/Colombo",
+                             policy=policy)  # fmt: skip
+
+
+def test_a_timer_that_switches_on_for_nothing_is_drift():  # FR-34: TV on at 06:00, idle
+    found = auto([on_at(1, "06:00")], minutes(at(6), 4 * 60, 0.5), now=at(10))
+    assert found == [Event("automation_drift", "TV", at(6).astimezone(UTC),
+                           {"slot": 1, "time": "06:00", "hours": 3, "peak_w": 0.5})]  # fmt: skip
+
+
+def test_use_soon_after_the_timer_is_no_drift():
+    readings = minutes(at(6), 60, 0.5) + minutes(at(7), 3 * 60, 80.0)  # watched from 07:00
+    assert auto([on_at(1, "06:00")], readings, now=at(10)) == []
+
+
+def test_drift_waits_until_the_hours_have_passed():
+    assert auto([on_at(1, "06:00")], minutes(at(6), 2 * 60, 0.5), now=at(8)) == []
+
+
+def test_a_timer_not_set_for_that_day_is_not_checked():
+    sunday_only = on_at(1, "06:00", days="1000000")  # MONDAY is a Monday
+    assert auto([sunday_only], minutes(at(6), 4 * 60, 0.5), now=at(10)) == []
+
+
+def test_drift_needs_readings_for_the_whole_time():  # no data is not "idle"
+    assert auto([on_at(1, "06:00")], minutes(at(6), 30, 0.5), now=at(10)) == []
+
+
+def test_a_timer_that_switches_off_but_power_stays_is_an_override():
+    off = on_at(2, "01:00", action=0)
+    found = auto([off], minutes(at(1), 60, 60.0), now=at(2))
+    assert found == [Event("override", "TV", at(1).astimezone(UTC),
+                           {"slot": 2, "time": "01:00", "peak_w": 60.0})]  # fmt: skip
+
+
+def test_an_off_timer_that_worked_is_no_override():
+    off = on_at(2, "01:00", action=0)
+    readings = minutes(at(0), 60, 60.0) + minutes(at(1), 60, 0.0)
+    assert auto([off], readings, now=at(2)) == []
+
+
+def test_an_override_waits_until_its_minutes_have_passed():
+    off = on_at(2, "01:00", action=0)
+    assert auto([off], minutes(at(1), 20, 60.0), now=at(1, 20)) == []
+
+
+def test_sunrise_timers_and_unset_timers_are_skipped():
+    sunrise = Timer(1, True, 1, "00:00", 0, "1111111", True, 1, 1)
+    unset = Timer(2, False, 0, "06:00", 0, "1111111", True, 1, 1)
+    assert auto([sunrise, unset], minutes(at(6), 4 * 60, 0.5), now=at(10)) == []
+
+
+def test_the_policy_sets_how_long_drift_and_override_wait():
+    on = auto(
+        [on_at(1, "06:00")], minutes(at(6), 4 * 60, 0.5), now=at(10), policy=Policy(drift_h=5)
+    )
+    off = auto([on_at(2, "01:00", action=0)], minutes(at(1), 60, 60.0), now=at(2),
+               policy=Policy(override_min=90))  # fmt: skip
+    assert (on, off) == ([], [])

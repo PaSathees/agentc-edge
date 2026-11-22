@@ -17,7 +17,7 @@ One real example. On Monday 2 November, at 01:37, Desk 2 switched on and then sa
 
 | | Version 1 (built) | Version 2 (this design) |
 |---|---|---|
-| When it notices | 04:37, after 3 hours of a small load | 02:21, after 30 minutes of standby |
+| When it notices | 04:37, after 3 hours of a small load | About 02:10: on since 01:37, so left on after 30 minutes, seen by the next 5-minute pass |
 | What it knows | The name "Desk 2" and its usual week | Laptop charger, monitor and speaker; a work desk; you work late on Thursdays; no timer on it; nothing else on in the house |
 | What it does | After the run ends: a timer for future nights, A or B | Asks you a question at 07:00 (5 W is too small to wake you at night) |
 | What it learns | A rejection blocks the same fix for 14 days | Your tap becomes a habit or an action, and an eval case |

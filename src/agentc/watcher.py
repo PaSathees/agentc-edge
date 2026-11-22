@@ -3,7 +3,7 @@
 import statistics
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from agentc.calc import ProfileHour
@@ -15,12 +15,15 @@ MAX_GAP = timedelta(minutes=5)  # a longer gap in readings restarts the count
 OFFLINE_ROUNDS = 3  # failed logger rounds in a row before a plug counts as offline
 BLACKOUT_ROUNDS = 2  # every plug silent this many rounds in a row = lost contact; 1 is a Wi-Fi blip
 HEARTBEAT = timedelta(minutes=5)  # no logger round at all for this long = the logger stopped
-PASS_ROUNDS = 17  # rounds each pass reads: 15 since the last pass, plus 2 of overlap
+PASS_ROUNDS = 7  # rounds each pass reads: 5 since the last pass, plus 2 of overlap
+COVER = 0.8  # an automation check needs readings for this share of its minutes
+GRACE = timedelta(minutes=5)  # a timer may fire a little late; the override check starts after
 
 
 @dataclass(frozen=True)
 class Event:
-    kind: str  # unusual_use, offline, no_contact, logger_stopped or timer_mismatch
+    kind: str  # unusual_use, left_on, automation_drift, override, offline, no_contact,
+    #            logger_stopped or timer_mismatch
     plug_mac: str | None  # None for an event about the whole site, like lost contact
     start: datetime
     facts: dict[str, float | str]  # the numbers an agent may quote later
@@ -37,6 +40,7 @@ class Run:
     start: datetime
     end: datetime  # the last unusual reading
     peak_w: float
+    kind: str = "unusual_use"  # or "left_on": a small load at an hour the plug is usually off
 
 
 def usual_week(profile: list[ProfileHour]) -> dict[int, Usual]:
@@ -70,14 +74,18 @@ def unusual_runs(
     readings: list[tuple[datetime, float]], usual: dict[int, Usual], *, tz: str,
     policy: Policy = DEFAULT,
 ) -> list[Run]:  # fmt: skip
-    """Unusual stretches, oldest first: more_w more for run_min, or small_w for long_run_min.
+    """Unusual stretches, oldest first: more_w more for run_min (unusual use), or small_w
+    more for left_on_min (left on, FR-09 v2).
 
-    A long stretch holds any short one inside it, so that stretch is one run, not two.
+    A long stretch holds any unusual one inside it, so that stretch is one run, not two,
+    and it is unusual use. Only a stretch that never reached the big rule is left on.
     """
     short = _runs(readings, usual, tz, policy, timedelta(minutes=policy.run_min))
     small = replace(policy, more_w=policy.small_w)  # the same test, with the small load's watts
-    long = _runs(readings, usual, tz, small, timedelta(minutes=policy.long_run_min))
+    long = _runs(readings, usual, tz, small, timedelta(minutes=policy.left_on_min))
     inside = [r for r in short if any(x.start <= r.start <= x.end for x in long)]
+    big = {x for x in long if any(x.start <= r.start <= x.end for r in inside)}
+    long = [x if x in big else replace(x, kind="left_on") for x in long]
     return sorted([r for r in short if r not in inside] + long, key=lambda r: r.start)
 
 
@@ -117,9 +125,56 @@ def stretches(
     return [s for s in found if s[-1][0] - s[0][0] >= length]
 
 
-def unusual_use(mac: str, run: Run) -> Event:
+def run_event(mac: str, run: Run) -> Event:
+    """An unusual or left-on run as an event."""
     minutes = round((run.end - run.start).total_seconds() / 60)
-    return Event("unusual_use", mac, run.start, {"peak_w": run.peak_w, "minutes": minutes})
+    return Event(run.kind, mac, run.start, {"peak_w": run.peak_w, "minutes": minutes})
+
+
+def automation_events(
+    mac: str, timers: list[Timer], readings: list[tuple[datetime, float]],
+    usual: dict[int, Usual], *, now: datetime, tz: str, policy: Policy = DEFAULT,
+) -> list[Event]:  # fmt: skip
+    """What the plug's own timers did, checked against its power (FR-34).
+
+    Drift: an "on" timer fired, but the device stayed idle for drift_h (on for nothing).
+    Override: an "off" timer fired, but the device drew power for override_min after it
+    (switched back on, or the timer did not fire). Each timer's latest firing that has
+    had its full time is checked; readings must cover most of that time.
+    """
+    base = min((u.watts for u in usual.values()), default=0.0)  # standby
+    found = []
+    for t in timers:
+        if not (t.enable and t.mode == 0 and t.action in (0, 1)):
+            continue  # sunrise, sunset, toggle and rule timers are not checked
+        on = t.action == 1
+        wait = (
+            timedelta(hours=policy.drift_h)
+            if on
+            else GRACE + timedelta(minutes=policy.override_min)
+        )
+        if (fired := _fired(t, now - wait, tz)) is None:
+            continue
+        start = fired if on else fired + GRACE
+        seen = [w for at, w in readings if start <= at < fired + wait]
+        if len(seen) < COVER * (fired + wait - start).total_seconds() / 60:
+            continue  # no data is not "idle"
+        facts: dict[str, float | str] = {"slot": t.slot, "time": t.time, "peak_w": max(seen)}
+        if on and all(w < base + policy.use_w for w in seen):
+            found.append(Event("automation_drift", mac, fired, {**facts, "hours": policy.drift_h}))
+        elif not on and all(w > policy.on_w for w in seen):
+            found.append(Event("override", mac, fired, facts))
+    return found
+
+
+def _fired(t: Timer, upto: datetime, tz: str) -> datetime | None:
+    """When the timer last fired at or before `upto` (UTC), if it was set for that day."""
+    local = upto.astimezone(ZoneInfo(tz))
+    h, m = map(int, t.time.split(":"))
+    fired = local.replace(hour=h, minute=m, second=0, microsecond=0)
+    if fired > local:
+        fired -= timedelta(days=1)
+    return fired.astimezone(UTC) if t.days[(fired.weekday() + 1) % 7] not in "0-" else None
 
 
 def dedupe_key(event: Event, *, tz: str) -> str:

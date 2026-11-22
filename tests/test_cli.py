@@ -1,4 +1,5 @@
 import sqlite3
+from dataclasses import fields
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -7,6 +8,7 @@ import pytest
 
 from agentc import cli, store, watcher
 from agentc.calc import ProfileHour
+from agentc.policy import Policy
 from agentc.watcher import Event
 from tests.fake_model import FakeModel
 from tests.fake_tasmota import FakePlug
@@ -207,6 +209,13 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
          "a power cut, or the hub's Wi-Fi is down"),
         (Event("logger_stopped", None, AT, {"minutes": 12}),
          "No readings since Tue 03 Nov 01:00: the logger has stopped"),
+        (Event("left_on", "AA", AT, {"minutes": 45, "peak_w": 5.0}),
+         "Plug-6: left on since Tue 03 Nov 01:00, 45 min so far, about 5 W"),
+        (Event("automation_drift", "AA", AT, {"slot": 1, "time": "06:00", "hours": 3,
+                                              "peak_w": 0.5}),
+         "Plug-6: timer 1 switched it on at 06:00 on Tue 03 Nov, but it did nothing for 3 h"),
+        (Event("override", "AA", AT, {"slot": 2, "time": "01:00", "peak_w": 60.0}),
+         "Plug-6: timer 2 should have switched it off at 01:00, but it still drew 60 W"),
         (Event("timer_mismatch", "AA", AT, {"slots": "1, 9"}),
          "Plug-6: timers changed on the plug (slots 1, 9)"),
     ],
@@ -285,7 +294,7 @@ def test_policy_shows_each_value_where_it_came_from_and_why(cfg, capsys):
         "  max_off_h           12  default No fix keeps a plug off longer than this many hours\n"
         in out
     )
-    assert len(out.splitlines()) == 1 + 16
+    assert len(out.splitlines()) == 1 + len(fields(Policy))  # one line a value
 
 
 def test_policy_of_the_whole_site(cfg, capsys):

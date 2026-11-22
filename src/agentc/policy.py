@@ -21,7 +21,7 @@ class Policy:
     more_w: float = value(10.0, "... and at least this many watts more, so 0 W to 3 W is no alert")
     run_min: int = value(30, "... for at least this many minutes")
     small_w: float = value(3.0, "A small load left on: at least this many watts more ...")
-    long_run_min: int = value(180, "... counts only after this many minutes")
+    left_on_min: int = value(30, "... counts as left on after this many minutes")
     rarely_on: float = value(0.2, "Alert only at hours the plug is on for under this share of time")
     # the plug's usual week (profile)
     on_w: float = value(2.0, "Above this many watts, a plug counts as on")
@@ -36,6 +36,9 @@ class Policy:
     history_days: int = value(14, "Days of readings behind an answer; a rejected fix waits as long")
     same_within_min: int = value(30, "A repeat: same action, a shared day, within this many min")
     expires_h: float = value(24, "An open proposal expires after this many hours")
+    # automations (what the plug's own timers should have done)
+    drift_h: float = value(3, "Drift: a timer switched it on, but it stayed idle this many hours")
+    override_min: int = value(30, "Override: a timer switched it off, but it drew power this long")
 
 
 DEFAULT = Policy()
