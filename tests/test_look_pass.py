@@ -275,7 +275,7 @@ def test_the_watch_pass_lets_the_housemate_look(app, tmp_path):  # noqa: F811
     signal(app)
     llm = Llm(app, 1, CFG.tz, CFG.tiers, CFG.budget, Decides(), clock=lambda: NOW)
     quiet = energy(tmp_path, lambda t: 1.0)  # so the watch pass finds no signal of its own
-    _, looked = jobs.run_due(app, quiet, replace(CFG, plugs={}), site_id=1, now=NOW, llm=llm)
+    _, looked, _ = jobs.run_due(app, quiet, replace(CFG, plugs={}), site_id=1, now=NOW, llm=llm)
     assert [o.question_id for o in looked] == [1]
 
 

@@ -5,13 +5,26 @@ timer check, learning or the heartbeat.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from sqlite3 import Connection
 from zoneinfo import ZoneInfo
 
-from agentc import agent, agent_tools, config, house, learn, owner, store, timers, watcher, words
+from agentc import (
+    agent,
+    agent_tools,
+    config,
+    house,
+    learn,
+    notify,
+    owner,
+    store,
+    timers,
+    watcher,
+    words,
+)
 from agentc.config import Config
 from agentc.llm import Llm, OverBudget, Unreachable
+from agentc.notify import Message, NotSent, Publish
 from agentc.owner import Decision
 from agentc.policy import Policy
 from agentc.watcher import Event
@@ -27,6 +40,8 @@ LOOKED = ("left_on", "unusual_use", "automation_drift", "override", "change_poin
 PATTERN = timedelta(days=7)  # a timer's drift is asked about once a week, if it repeats
 QUESTION_LIFE = timedelta(hours=12)  # an unanswered question expires this long after it is due
 REMIND = timedelta(hours=2)  # "remind me later"
+SUMMARY_AT = time(21, 0)  # the day's notes, in one quiet message
+NOTES_SINCE = timedelta(days=1)  # the summary and the inbox show notes this recent
 
 
 @dataclass(frozen=True)
@@ -41,26 +56,47 @@ class Outcome:
     question_id: int | None = None
 
 
+@dataclass(frozen=True)
+class Sender:
+    """How messages reach the owner: ntfy, the hub's address and the button secret."""
+
+    publish: Publish
+    hub: str
+    secret: str
+
+
 def run_due(
     app: Connection, energy: Connection, cfg: Config, *, site_id: int, now: datetime,
-    llm: Llm | None = None,
-) -> tuple[list[Event], list[Outcome]]:  # fmt: skip
+    llm: Llm | None = None, sender: Sender | None = None,
+) -> tuple[list[Event], list[Outcome], list[Message]]:  # fmt: skip
     """Run each job whose time has come. Passes missed while the app was down run once.
 
     llm: None when there is no API key. The housemate is then skipped and signals wait.
+    sender: None when no [owner] is set. Questions then wait in the inbox.
     """
     events: list[Event] = []
     looked: list[Outcome] = []
+    sent: list[Message] = []
     if _due(app, site_id, "watch", WATCH_EVERY, now):
         events += watch_pass(app, energy, cfg, site_id=site_id, now=now)
         if llm:
             try:
                 looked = look_pass(app, energy, cfg, llm, site_id=site_id, now=now)
             except Exception as err:  # a bug in the look step: log it, run the other jobs
-                store.add_audit(app, site_id=site_id, at=now, actor="code",
-                                action="look_pass_failed", ref="job:watch",
-                                detail={"error": f"{type(err).__name__}: {err}"})  # fmt: skip
+                _broken(app, site_id, now, "look_pass_failed", err)
+        if sender:
+            try:
+                sent = send_pass(app, energy, cfg, sender, site_id=site_id, now=now)
+            except Exception as err:  # a bug in sending: the inbox still has every question
+                _broken(app, site_id, now, "send_pass_failed", err)
         store.set_last_run(app, site_id=site_id, job="watch", at=now)
+    if sender and _summary_due(app, site_id, now, cfg.tz):
+        try:
+            if m := summary_pass(app, sender, site_id=site_id, now=now):
+                sent.append(m)
+            store.set_last_run(app, site_id=site_id, job="summary", at=now)
+        except NotSent as err:  # try again on the next pass
+            _broken(app, site_id, now, "not_sent", err)
     if _due(app, site_id, "timers", TIMERS_EVERY, now):
         events += timer_check(app, cfg, site_id=site_id, now=now)
         store.set_last_run(app, site_id=site_id, job="timers", at=now)
@@ -68,7 +104,19 @@ def run_due(
         learn_pass(app, energy, cfg, site_id=site_id, now=now)
         events += change_check(app, energy, cfg, site_id=site_id, now=now)
         store.set_last_run(app, site_id=site_id, job="learn", at=now)
-    return events, looked
+    return events, looked, sent
+
+
+def _broken(app: Connection, site_id: int, now: datetime, action: str, err: Exception) -> None:
+    store.add_audit(app, site_id=site_id, at=now, actor="code", action=action, ref="job:watch",
+                    detail={"error": f"{type(err).__name__}: {err}"})  # fmt: skip
+
+
+def _summary_due(app: Connection, site_id: int, now: datetime, tz: str) -> bool:
+    """After 21:00, once a day."""
+    local, last = now.astimezone(ZoneInfo(tz)), store.last_run(app, site_id=site_id, job="summary")
+    sent_today = last is not None and last.astimezone(ZoneInfo(tz)).date() == local.date()
+    return local.time() >= SUMMARY_AT and not sent_today
 
 
 def _due(app: Connection, site_id: int, job: str, every: timedelta, now: datetime) -> bool:
@@ -193,8 +241,71 @@ def _skip(
 
 def _watts(energy: Connection, plug: str, e: Event, now: datetime) -> float:
     """What the device draws now: its last reading in the last 5 minutes, else the signal's."""
+    w = _now_w(energy, plug, now)
+    return float(e.facts.get("peak_w", 0.0)) if w is None else w
+
+
+def _now_w(energy: Connection, plug: str, now: datetime) -> float | None:
+    """Its last reading in the last 5 minutes; None if there is none."""
     recent = store.readings(energy, plug=plug, start=now - agent_tools.NOW_WINDOW, end=now)
-    return recent[-1][1] if recent else float(e.facts.get("peak_w", 0.0))
+    return recent[-1][1] if recent else None
+
+
+def send_pass(
+    app: Connection, energy: Connection, cfg: Config, sender: Sender, *, site_id: int,
+    now: datetime,
+) -> list[Message]:  # fmt: skip
+    """Send the questions that are due: each day question on its own, the night's together.
+
+    A night question whose device is off by morning is dropped: nothing to ask (3d). If
+    ntfy fails, the rest stay unsent and go on the next pass; the inbox has them all.
+    """
+    plugs = {mac: name for name, mac in store.plug_macs(app, site_id=site_id).items()}
+    out: list[tuple[Message, list[int]]] = []
+    nights: list[tuple[owner.Question, str, float]] = []
+    for q in store.due_questions(app, site_id=site_id, now=now):
+        plug = plugs[q.plug_mac]
+        device = config.device(cfg, plug, store.learned(app, mac=q.plug_mac))
+        if not owner.held_for_morning(q, tz=cfg.tz):
+            out.append((notify.single(q, device.name, hub=sender.hub, secret=sender.secret),
+                        [q.id]))  # fmt: skip
+            continue
+        w = _now_w(energy, plug, now)
+        if w is not None and w < device.policy.on_w:
+            store.close_question(app, question_id=q.id)
+            store.add_audit(app, site_id=site_id, at=now, actor="code", action="off_by_morning",
+                            ref=f"question:{q.id}", detail={"watts": f"{w:g}"})  # fmt: skip
+            continue
+        nights.append((q, device.name, w if w is not None else 0.0))
+    if len(nights) == 1:
+        q, name, _ = nights[0]
+        out.append((notify.single(q, name, hub=sender.hub, secret=sender.secret), [q.id]))
+    elif nights:
+        day = now.astimezone(ZoneInfo(cfg.tz)).date()
+        m = notify.night(nights, day=day, hub=sender.hub, secret=sender.secret)
+        out.append((m, [q.id for q, _, _ in nights]))
+    sent = []
+    for m, ids in out:
+        try:
+            sender.publish(m)
+        except NotSent as err:
+            _broken(app, site_id, now, "not_sent", err)
+            break
+        store.mark_sent(app, question_ids=ids, now=now)
+        sent.append(m)
+    return sent
+
+
+def summary_pass(app: Connection, sender: Sender, *, site_id: int, now: datetime
+                 ) -> Message | None:  # fmt: skip
+    """The last day's notes in one quiet message. None if there were none."""
+    notes = [d["text"] for d in store.audit_since(app, site_id=site_id, action="note",
+                                                   since=now - NOTES_SINCE)]  # fmt: skip
+    if not notes:
+        return None
+    m = notify.summary(notes)
+    sender.publish(m)
+    return m
 
 
 def _held(
@@ -241,6 +352,22 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
                                          "days": c.days or ""})  # fmt: skip
         return f"Recorded: {c.label}. Shadow mode: nothing was sent to the plug."
     return "Noted."
+
+
+def answer_night(app: Connection, cfg: Config, *, site_id: int, night: date, does: str,
+                 now: datetime) -> str:  # fmt: skip
+    """One tap for the night's questions: each open one that offers `does` gets it."""
+    zone, done = ZoneInfo(cfg.tz), []
+    for q in store.questions(app, site_id=site_id, status="open"):
+        if not (owner.held_for_morning(q, tz=cfg.tz)
+                and q.send_at.astimezone(zone).date() == night):  # fmt: skip
+            continue
+        n = next((n for n, c in enumerate(q.decision.choices, 1) if c.does == does), None)
+        if n is not None:
+            done.append(answer(app, cfg, site_id=site_id, question_id=q.id, choice=n, now=now))
+    if not done:
+        raise LookupError(f"No open questions from the night before {night}.")
+    return "\n".join(done)
 
 
 def _failed(app: Connection, site_id: int, eid: int, err: Exception, now: datetime) -> None:

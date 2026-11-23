@@ -15,8 +15,9 @@ from agentc.house import SOURCES, Card, Habit
 from agentc.owner import Choice, Decision, Question
 from agentc.watcher import Event
 
-# 2: thresholds a row (B3b). 3: events.tries. 4: cards, habits. 5: automations. 6: questions
-SCHEMA_VERSION = 6
+# 2: thresholds a row (B3b). 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
+# 7: questions.sent
+SCHEMA_VERSION = 7
 
 SCHEMA = """
 -- One home or plant room; every other row belongs to one
@@ -248,7 +249,8 @@ CREATE TABLE IF NOT EXISTS questions (
     send_at  TEXT NOT NULL,  -- when it may reach the owner: at once, or 07:00 after the night
     created  TEXT NOT NULL,
     answer   INTEGER,  -- the choice picked, from 1
-    answered TEXT
+    answered TEXT,
+    sent     TEXT  -- when it went to the phone; NULL: not yet
 );
 -- Shadow mode, pause, caps; key-value
 CREATE TABLE IF NOT EXISTS settings (
@@ -271,6 +273,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
     db.executescript(SCHEMA)
     if "tries" not in [col[1] for col in db.execute("PRAGMA table_info(events)")]:
         db.execute("ALTER TABLE events ADD COLUMN tries INTEGER NOT NULL DEFAULT 0")  # before 3
+    if "sent" not in [col[1] for col in db.execute("PRAGMA table_info(questions)")]:
+        db.execute("ALTER TABLE questions ADD COLUMN sent TEXT")  # before 7
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
 
@@ -642,7 +646,7 @@ def answer_question(
 def ask_again(db: sqlite3.Connection, *, question_id: int, at: datetime) -> None:
     """Remind later: the question is open again from `at`."""
     with db:
-        db.execute("UPDATE questions SET status = 'open', send_at = ? WHERE id = ?",
+        db.execute("UPDATE questions SET status = 'open', send_at = ?, sent = NULL WHERE id = ?",
                    (at.astimezone(UTC).isoformat(), question_id))  # fmt: skip
 
 
@@ -659,6 +663,36 @@ def _question(qid: int, eid: int, mac: str, action: str, text: str, choices: str
               send_at: str, answer: int | None) -> Question:  # fmt: skip
     d = Decision(action, text, tuple(Choice(**c) for c in json.loads(choices)))
     return Question(qid, eid, mac, d, status, datetime.fromisoformat(send_at), answer)
+
+
+def due_questions(db: sqlite3.Connection, *, site_id: int, now: datetime) -> list[Question]:
+    """Open questions due by now and not sent yet, oldest first."""
+    sql = f"""{QUESTION} FROM questions WHERE site_id = ? AND status = 'open' AND sent IS NULL
+              AND send_at <= ? ORDER BY id"""
+    return [_question(*row) for row in db.execute(sql, (site_id, now.astimezone(UTC).isoformat()))]
+
+
+def mark_sent(db: sqlite3.Connection, *, question_ids: list[int], now: datetime) -> None:
+    with db:
+        db.executemany("UPDATE questions SET sent = ? WHERE id = ?",
+                       [(now.astimezone(UTC).isoformat(), q) for q in question_ids])  # fmt: skip
+
+
+def close_question(db: sqlite3.Connection, *, question_id: int) -> None:
+    """Expire one open question: it no longer needs an answer (e.g. off by morning)."""
+    with db:
+        db.execute("UPDATE questions SET status = 'expired' WHERE id = ? AND status = 'open'",
+                   (question_id,))  # fmt: skip
+
+
+def audit_since(
+    db: sqlite3.Connection, *, site_id: int, action: str, since: datetime
+) -> list[dict[str, str]]:
+    """The detail of each audit row of one action since a time, oldest first."""
+    sql = """SELECT detail FROM audit WHERE site_id = ? AND action = ? AND ts_utc >= ?
+             ORDER BY id"""
+    rows = db.execute(sql, (site_id, action, since.astimezone(UTC).isoformat()))
+    return [json.loads(d) for (d,) in rows]
 
 
 def count_events(db: sqlite3.Connection, *, site_id: int, status: str) -> int:

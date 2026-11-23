@@ -41,8 +41,8 @@ def cfg(tmp_path, plugs):
     return path
 
 
-def run(cfg, capsys, *args, step=None):
-    code = cli.main(["--config", str(cfg), *args], step=step)
+def run(cfg, capsys, *args, step=None, publish=None):
+    code = cli.main(["--config", str(cfg), *args], step=step, publish=publish)
     return code, capsys.readouterr().out
 
 
@@ -138,7 +138,8 @@ def test_watch_shows_new_events_once(cfg, capsys, tmp_path):
     code, out = run(cfg, capsys, "watch")
     assert code == 0
     assert "3D printer: on at an unusual time from " in out and ", 119 min, peak 30 W\n" in out
-    assert run(cfg, capsys, "watch")[1] == f"Nothing new.\n{cli.NO_KEY}\n"  # 15 min: not yet
+    again = run(cfg, capsys, "watch")[1]  # 15 min: not yet
+    assert again == f"Nothing new.\n{cli.NO_KEY}\n{cli.NO_SECRET}\n"
 
 
 def test_watch_flags_parked_events(cfg, capsys, tmp_path):
@@ -262,6 +263,20 @@ def test_watch_shows_what_the_housemate_made_of_a_signal(cfg, capsys, tmp_path):
     assert "Desk 2: ask: Desk 2 is still on. Switch it off?\n  1. Off\n  2. Normal\n" in out
     assert "  Question 1, reaches you " in out
     assert out.count("Question ") == 1
+
+
+def test_watch_sends_due_questions_to_the_phone(cfg, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENTC_SECRET", "s3cret")
+    sent = []
+    run(cfg, capsys, "timers")
+    start = desk_till_yesterday(tmp_path)
+    app = store.connect(tmp_path / "app.db")
+    left_on = Event("left_on", "AA:00:00:00:00:01", start, {"minutes": 40, "peak_w": 30.0})
+    store.add_event(app, site_id=1, event=left_on, dedupe="d")
+    # by day the question is sent at once; at night it waits, so allow both
+    out = run(cfg, capsys, "watch", step=decides("ask"), publish=sent.append)[1]
+    assert cli.NO_SECRET not in out
+    assert ("Sent: Desk 2\n" in out) == (len(sent) == 1)
 
 
 def test_watch_with_a_key_runs_the_housemate(cfg, capsys, tmp_path, monkeypatch):

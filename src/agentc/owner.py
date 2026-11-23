@@ -6,6 +6,7 @@ normal" becomes a habit with a scope code builds from the signal, shown back to 
 
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from agentc.house import Habit
 
@@ -39,6 +40,12 @@ class Question:
     status: str  # open, answered or expired
     send_at: datetime  # when it may reach the owner (UTC)
     answer: int | None = None  # the choice picked, from 1
+
+
+def held_for_morning(q: Question, *, tz: str) -> bool:
+    """Did this question come up at night and wait for 07:00? (A reminder is never due at
+    exactly 07:00:00.)"""
+    return q.send_at.astimezone(ZoneInfo(tz)).time() == QUIET_TO
 
 
 def quiet(local: datetime) -> bool:

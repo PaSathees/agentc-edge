@@ -41,6 +41,16 @@ SLOTS = tuple(range(9, 17))  # timers the system may use; 1 to 8 stay the owner'
 
 
 @dataclass(frozen=True)
+class Owner:
+    """Where messages to the owner go (FR-31, Phase 3d). The phone reaches the hub over
+    Tailscale only, so hub_url is a tailnet address."""
+
+    ntfy_url: str  # the ntfy server the hub publishes to, e.g. its own at http://127.0.0.1:8090
+    topic: str  # the ntfy topic the phone subscribes to
+    hub_url: str  # how the phone reaches this app: buttons and the inbox link
+
+
+@dataclass(frozen=True)
 class Rule:
     kind: str  # "latest_off": the device may run until `time`; other kinds come later
     time: str  # local HH:MM
@@ -78,6 +88,7 @@ class Config:
     own: frozenset[str]  # policy names set in [policy]
     app_db: Path
     energy_db: Path
+    owner: Owner | None = None  # None: no messages are sent; questions wait in the inbox
 
 
 def load(path: str | Path) -> Config:
@@ -108,6 +119,7 @@ def load(path: str | Path) -> Config:
         own=frozenset(raw.get("policy", {})),
         app_db=path.parent / paths.get("app_db", "app.db"),
         energy_db=path.parent / paths.get("energy_db", "energy.db"),
+        owner=Owner(**raw["owner"]) if "owner" in raw else None,
     )
 
 

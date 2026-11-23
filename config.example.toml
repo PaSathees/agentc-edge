@@ -34,6 +34,13 @@ usd_in = 2.0
 usd_out = 10.0
 effort = "medium"
 
+# Messages to your phone (optional). Without it, questions wait in `agentc questions`
+# and the inbox page. Buttons carry a token signed with AGENTC_SECRET from .env.
+[owner]
+ntfy_url = "http://127.0.0.1:8090"  # the hub's own ntfy server
+topic = "agentc"  # the topic your phone subscribes to
+hub_url = "https://edge-hub.example.ts.net"  # how your phone reaches the hub (Tailscale)
+
 [plugs]
 "Plug-1" = "192.0.2.11"
 "Plug-2" = "192.0.2.12"

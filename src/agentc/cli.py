@@ -10,7 +10,19 @@ from zoneinfo import ZoneInfo
 
 import anthropic
 
-from agentc import agent, agent_tools, calc, config, evals, house, jobs, llm, store, timers
+from agentc import (
+    agent,
+    agent_tools,
+    calc,
+    config,
+    evals,
+    house,
+    jobs,
+    llm,
+    notify,
+    store,
+    timers,
+)
 from agentc.config import Config
 from agentc.devices.base import describe
 from agentc.policy import explain
@@ -24,8 +36,12 @@ REPLAY_EVERY = timedelta(
 NO_KEY = "No ANTHROPIC_API_KEY: the housemate did not run. Run with `uv run --env-file .env`."
 
 
-def main(argv: list[str] | None = None, *, step: llm.StepSend | None = None) -> int:
-    """step: a stand-in for the model in tests. None means the real model, if a key is set."""
+def main(
+    argv: list[str] | None = None, *, step: llm.StepSend | None = None,
+    publish: notify.Publish | None = None,
+) -> int:  # fmt: skip
+    """step, publish: stand-ins for the model and ntfy in tests. None means the real ones,
+    if a key and an [owner] are set."""
     args = _parser().parse_args(argv)
 
     if args.command == "eval":  # needs no config.toml: the evals bring their own
@@ -53,7 +69,10 @@ def main(argv: list[str] | None = None, *, step: llm.StepSend | None = None) -> 
     if args.command == "profile":
         return show_profile(db, cfg, site_id=site_id, plug=args.plug, days=args.days)
     if args.command == "watch":
-        return show_watch(db, cfg, site_id=site_id, model=_llm(db, cfg, site_id, step))
+        sender = _sender(cfg, publish)
+        return show_watch(
+            db, cfg, site_id=site_id, model=_llm(db, cfg, site_id, step), sender=sender
+        )
     if args.command == "replay":
         model = _step(step) if args.look else None
         if args.look and model is None:
@@ -269,23 +288,43 @@ def _llm(db: Connection, cfg: Config, site_id: int, step: llm.StepSend | None) -
     return llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, s)
 
 
-def show_watch(db: Connection, cfg: Config, *, site_id: int, model: llm.Llm | None) -> int:
-    """Run the jobs that are due now; print new signals, then what the housemate made of them."""
+NO_SECRET = "No AGENTC_SECRET in .env: nothing was sent. Questions wait in `agentc questions`."
+
+
+def _sender(cfg: Config, publish: notify.Publish | None) -> jobs.Sender | None:
+    """How messages reach the phone, or None: no [owner] in config.toml, or no secret."""
+    secret = os.environ.get("AGENTC_SECRET", "")
+    if cfg.owner is None or not secret:
+        return None
+    return jobs.Sender(publish or notify.ntfy(cfg.owner), cfg.owner.hub_url, secret)
+
+
+def show_watch(
+    db: Connection, cfg: Config, *, site_id: int, model: llm.Llm | None,
+    sender: jobs.Sender | None = None,
+) -> int:  # fmt: skip
+    """Run the jobs that are due now; print new signals, what the housemate made of them,
+    and what went to the phone."""
     energy = store.open_readings(cfg.energy_db)
     now = datetime.now(UTC)
-    events, looked = jobs.run_due(db, energy, cfg, site_id=site_id, now=now, llm=model)
+    events, looked, sent = jobs.run_due(db, energy, cfg, site_id=site_id, now=now, llm=model,
+                                        sender=sender)  # fmt: skip
     names = _names(db, cfg, site_id)
     for e in events:
         print(event_words(e, names, tz=cfg.tz))
     for o in looked:
         print(outcome_words(o))
-    if not events and not looked:
+    for m in sent:
+        print(f"Sent: {m.title}")
+    if not events and not looked and not sent:
         print("Nothing new.")
     if parked := store.count_events(db, site_id=site_id, status="parked"):
         print(f"{parked} event{'s' if parked > 1 else ''} parked after {jobs.MAX_TRIES} failed"
               " tries: see the audit log")  # fmt: skip
     if model is None:
         print(NO_KEY)
+    if cfg.owner and sender is None:
+        print(NO_SECRET)
     return 0
 
 
