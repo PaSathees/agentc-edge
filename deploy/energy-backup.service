@@ -4,5 +4,6 @@ RequiresMountsFor=/data /backup
 
 [Service]
 Type=oneshot
-User=sathees
+# YOUR_USER: the hub user that owns /data
+User=YOUR_USER
 ExecStart=/usr/local/bin/energy-backup

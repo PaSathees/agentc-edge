@@ -1,4 +1,4 @@
-"""Every threshold the agents decide with, in one place, each with why (B3a).
+"""Every threshold the agents decide with, in one place, each with why.
 
 Defaults are here. config.toml can change them for the whole site ([policy]) or for one
 device ([devices."Plug-6".policy]). Code reads only a device's own policy.
@@ -16,7 +16,7 @@ def value(default: float, why: str) -> Any:  # noqa: ANN401 (a dataclass field)
 
 @dataclass(frozen=True)
 class Policy:
-    # unusual use (the Watcher)
+    # unusual use (the signals)
     factor: float = value(2.0, "Unusual: more than this many times the usual power for the hour")
     more_w: float = value(10.0, "... and at least this many watts more, so 0 W to 3 W is no alert")
     run_min: int = value(30, "... for at least this many minutes")

@@ -1,0 +1,16 @@
+.git
+.venv
+data
+evals
+tests
+docs
+deploy
+*.db
+*.db-*
+.env
+config.toml
+plan.md
+**/__pycache__
+.pytest_cache
+.ruff_cache
+.coverage

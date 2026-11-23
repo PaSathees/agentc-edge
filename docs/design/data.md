@@ -34,30 +34,23 @@ Every table also has `site_id`.
 
 | Table | Holds | Notes |
 |---|---|---|
-| `sites` | Name, time zone, location for weather | Location stays on the hub |
+| `sites` | Name, time zone | |
 | `plugs` | MAC (key), name, IP, first and last seen | Name links to `readings.plug`; IP may change |
-| `devices` | Name, room, type, rated W, access level, allowed slots | What is plugged in |
-| `placements` | Device, plug, from, to | Devices move between plugs; history kept |
 | `timers` | Plug, slot 1 to 16, the Tasmota fields, source (import, actuator, owner), read at | Last read from the plug, not a plan |
-| `rules` | Device, kind, parameters, hard or soft, weight, origin (owner, rejection, chat), active | Kinds: must-run window, min runtime, latest off, never off, priority |
 | `profiles` | Plug, hour of week (0 to 167), median W, share of time on, days used | Rebuilt daily |
-| `thresholds` | Plug, alert factor, changed by | Raised by "false alarm" marks |
-| `weather` | Hourly forecast and actuals | From Open-Meteo |
-| `factors` | Kind (grid, tariff), value, unit, source, valid from | Every number in a report cites one |
-| `goals` | Month, kgCO2e | Set by the owner |
-| `events` | Kind, plug, device, start, facts, status (new, done, skipped, parked), tries, dedupe key | Dedupe key: plug + kind + day. Skipped: code needed no look (a habit, or drift not a pattern yet) |
+| `thresholds` | Plug, name, value, why | Values learned from each plug's readings, e.g. its standby level |
+| `events` | Kind, plug, start, facts, status (new, done, skipped, parked), tries, dedupe key | Dedupe key: plug + kind + day. Skipped: code needed no look (a habit, or drift not a pattern yet) |
 | `cards` | Plug, kind, room, what is plugged in, notes, must run, why each timer is set | The house model's card (FR-30) |
 | `automations` | Plug, auto-off seconds, plug rules | Read with the timers |
 | `habits` | Plug, text, days, start, end, source (tap, chat, setup), ended | A habit that covers a signal stops the look (FR-33) |
 | `questions` | Event, plug, ask or propose, text, choices, status (open, answered, expired), when it may reach the owner, the answer | Quiet hours and the daily limit set "when" (FR-36). Expires 12 h after it is due |
-| `proposals` | See the contract below; status; version | Version 1's contract. Unused since 3c2; Phase 4 reshapes it for the Actuator |
-| `writes` | Proposal, plug, slot, before, after, read back, ok | One row per timer written |
 | `audit` | Time, actor (code, agent, owner), action, reference, detail | Append only; the history page reads it |
 | `llm_calls` | Run, agent, model, prompt version, prompt, output, tokens, USD, latency | Trace and budget |
-| `settings` | Shadow mode, paused, caps, defaults | Each change also goes to `audit` |
-| LangGraph tables | Chat threads | Version 1 plan; not used since ADR-009 |
+| `settings` | When each job last ran | Key and value |
 
-## Proposal contract (FR-14)
+Version 1 also had `devices`, `placements`, `rules`, `weather`, `factors`, `goals`, `proposals` and `writes`. They were never used by version 2 and were dropped in Phase 3d (schema 8); Phase 4 adds back what the Actuator needs. Device names, access and rules live in `config.toml`; the grid factor too.
+
+## Proposal contract (FR-14, version 1)
 
 ```json
 {
@@ -73,7 +66,7 @@ Every table also has `site_id`.
 }
 ```
 
-Savings in the example are illustrative, sized from the real readings. The Responder that wrote these was removed in 3c2: the housemate's asks and proposals go to `questions`.
+Savings in the example are illustrative, sized from the real readings. The Responder that wrote these was removed in Phase 3c: the housemate's asks and proposals go to `questions`.
 
 ## Tasmota timers
 

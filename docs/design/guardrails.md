@@ -1,6 +1,6 @@
 # Guardrails
 
-> Version 1 detail. Since 3c2 the housemate's checks are in [design.md](../design.md) section 6 (code: `agent.check_decision`); the draft checks on fix options and repeats below went with the Responder. The write-time checks still apply in Phase 4.
+> Version 1 detail. Since Phase 3c the housemate's checks are in [design.md](../design.md) section 6 (code: `agent.check_decision`); the draft checks on fix options and repeats below went with the Responder. The write-time checks still apply in Phase 4.
 
 [Design overview](../design.md)
 

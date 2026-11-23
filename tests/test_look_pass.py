@@ -211,7 +211,7 @@ def test_an_unanswered_question_expires_12_hours_after_it_is_due(app, tmp_path, 
     signal(app)
     db = small(tmp_path)
     look(app, db, Decides())  # due at 07:00
-    look(app, db, Decides(), now=MONDAY + later)
+    jobs.run_due(app, db, replace(CFG, plugs={}), site_id=1, now=MONDAY + later)
     assert [q.status for q in store.questions(app, site_id=1)] == [status]
 
 
@@ -275,7 +275,7 @@ def test_the_watch_pass_lets_the_housemate_look(app, tmp_path):  # noqa: F811
     signal(app)
     llm = Llm(app, 1, CFG.tz, CFG.tiers, CFG.budget, Decides(), clock=lambda: NOW)
     quiet = energy(tmp_path, lambda t: 1.0)  # so the watch pass finds no signal of its own
-    _, looked = jobs.run_due(app, quiet, replace(CFG, plugs={}), site_id=1, now=NOW, llm=llm)
+    _, looked, _ = jobs.run_due(app, quiet, replace(CFG, plugs={}), site_id=1, now=NOW, llm=llm)
     assert [o.question_id for o in looked] == [1]
 
 
@@ -333,3 +333,40 @@ def test_an_answer_needs_an_open_question_and_a_real_choice(app, tmp_path):  # n
     tap(app, 1)
     with pytest.raises(LookupError, match="No open question 1"):
         tap(app, 1)
+
+
+def test_a_restart_after_a_question_is_saved_never_asks_again(app, tmp_path, monkeypatch):  # noqa: F811
+    signal(app)
+    model, db = Decides(), small(tmp_path)
+
+    def crash(*args, **kwargs):  # the container stops before the event is marked done
+        raise SystemExit("stopped")
+
+    monkeypatch.setattr(store, "event_done", crash)
+    with pytest.raises(SystemExit):
+        look(app, db, model)
+    monkeypatch.undo()
+    assert look(app, db, model) == [] and model.calls == 1  # not looked at again
+    assert len(store.questions(app, site_id=1)) == 1
+
+
+def test_two_runs_at_once_ask_only_once(app, tmp_path):  # noqa: F811 (e.g. `watch` beside `run`)
+    signal(app)
+    db = small(tmp_path)
+
+    def other_run_first(**kw):  # the other run marks the event done while this one looks
+        app.execute("UPDATE events SET status = 'done' WHERE id = 1")
+        app.commit()
+        return Decides()(**kw)
+
+    (out,) = look(app, db, other_run_first)
+    assert (out.question_id, out.why) == (None, "handled by another run")
+    assert store.questions(app, site_id=1) == []
+
+
+def test_two_taps_at_once_answer_only_once(app, tmp_path, monkeypatch):  # noqa: F811
+    asked(app, tmp_path)
+    monkeypatch.setattr(store, "answer_question", lambda *a, **kw: False)  # the other tap won
+    with pytest.raises(LookupError, match="No open question 1"):
+        tap(app, 2)
+    assert store.habits(app, mac="AA") == []

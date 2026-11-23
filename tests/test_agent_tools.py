@@ -162,3 +162,10 @@ def test_cost_on_a_time_of_use_tariff_uses_the_rate_at_the_start(tools):
     text = cheap.run("cost", {"device": "Desk 2", "start": "2026-11-02 01:51",
                               "end": "2026-11-02 02:10"})  # fmt: skip
     assert "LKR 0.0," in text  # 0.0016 kWh x LKR 20 = 0.03
+
+
+def test_cost_without_a_tariff_or_carbon_is_kwh_only(tools):
+    bare = replace(tools, cfg=replace(CFG, tariff=None, factor=None))
+    text = bare.run("cost", {"device": "Desk 2", "start": "2026-11-02 01:51",
+                             "end": "2026-11-02 02:10"})  # fmt: skip
+    assert text == "From Mon 01:51 to Mon 02:10: 0.002 kWh (no tariff or carbon factor set)"

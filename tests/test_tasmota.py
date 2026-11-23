@@ -78,3 +78,10 @@ def test_an_automations_answer_missing_a_field_raises_plug_error(plug, monkeypat
     monkeypatch.setattr(plug, "handle", lambda cmnd: {"PulseTime1": {"Remaining": 0}})
     with pytest.raises(PlugError, match="unreadable PulseTime or Rule"):
         TasmotaPlug(plug.ip).automations()
+
+
+@pytest.mark.parametrize("utc", ["not a date", None])
+def test_an_unreadable_clock_raises_plug_error(plug, utc):
+    plug.utc = utc
+    with pytest.raises(PlugError, match="unreadable clock"):
+        TasmotaPlug(plug.ip).clock()

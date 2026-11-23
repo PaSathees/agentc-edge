@@ -3,7 +3,7 @@
 #   /data   = partition 3 of the internal SSD that holds /. In the Debian installer make
 #             EFI 512 MiB, / 32 GiB ext4, and a third partition on the rest, left unused.
 #   /backup = SD card, nightly copy of energy.db (energy-backup.timer). Skipped with no card.
-# Run from a copy of deploy/: ssh -t sathees@HOST sudo bash deploy/hub-data.sh
+# Run from a copy of deploy/: ssh -t YOUR_USER@HOST sudo bash deploy/hub-data.sh
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo"; exit 1; }
 here=$(cd "$(dirname "$0")" && pwd)

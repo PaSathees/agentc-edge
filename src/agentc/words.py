@@ -2,10 +2,12 @@
 
 from zoneinfo import ZoneInfo
 
-from agentc.owner import Decision
+from agentc.calc import ProfileHour
+from agentc.owner import Decision, Outcome
 from agentc.watcher import Event
 
 WHEN = "%a %d %b %H:%M"  # Tue 03 Nov 01:00
+DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 def event_words(e: Event, names: dict[str, str], *, tz: str) -> str:
@@ -45,3 +47,27 @@ def decision_words(d: Decision) -> str:
         timer = f" (off {c.off}, on {c.on}, {c.days})" if c.does == "set_timer" else ""
         lines.append(f"  {n}. {c.label}{timer}")
     return "\n".join(lines)
+
+
+def week_table(profile: list[ProfileHour]) -> str:
+    """Usual watts (the median): one row per hour, one column per day."""
+    watts = {p.hour: p.median_w for p in profile}
+    lines = ["Hour " + "".join(f"{day:>7}" for day in DAYS)]
+    for hour in range(24):
+        cells = [watts.get(day * 24 + hour) for day in range(7)]
+        lines.append(f"{hour:02d}:00" + "".join(_cell(w) for w in cells))
+    return "\n".join(lines)
+
+
+def _cell(w: float | None) -> str:
+    return f"{'-':>7}" if w is None else f"{w:>7.1f}"  # "-" = no readings in that hour
+
+
+def outcome_words(o: Outcome) -> str:
+    """What came of one signal, e.g. "Desk 2: ask: ...", then when it reaches the owner."""
+    if o.decision is None:
+        return f"{o.device}: {o.why}"
+    head = f"{o.device}: {decision_words(o.decision)}"
+    if o.question_id is not None:
+        return f"{head}\n  Question {o.question_id}, {o.why}"
+    return f"{head}\n  ({o.why})" if o.why else head

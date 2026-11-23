@@ -1,4 +1,4 @@
-"""Learn each plug's own policy values from its readings (B3b).
+"""Learn each plug's own policy values from its readings.
 
 A plug's power sits at a few levels: off, standby and active. Code finds them, then sets
 "in use" and "unusual" half way between standby and active, so a 3 W desk lamp and a

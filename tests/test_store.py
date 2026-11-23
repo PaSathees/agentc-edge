@@ -6,9 +6,8 @@ from agentc import store
 
 # The app.db tables from docs/design/data.md.
 TABLES = {
-    "sites", "plugs", "devices", "placements", "timers", "rules", "profiles",
-    "thresholds", "weather", "factors", "goals", "events", "proposals",
-    "writes", "audit", "llm_calls", "settings",
+    "sites", "plugs", "timers", "profiles", "thresholds", "events", "audit", "llm_calls",
+    "cards", "automations", "habits", "questions", "settings",
 }  # fmt: skip
 
 
@@ -51,11 +50,20 @@ def test_wal_mode_on(db):
 
 
 def test_foreign_keys_on(home):
-    with pytest.raises(sqlite3.IntegrityError):  # device 999 does not exist
-        home.execute(
-            "INSERT INTO placements (site_id, device_id, plug_mac, from_utc) VALUES (?, ?, ?, ?)",
-            (1, 999, "AA", "2026-11-12T00:00:00Z"),
-        )
+    with pytest.raises(sqlite3.IntegrityError):  # plug "ZZ" does not exist
+        home.execute("INSERT INTO timers (site_id, plug_mac, slot) VALUES (1, 'ZZ', 1)")
+
+
+def test_an_old_app_db_loses_the_unused_tables_and_keeps_working(tmp_path):
+    old = sqlite3.connect(tmp_path / "app.db")
+    old.executescript("CREATE TABLE devices (id INTEGER PRIMARY KEY);"
+                      "CREATE TABLE proposals (id INTEGER); CREATE TABLE writes (id INTEGER);"
+                      "CREATE TABLE factors (id TEXT); PRAGMA user_version = 7;")  # fmt: skip
+    old.close()
+    db = store.connect(tmp_path / "app.db")
+    assert not {"proposals", "writes", "factors"} & table_names(db)
+    assert "devices" in table_names(db)  # an old events table may still point at it: kept
+    assert db.execute("PRAGMA user_version").fetchone() == (store.SCHEMA_VERSION,)
 
 
 def test_every_table_has_site_id(db):

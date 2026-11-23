@@ -1,5 +1,10 @@
-"""config.toml: the site, its plugs, file paths and tariff. The real file is never committed."""
+"""config.toml: the site, its plugs, file paths and tariff. The real file is never committed.
 
+Only [site] (name, time zone) and [plugs] are needed to start; the rest is optional.
+"""
+
+import os
+import secrets
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -41,6 +46,36 @@ SLOTS = tuple(range(9, 17))  # timers the system may use; 1 to 8 stay the owner'
 
 
 @dataclass(frozen=True)
+class Owner:
+    """Where messages to the owner go (FR-31: questions on the phone), from .env.
+
+    AGENTC_HUB is how the phone reaches the hub: http://192.168.1.50 at home, http://100.x.y.z
+    with Tailscale, or https://NAME.ts.net behind Tailscale Serve."""
+
+    hub: str  # no port, no trailing slash
+    topic: str = ""  # the ntfy topic; empty: made from the secret, so nobody can guess it
+    ntfy_url: str = "http://127.0.0.1:8090"  # where this app publishes: ntfy in the same stack
+
+    @property
+    def inbox_url(self) -> str:
+        """The inbox and the buttons: port 8765 at home; Tailscale Serve puts it on 443."""
+        return self.hub if self.hub.startswith("https://") else f"{self.hub}:8765"
+
+    @property
+    def phone_ntfy(self) -> str:
+        """The ntfy server as the phone adds it: 8090 at home, 8443 through Tailscale Serve."""
+        return f"{self.hub}:8443" if self.hub.startswith("https://") else f"{self.hub}:8090"
+
+
+def owner() -> Owner | None:
+    """The phone's settings from the environment (.env). None: AGENTC_HUB not set."""
+    if not (hub := os.environ.get("AGENTC_HUB", "").rstrip("/")):
+        return None
+    return Owner(hub, os.environ.get("AGENTC_TOPIC", ""),
+                 os.environ.get("AGENTC_NTFY_URL", "http://127.0.0.1:8090"))  # fmt: skip
+
+
+@dataclass(frozen=True)
 class Rule:
     kind: str  # "latest_off": the device may run until `time`; other kinds come later
     time: str  # local HH:MM
@@ -66,11 +101,11 @@ class Config:
     site: str
     tz: str  # IANA name, e.g. "Asia/Colombo"
     plugs: dict[str, str]  # name -> IP
-    tariff: Tariff
+    tariff: Tariff | None  # None: costs in kWh only
     tariff_source: str  # where the rates came from, shown beside every LKR figure
     levy: float  # tax on the whole bill, e.g. 0.025 for 2.5%; 0 if none
     month_kwh: float  # the whole house's units in a 30-day month, from the bill
-    factor: Factor  # the grid's kgCO2e per kWh, with its source
+    factor: Factor | None  # the grid's kgCO2e per kWh, with its source; None: no carbon
     tiers: dict[str, Tier]
     budget: Budget
     devices: dict[str, Device]  # plug name -> device; a plug not listed is a Device of its name
@@ -78,6 +113,7 @@ class Config:
     own: frozenset[str]  # policy names set in [policy]
     app_db: Path
     energy_db: Path
+    owner: Owner | None = None  # None: no AGENTC_HUB, so no messages; questions wait in the inbox
 
 
 def load(path: str | Path) -> Config:
@@ -85,7 +121,13 @@ def load(path: str | Path) -> Config:
     path = Path(path)
     with path.open("rb") as f:
         raw = tomllib.load(f)
-    site, paths, tariff, carbon = raw["site"], raw.get("paths", {}), raw["tariff"], raw["carbon"]
+    site, paths, tariff, carbon = (
+        raw["site"],
+        raw.get("paths", {}),
+        raw.get("tariff"),
+        raw.get("carbon"),
+    )
+    data = Path(os.environ.get("AGENTC_DATA", path.parent))  # the data folder: the database files
     llm = raw.get("llm", {})  # model calls: optional, defaults above
     site_policy = override(DEFAULT, raw.get("policy", {}), where="[policy]")
     try:
@@ -96,19 +138,39 @@ def load(path: str | Path) -> Config:
         site=site["name"],
         tz=site["tz"],
         plugs=raw["plugs"],
-        tariff=_tariff(tariff),
-        tariff_source=tariff["source"],
-        levy=tariff.get("levy", 0.0),
-        month_kwh=site["month_kwh"],
-        factor=Factor(carbon["id"], carbon["factor"], carbon["source"], carbon["valid_from"]),
+        tariff=_tariff(tariff) if tariff else None,
+        tariff_source=tariff["source"] if tariff else "",
+        levy=tariff.get("levy", 0.0) if tariff else 0.0,
+        month_kwh=(tariff or {}).get(
+            "month_kwh", site.get("month_kwh", 0.0)
+        ),  # under [site] in older configs
+        factor=Factor(carbon["id"], carbon["factor"], carbon["source"], carbon["valid_from"])
+        if carbon
+        else None,
         tiers={**TIERS, **{k: _tier(t) for k, t in llm.get("tiers", {}).items()}},
         budget=Budget(llm.get("month_usd", BUDGET.month_usd), llm.get("run_usd", BUDGET.run_usd)),
         devices={plug: _device(plug, d, site_policy) for plug, d in raw.get("devices", {}).items()},
         policy=site_policy,
         own=frozenset(raw.get("policy", {})),
-        app_db=path.parent / paths.get("app_db", "app.db"),
-        energy_db=path.parent / paths.get("energy_db", "energy.db"),
+        app_db=data / paths.get("app_db", "app.db"),
+        energy_db=data / paths.get("energy_db", "energy.db"),
+        owner=owner(),
     )
+
+
+def secret(cfg: Config) -> str:
+    """The key that signs the phone's buttons: AGENTC_SECRET if set, else a file in the data
+    folder, made on first use. So nobody has to make one."""
+    if s := os.environ.get("AGENTC_SECRET", ""):
+        return s
+    path = cfg.app_db.parent / "secret"
+    try:  # made in one step, readable by the owner only; a second process just reads it
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        return path.read_text().strip()
+    with os.fdopen(fd, "w") as f:
+        f.write(key := secrets.token_hex(32))
+    return key
 
 
 def _device(plug: str, d: dict[str, Any], site: Policy) -> Device:

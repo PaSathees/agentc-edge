@@ -1,42 +1,41 @@
-# Copy to config.toml and fill in your own values. config.toml is gitignored.
+# Copy to config.toml. Only [site] and [plugs] are needed to start; the rest is optional.
+# `agentc find` (docs/setup.md) prints your plugs' lines. Secrets go in .env, never here.
 
 [site]
 name = "home"
-tz = "Asia/Colombo"
-month_kwh = 150  # the whole house's units in 30 days; from your bill: units / days x 30
+tz = "Asia/Colombo"  # your time zone, as in https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
-[paths]  # relative to this file
-app_db = "app.db"
-energy_db = "energy.db"
+[plugs]  # a name you choose = the plug's address on your home network
+"Plug-1" = "192.0.2.11"
+"Plug-2" = "192.0.2.12"
 
-# The grid's average kgCO2e per kWh (location-based Scope 2).
+# ---------------------------------------------------------------------------------------
+# Optional. Without these, costs are in kWh only, with no money or carbon.
+
+# The grid's average kgCO2e per kWh (location-based Scope 2), with its source.
 [carbon]
 id = "slsea-2023"
 factor = 0.4242
 source = "SLSEA Sri Lanka Energy Balance 2023, Table 9.1, average emission factor"
 valid_from = "2023-01-01"
 
-# Model calls (decision ADR-005). Optional: these are the defaults.
-# The API key goes in .env (ANTHROPIC_API_KEY), never here.
-[llm]
-month_usd = 3.0  # stop all model calls for the rest of the month at this spend
-run_usd = 0.05  # stop one agent run at this spend
-
-[llm.tiers.small]  # the housemate and chat
-model = "claude-haiku-5-5"
-usd_in = 0.10  # USD per million tokens, from the price page
-usd_out = 0.50
-effort = "low"
-
-[llm.tiers.mid]  # Planner
-model = "claude-sonnet-5-5"
-usd_in = 2.0
-usd_out = 10.0
-effort = "medium"
-
-[plugs]
-"Plug-1" = "192.0.2.11"
-"Plug-2" = "192.0.2.12"
+# Model calls (decision ADR-005). Optional: these are the defaults, so leave them out
+# unless you change one. The API key goes in .env (ANTHROPIC_API_KEY), never here.
+# [llm]
+# month_usd = 3.0  # stop all model calls for the rest of the month at this spend
+# run_usd = 0.05  # stop one agent run at this spend
+#
+# [llm.tiers.small]  # the housemate (and chat, Phase 5)
+# model = "claude-haiku-5-5"
+# usd_in = 0.10  # USD per million tokens, from the price page
+# usd_out = 0.50
+# effort = "low"
+#
+# [llm.tiers.mid]  # the Planner (Phase 5)
+# model = "claude-sonnet-5-5"
+# usd_in = 2.0
+# usd_out = 10.0
+# effort = "medium"
 
 # What is plugged into each plug. Optional: a plug not listed keeps its own name,
 # access "advice" and timer slots 9 to 16. The name is the only one a model sees.
@@ -64,6 +63,7 @@ access = "none"  # it also powers the printer's controller
 # kind = "block": the month's total picks a schedule (no up_to = no limit), then band by band.
 [tariff]
 kind = "block"
+month_kwh = 150  # your whole house's units in 30 days, from your bill: it picks the block
 source = "Example tariff, not real rates"
 levy = 0.025  # tax on the whole bill (Sri Lanka's SSCL is 2.5%); leave out if none
 

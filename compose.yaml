@@ -1,0 +1,51 @@
+# AgentC Edge, the whole system: `docker compose up -d`. Setup: docs/setup.md.
+# Host network, so the app reaches the plugs and the phone reaches the app on the home
+# network as it is. Data in ./data (or AGENTC_DATA_DIR in .env); settings in .env.
+
+x-agentc: &agentc
+  build: .
+  image: agentc-edge:local
+  network_mode: host
+  restart: unless-stopped
+  user: "${AGENTC_UID:-1000}:${AGENTC_GID:-1000}"  # the files in ./data stay yours
+  env_file: [{path: .env, required: false}]
+  volumes:
+    - type: bind  # config.toml must exist first: else Docker would make an empty folder
+      source: ./config.toml
+      target: /config/config.toml
+      read_only: true
+      bind: {create_host_path: false}
+    - ${AGENTC_DATA_DIR:-./data}:/data
+
+services:
+  logger:  # one reading from every plug each minute, into energy.db
+    <<: *agentc
+    command: ["log"]
+
+  jobs:  # signals, the housemate, messages: every minute, each job on its own timetable
+    <<: *agentc
+    command: ["run"]
+
+  web:  # the inbox and the phone's taps, on port 8765
+    <<: *agentc
+    entrypoint: ["uvicorn", "agentc.app:app", "--host", "0.0.0.0", "--port", "8765"]
+
+  ntfy:  # push messages to the phone, on port 8090; iOS gets only a message id via ntfy.sh
+    image: binwiederhier/ntfy:v2.11.0
+    network_mode: host
+    restart: unless-stopped
+    user: "${AGENTC_UID:-1000}:${AGENTC_GID:-1000}"
+    environment:  # only what ntfy needs: never the whole .env, which holds the API key
+      AGENTC_HUB: "${AGENTC_HUB:-}"
+      NTFY_LISTEN_HTTP: ":8090"
+      NTFY_CACHE_FILE: /data/ntfy.db
+    volumes:
+      - ${AGENTC_DATA_DIR:-./data}:/data
+    # its own address as the phone sees it, from AGENTC_HUB (port 8090, or 8443 behind
+    # Tailscale Serve); the iOS relay needs that address, so it is set only with it
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - case "$$AGENTC_HUB" in https://*) export NTFY_BASE_URL="$$AGENTC_HUB:8443";;
+        ?*) export NTFY_BASE_URL="$$AGENTC_HUB:8090";; esac;
+        [ -n "$$NTFY_BASE_URL" ] && export NTFY_UPSTREAM_BASE_URL=https://ntfy.sh;
+        exec ntfy serve

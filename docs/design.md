@@ -162,8 +162,10 @@ Prompt caching (re-using the unchanged start of a prompt at a lower price) cuts 
 
 ## 4. You: the owner loop
 
-- **Phone.** The question arrives through ntfy, a push notification service, with one button per choice. Each button carries a single-use token for that question and that choice.
-- **Inbox.** The same questions and proposals on a local web page. It is the fallback when the internet is down.
+- **Phone.** The question arrives through ntfy, a push notification service, with one button per choice (3 at most). A button makes the phone POST to the hub over Tailscale, with a token signed by a secret only the hub knows. Once a question is answered, its token does nothing.
+- **One message for the night.** The night's questions wait for 07:00. A device already off by then (under `on_w`) is dropped: nothing to ask. The rest go as one message, one line per device, with "Switch all off", "All normal" and "Open inbox". Each question is also in the inbox on its own. One missed sleep shortcut is one interruption, not three (FM-07).
+- **Evening summary.** At 21:00 the day's notes go as one message, with no sound.
+- **Inbox.** The same questions on a local web page, with the last day's notes. It is the fallback when the internet is down.
 - **Night questions.** Quiet hours are 23:30 to 07:00. At night it asks only if the device draws more than **50 W** (`night_wake_w` in config), or if you turned night questions on for that device. Below that, the signal waits and becomes a morning question. Size decides, not time: waking you for 5 W is worse than the waste; a heater left on is not.
 - **Rate limit.** At most 5 questions a day, and never the same question about the same device twice in a day.
 - **Every answer is kept.** A tap like "That's normal on Mondays" becomes a habit row. Code builds it from the question, so no AI is needed, and shows the scope back: "Saved: Desk 2 is normal on Mondays, 01:00 to 07:00". Too wide hides waste; too narrow keeps asking. A free-text answer is turned into a habit by the agent and shown back for you to confirm.

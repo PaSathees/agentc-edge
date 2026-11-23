@@ -1,8 +1,12 @@
 """Tasmota plugs over HTTP (/cm?cmnd=...). Standard library only, like the logger."""
 
 import http.client
+import ipaddress
 import json
+import socket
 import urllib.request
+from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
@@ -29,8 +33,11 @@ class TasmotaPlug:
 
     def clock(self) -> Clock:
         tim = self._get("Status 7", "StatusTIM")
-        utc = datetime.fromisoformat(tim["UTC"]).replace(tzinfo=UTC)
-        return Clock(utc=utc, timezone=tim["Timezone"])
+        try:
+            utc = datetime.fromisoformat(tim["UTC"]).replace(tzinfo=UTC)
+            return Clock(utc=utc, timezone=tim["Timezone"])
+        except (KeyError, TypeError, ValueError) as err:
+            raise PlugError(f"{self.ip}: unreadable clock answer: {err!r}") from err
 
     def automations(self) -> Automations:
         """Auto-off (PulseTime1) and the 3 rules. Asking with no value only reads them."""
@@ -74,3 +81,31 @@ def _pulse_seconds(value: int) -> float | None:
     if value == 0:
         return None
     return value / 10 if value <= 111 else value - 100
+
+
+def find(
+    hosts: Iterable[str], *, timeout_s: float = 1.0, workers: int = 64
+) -> list[tuple[str, Info]]:
+    """The hosts that answer as Tasmota plugs, with their hostname and MAC. Reads only."""
+
+    def ask(host: str) -> tuple[str, Info] | None:
+        try:
+            return host, TasmotaPlug(host, timeout_s).info()
+        except PlugError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return [found for found in pool.map(ask, hosts) if found]
+
+
+def this_ip() -> str:
+    """This machine's address on the home network. No packet is sent: connecting a UDP
+    socket only picks the route."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect(("192.0.2.1", 9))  # a documentation address: never reached
+        return s.getsockname()[0]
+
+
+def home_network() -> ipaddress.IPv4Network:
+    """The home network around this machine, as a /24 (e.g. 192.168.1.0/24)."""
+    return ipaddress.IPv4Network(f"{this_ip()}/24", strict=False)

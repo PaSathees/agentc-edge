@@ -3,8 +3,9 @@
 *.db-*
 config.toml
 .env
-# public datasets, downloaded by scripts: too big for git
-data/
+# the data folder (compose): databases, the secret, ntfy's cache. The folder itself is kept
+data/*
+!data/.gitkeep
 
 # python
 .venv/

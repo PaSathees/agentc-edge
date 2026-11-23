@@ -6,6 +6,7 @@ normal" becomes a habit with a scope code builds from the signal, shown back to 
 
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from agentc.house import Habit
 
@@ -39,6 +40,24 @@ class Question:
     status: str  # open, answered or expired
     send_at: datetime  # when it may reach the owner (UTC)
     answer: int | None = None  # the choice picked, from 1
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What came of one signal."""
+
+    event_id: int
+    device: str
+    decision: Decision | None  # None: skipped by code, or no decision passed the checks
+    why: str  # skipped or dropped: why; asked: when it reaches the owner; else ""
+    looked: bool = True  # False: code skipped it, no model call
+    question_id: int | None = None
+
+
+def held_for_morning(q: Question, *, tz: str) -> bool:
+    """Did this question come up at night and wait for 07:00? (A reminder is never due at
+    exactly 07:00:00.)"""
+    return q.send_at.astimezone(ZoneInfo(tz)).time() == QUIET_TO
 
 
 def quiet(local: datetime) -> bool:

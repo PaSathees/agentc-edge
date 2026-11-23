@@ -68,3 +68,14 @@ def test_an_app_db_from_before_phase_2_gets_the_tries_column(tmp_path):
     old.close()
     db = store.connect(tmp_path / "app.db")
     assert "tries" in [row[1] for row in db.execute("PRAGMA table_info(events)")]
+
+
+def test_an_app_db_from_phase_3c_gets_the_sent_column(tmp_path):
+    old = sqlite3.connect(tmp_path / "app.db")
+    old.execute("CREATE TABLE questions (id INTEGER PRIMARY KEY, site_id, event_id, plug_mac,"
+                " action, text, choices, status, send_at, created, answer, answered)")  # fmt: skip
+    old.execute("PRAGMA user_version = 6")
+    old.close()
+    db = store.connect(tmp_path / "app.db")
+    assert "sent" in [row[1] for row in db.execute("PRAGMA table_info(questions)")]
+    assert db.execute("PRAGMA user_version").fetchone() == (store.SCHEMA_VERSION,)
