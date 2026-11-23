@@ -6,13 +6,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import cli, store, watcher
-from agentc.calc import ProfileHour
+from agentc import cli, jobs, store, watcher, words
+from agentc.owner import Decision
 from agentc.policy import Policy
 from agentc.watcher import Event
-from tests.fake_model import FakeModel
+from tests.desk import START, desk, night
 from tests.fake_tasmota import FakePlug
-from tests.test_options import START, desk, night
 
 COLOMBO = ZoneInfo("Asia/Colombo")
 AT = datetime(2026, 11, 3, 1, 0, tzinfo=COLOMBO)  # Tuesday 01:00 local
@@ -42,8 +41,8 @@ def cfg(tmp_path, plugs):
     return path
 
 
-def run(cfg, capsys, *args, send=None):
-    code = cli.main(["--config", str(cfg), *args], send=send)
+def run(cfg, capsys, *args, step=None):
+    code = cli.main(["--config", str(cfg), *args], step=step)
     return code, capsys.readouterr().out
 
 
@@ -201,7 +200,7 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("event", "words"),
+    ("event", "said"),
     [
         (Event("offline", "AA", AT, {"plug": "Plug-6", "rounds": 3}),
          "Plug-6: not answering since Tue 03 Nov 01:00"),
@@ -223,11 +222,11 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
          "Plug-6: timers changed on the plug (slots 1, 9)"),
     ],
 )  # fmt: skip
-def test_event_words(event, words):
-    assert cli.event_words(event, {"AA": "Plug-6"}, tz="Asia/Colombo") == words
+def test_event_words(event, said):
+    assert words.event_words(event, {"AA": "Plug-6"}, tz="Asia/Colombo") == said
 
 
-# the Responder from the command line
+# the housemate from the command line (3c2)
 
 
 def desk_till_yesterday(tmp_path):
@@ -245,45 +244,94 @@ def desk_till_yesterday(tmp_path):
     return night(13).start + shift
 
 
-def test_watch_shows_new_proposals(cfg, capsys, tmp_path):
+def asked(cfg, capsys, tmp_path):
+    """Desk 2's last night saved as a left-on signal, then one watch: the housemate asks."""
     run(cfg, capsys, "timers")
     start = desk_till_yesterday(tmp_path)
     app = store.connect(tmp_path / "app.db")
-    mac = "AA:00:00:00:00:01"
-    store.save_profile(
-        app, site_id=1, mac=mac, profile=[ProfileHour(h, 0.0, 0.0, 3) for h in range(168)]
-    )
-    left_on = Event("unusual_use", mac, start, {})
+    left_on = Event("left_on", "AA:00:00:00:00:01", start, {"minutes": 40, "peak_w": 30.0})
     store.add_event(
         app, site_id=1, event=left_on, dedupe=watcher.dedupe_key(left_on, tz="Asia/Colombo")
     )
-    code, out = run(cfg, capsys, "watch", send=FakeModel())
+    return run(cfg, capsys, "watch", step=decides("ask"))
+
+
+def test_watch_shows_what_the_housemate_made_of_a_signal(cfg, capsys, tmp_path):
+    code, out = asked(cfg, capsys, tmp_path)
     assert code == 0
-    assert "Proposal for Desk 2: off at 01:30, on at 07:00, every day. Saves LKR " in out
-    assert out.count("Proposal for") == 1
-    assert out.endswith(" a week.\n  It stays on all night.\n")
+    assert "Desk 2: ask: Desk 2 is still on. Switch it off?\n  1. Off\n  2. Normal\n" in out
+    assert "  Question 1, reaches you " in out
+    assert out.count("Question ") == 1
 
 
-def test_watch_with_a_key_runs_the_responder(cfg, capsys, tmp_path, monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")  # nothing to answer, so no call is made
+def test_watch_with_a_key_runs_the_housemate(cfg, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")  # nothing to look at, so no call is made
     run(cfg, capsys, "timers")
     spike_days(tmp_path)
     assert cli.NO_KEY not in run(cfg, capsys, "watch")[1]
 
 
-def test_replay_can_ask_the_model_too(cfg, capsys, tmp_path):
+def test_questions_lists_the_open_ones(cfg, capsys, tmp_path):
+    asked(cfg, capsys, tmp_path)
+    code, out = run(cfg, capsys, "questions")
+    assert code == 0
+    assert out.startswith("Question 1, Desk 2, from ")
+    assert out.endswith(":\n  ask: Desk 2 is still on. Switch it off?\n  1. Off\n  2. Normal\n")
+
+
+def test_no_open_questions(cfg, capsys):
+    assert run(cfg, capsys, "questions") == (0, "No open questions.\n")
+
+
+def test_a_that_is_normal_answer_saves_a_habit(cfg, capsys, tmp_path):
+    asked(cfg, capsys, tmp_path)
+    code, out = run(cfg, capsys, "answer", "1", "2")
+    assert code == 0 and out.startswith("Saved: Desk 2 is normal on ")
+    assert out.endswith("s, 01:00 to 07:00.\n")  # the night's weekday, from its hour to 07:00
+    assert "Habit: Desk 2 is normal on " in run(cfg, capsys, "house", "Plug-1")[1]
+    assert run(cfg, capsys, "questions")[1] == "No open questions.\n"
+
+
+def test_a_switch_off_answer_is_only_recorded_in_shadow_mode(cfg, capsys, tmp_path):
+    asked(cfg, capsys, tmp_path)
+    assert run(cfg, capsys, "answer", "1", "1") == (
+        0, "Recorded: Off. Shadow mode: nothing was sent to the plug.\n")  # fmt: skip
+
+
+def test_an_answer_to_no_open_question(cfg, capsys, tmp_path):
+    asked(cfg, capsys, tmp_path)
+    assert run(cfg, capsys, "answer", "9", "1") == (1, "No open question 9.\n")
+    assert run(cfg, capsys, "answer", "1", "3") == (1, "Question 1 has choices 1 to 2.\n")
+
+
+@pytest.mark.parametrize(
+    ("outcome", "said"),
+    [
+        (jobs.Outcome(1, "Desk 2", None, "habit: Desk 2 is normal on Mondays", looked=False),
+         "Desk 2: habit: Desk 2 is normal on Mondays"),
+        (jobs.Outcome(1, "Desk 2", Decision("note", "Small."), "held: 5 questions that day"),
+         "Desk 2: note: Small.\n  (held: 5 questions that day)"),
+        (jobs.Outcome(1, "Desk 2", Decision("ignore", "Normal."), ""), "Desk 2: ignore: Normal."),
+    ],
+)  # fmt: skip
+def test_outcome_words(outcome, said):
+    assert cli.outcome_words(outcome) == said
+
+
+def test_replay_can_let_the_housemate_look_too(cfg, capsys, tmp_path):
     run(cfg, capsys, "timers")
     desk_till_yesterday(tmp_path)
-    code, out = run(cfg, capsys, "replay", "--respond", send=FakeModel())
+    code, out = run(cfg, capsys, "replay", "--look", step=decides("ask"))
     assert code == 0
-    assert "2. No readings since " in out  # the data ends a day ago: the heartbeat sees it
-    assert "Events in 14 days: 2\nProposal for Desk 2: off at 01:30, on at 07:00, every day." in out
-    assert out.endswith("\n  It stays on all night.\nProposals: 1. Model calls cost USD 0.0001.\n")
-    assert store.load_proposals(store.connect(tmp_path / "app.db"), site_id=1) == []  # a copy
+    assert "No readings since " in out  # the data ends a day ago: the heartbeat sees it
+    assert "Desk 2: ask: Desk 2 is still on. Switch it off?" in out
+    assert out.endswith("Looked at 1, questions 1. Model calls cost USD 0.0001.\n")
+    assert store.questions(store.connect(tmp_path / "app.db"), site_id=1) == []  # a copy
 
 
-def test_replay_needs_a_key_to_ask_the_model(cfg, capsys):
-    assert run(cfg, capsys, "replay", "--respond") == (1, cli.NO_KEY + "\n")
+def test_replay_needs_a_key_to_let_the_housemate_look(cfg, capsys, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert run(cfg, capsys, "replay", "--look") == (1, cli.NO_KEY + "\n")
 
 
 # thresholds
@@ -294,8 +342,8 @@ def test_policy_shows_each_value_where_it_came_from_and_why(cfg, capsys):
     assert code == 0
     assert out.startswith("Plug-1: Desk 2\n")
     assert (
-        "  max_off_h           12  default No fix keeps a plug off longer than this many hours\n"
-        in out
+        "  night_wake_w        50  default At night, ask at once only if the device draws more"
+        " than this\n" in out
     )
     assert len(out.splitlines()) == 1 + len(fields(Policy))  # one line a value
 
@@ -346,3 +394,91 @@ def test_learn_says_when_a_plug_has_one_level(cfg, capsys, tmp_path):
     run(cfg, capsys, "timers")
     write_energy_db(tmp_path / "energy.db", "Plug-2", days=8, watts=lambda _: 5.0)
     assert "Plug-2: one level or none, so it keeps the defaults\n" in run(cfg, capsys, "learn")[1]
+
+
+# look: the housemate agent on one saved event (3c)
+
+
+def saved_event(cfg, capsys, tmp_path):
+    """Plug-1 (Desk 2) read, 2 days of readings, and one left-on event saved. Returns its id."""
+    run(cfg, capsys, "timers")
+    write_energy_db(tmp_path / "energy.db", "Plug-1", 2)
+    db = store.connect(tmp_path / "app.db")
+    mac = store.plug_mac(db, name="Plug-1")
+    start = datetime.now(UTC) - timedelta(minutes=40)
+    event = Event("left_on", mac, start, {"minutes": 33, "peak_w": 5.0})
+    store.add_event(db, site_id=1, event=event, dedupe="e")
+    return 1
+
+
+def decides(action):
+    def step(*, tier, system, messages, tools):
+        text = "Desk 2 is still on. Switch it off?" if action == "ask" else "Normal."
+        pairs = (("Off", "switch_off_now"), ("Normal", "save_habit")) if action == "ask" else ()
+        choices = [{"label": a, "does": b, "off": None, "on": None, "days": None} for a, b in pairs]
+        args = {"action": action, "text": text, "choices": choices}
+        return (
+            [{"type": "tool_use", "id": "t1", "name": "decide", "input": args}],
+            "tool_use",
+            900,
+            90,
+        )
+
+    return step
+
+
+def test_look_shows_the_agents_decision(cfg, capsys, tmp_path):
+    eid = saved_event(cfg, capsys, tmp_path)
+    code, out = run(cfg, capsys, "look", str(eid), step=decides("ask"))
+    assert code == 0
+    assert out.startswith("Signal: Desk 2: left on since ")
+    assert "ask: Desk 2 is still on. Switch it off?\n  1. Off\n  2. Normal\n" in out
+    assert out.endswith("Model calls cost USD 0.0001.\n")
+
+
+def test_look_of_an_unknown_event(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    assert run(cfg, capsys, "look", "9", step=decides("ask")) == (1, "No event 9.\n")
+
+
+def test_look_needs_a_model(cfg, capsys, tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    eid = saved_event(cfg, capsys, tmp_path)
+    assert run(cfg, capsys, "look", str(eid)) == (1, cli.NO_KEY + "\n")
+
+
+def test_look_of_a_whole_site_event(cfg, capsys, tmp_path):
+    run(cfg, capsys, "timers")
+    db = store.connect(tmp_path / "app.db")
+    store.add_event(db, site_id=1, event=Event("no_contact", None, AT, {"plugs": 2}), dedupe="s")
+    assert run(cfg, capsys, "look", "1", step=decides("ask"))[1].startswith(
+        "Event 1 is about the whole site"
+    )
+
+
+def test_look_uses_the_real_model_when_a_key_is_set(cfg, capsys, tmp_path, monkeypatch):
+    eid = saved_event(cfg, capsys, tmp_path)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setattr(cli.llm, "claude_step", lambda client: decides("ignore"))  # no real call
+    assert "ignore: Normal.\n" in run(cfg, capsys, "look", str(eid))[1]
+
+
+def test_look_with_no_decision_says_why(cfg, capsys, tmp_path):
+    eid = saved_event(cfg, capsys, tmp_path)
+
+    def mute(**_):
+        return [{"type": "text", "text": "Hmm."}], "end_turn", 900, 90
+
+    assert "No decision: format: no decision\n" in run(cfg, capsys, "look", str(eid), step=mute)[1]
+
+
+def test_look_can_look_as_of_a_past_time(cfg, capsys, tmp_path):
+    eid = saved_event(cfg, capsys, tmp_path)
+    seen = {}
+
+    def step(**kw):
+        seen["brief"] = kw["messages"][0]["content"]
+        return decides("ignore")(**kw)
+
+    run(cfg, capsys, "look", str(eid), "--at", "2026-11-02 02:10", step=step)
+    assert "Now: Mon 02 Nov 02:10" in seen["brief"]

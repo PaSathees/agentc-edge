@@ -17,7 +17,7 @@ Effort = Literal["low", "medium", "high", "xhigh", "max"]
 
 @dataclass(frozen=True)
 class Tier:
-    """A model size: small for the Responder and Assistant, mid for the Planner (ADR-005)."""
+    """A model size: small for the housemate and chat, mid for the Planner (ADR-005)."""
 
     model: str
     usd_in: float  # USD per million tokens in, from the provider's price page

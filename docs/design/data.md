@@ -45,8 +45,12 @@ Every table also has `site_id`.
 | `weather` | Hourly forecast and actuals | From Open-Meteo |
 | `factors` | Kind (grid, tariff), value, unit, source, valid from | Every number in a report cites one |
 | `goals` | Month, kgCO2e | Set by the owner |
-| `events` | Kind, plug, device, start, facts, status, dedupe key | Dedupe key: plug + kind + day |
-| `proposals` | See the contract below; status; version | Each edit makes a new version |
+| `events` | Kind, plug, device, start, facts, status (new, done, skipped, parked), tries, dedupe key | Dedupe key: plug + kind + day. Skipped: code needed no look (a habit, or drift not a pattern yet) |
+| `cards` | Plug, kind, room, what is plugged in, notes, must run, why each timer is set | The house model's card (FR-30) |
+| `automations` | Plug, auto-off seconds, plug rules | Read with the timers |
+| `habits` | Plug, text, days, start, end, source (tap, chat, setup), ended | A habit that covers a signal stops the look (FR-33) |
+| `questions` | Event, plug, ask or propose, text, choices, status (open, answered, expired), when it may reach the owner, the answer | Quiet hours and the daily limit set "when" (FR-36). Expires 12 h after it is due |
+| `proposals` | See the contract below; status; version | Version 1's contract. Unused since 3c2; Phase 4 reshapes it for the Actuator |
 | `writes` | Proposal, plug, slot, before, after, read back, ok | One row per timer written |
 | `audit` | Time, actor (code, agent, owner), action, reference, detail | Append only; the history page reads it |
 | `llm_calls` | Run, agent, model, prompt version, prompt, output, tokens, USD, latency | Trace and budget |
@@ -69,7 +73,7 @@ Every table also has `site_id`.
 }
 ```
 
-Savings in the example are illustrative, sized from the real readings. Default expiry: 24 h for the Responder and Assistant, the next Sunday run for the Planner.
+Savings in the example are illustrative, sized from the real readings. The Responder that wrote these was removed in 3c2: the housemate's asks and proposals go to `questions`.
 
 ## Tasmota timers
 

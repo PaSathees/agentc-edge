@@ -12,11 +12,11 @@ from pathlib import Path
 from agentc.calc import Factor, ProfileHour
 from agentc.devices.base import Automations, PlugRule, Timer
 from agentc.house import SOURCES, Card, Habit
-from agentc.options import Change, Proposal
+from agentc.owner import Choice, Decision, Question
 from agentc.watcher import Event
 
-# 2: thresholds a row (B3b). 3: events.tries. 4: cards, habits. 5: automations
-SCHEMA_VERSION = 5
+# 2: thresholds a row (B3b). 3: events.tries. 4: cards, habits. 5: automations. 6: questions
+SCHEMA_VERSION = 6
 
 SCHEMA = """
 -- One home or plant room; every other row belongs to one
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS events (
     device_id INTEGER REFERENCES devices(id),
     start_utc TEXT NOT NULL,
     facts     TEXT NOT NULL DEFAULT '{}',
-    status    TEXT NOT NULL DEFAULT 'new',  -- new, done or parked
+    status    TEXT NOT NULL DEFAULT 'new',  -- new, done (looked at), skipped or parked
     tries     INTEGER NOT NULL DEFAULT 0,  -- failed attempts to answer it
     dedupe    TEXT NOT NULL UNIQUE
 );
@@ -234,6 +234,21 @@ CREATE TABLE IF NOT EXISTS habits (
     source   TEXT NOT NULL CHECK (source IN ('tap', 'chat', 'setup')),
     created  TEXT NOT NULL,
     ended    TEXT  -- set when the owner ends it; NULL = active
+);
+-- What the housemate asks or proposes, and the owner's answer (FR-36)
+CREATE TABLE IF NOT EXISTS questions (
+    id       INTEGER PRIMARY KEY,
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    event_id INTEGER NOT NULL REFERENCES events(id),
+    plug_mac TEXT NOT NULL REFERENCES plugs(mac),
+    action   TEXT NOT NULL CHECK (action IN ('ask', 'propose')),
+    text     TEXT NOT NULL,
+    choices  TEXT NOT NULL,  -- JSON: [{label, does, off, on, days}, ...]
+    status   TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'answered', 'expired')),
+    send_at  TEXT NOT NULL,  -- when it may reach the owner: at once, or 07:00 after the night
+    created  TEXT NOT NULL,
+    answer   INTEGER,  -- the choice picked, from 1
+    answered TEXT
 );
 -- Shadow mode, pause, caps; key-value
 CREATE TABLE IF NOT EXISTS settings (
@@ -398,49 +413,6 @@ def grid_factor(db: sqlite3.Connection, *, site_id: int, on: date) -> Factor | N
     return Factor(factor_id, float(value), source, valid_from)
 
 
-def add_proposal(
-    db: sqlite3.Connection, *, site_id: int, event_id: int | None, proposal: Proposal,
-    status: str, now: datetime,
-) -> int:  # fmt: skip
-    """Save a proposal as version 1; return its id. status: draft, blocked or open."""
-    body = {**proposal.__dict__, "expires": proposal.expires.astimezone(UTC).isoformat(),
-            "changes": [c.__dict__ for c in proposal.changes]}  # fmt: skip
-    with db:
-        (pid,) = db.execute(
-            "INSERT INTO proposals (id, site_id, event_id, source, body, status, created)"
-            " VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM proposals), ?, ?, ?, ?, ?, ?)"
-            " RETURNING id",
-            (site_id, event_id, proposal.source, json.dumps(body), status,
-             now.astimezone(UTC).isoformat()),
-        ).fetchone()  # fmt: skip
-    return pid
-
-
-def load_proposals(
-    db: sqlite3.Connection, *, site_id: int, status: str | None = None
-) -> list[tuple[int, str, Proposal]]:
-    """Proposals as (id, status, proposal), oldest first; all of them, or one status."""
-    sql = """SELECT id, status, body FROM proposals
-             WHERE site_id = ? AND status = COALESCE(?, status) ORDER BY id"""
-    return [(pid, st, _proposal(body)) for pid, st, body in db.execute(sql, (site_id, status))]
-
-
-def rejected(db: sqlite3.Connection, *, site_id: int, mac: str, since: datetime) -> list[Proposal]:
-    """Proposals for this plug the owner rejected, made since `since` (check 6: no repeats)."""
-    sql = """SELECT body FROM proposals WHERE site_id = ? AND status = 'rejected'
-             AND json_extract(body, '$.plug_mac') = ? AND created >= ? ORDER BY id"""
-    rows = db.execute(sql, (site_id, mac, since.astimezone(UTC).isoformat()))
-    return [_proposal(body) for (body,) in rows]
-
-
-def _proposal(body: str) -> Proposal:
-    raw = json.loads(body)
-    changes = tuple(Change(**c) for c in raw.pop("changes"))
-    return Proposal(
-        **{**raw, "changes": changes, "expires": datetime.fromisoformat(raw["expires"])}
-    )
-
-
 def add_audit(
     db: sqlite3.Connection, *, site_id: int, at: datetime, actor: str, action: str, ref: str,
     detail: dict[str, str],
@@ -483,13 +455,6 @@ def llm_usd(
     return usd
 
 
-def link_calls(db: sqlite3.Connection, *, call_ids: list[int], proposal_id: int) -> None:
-    """Mark the model calls that made a proposal, so its trace can be found (FR-27)."""
-    with db:
-        db.executemany("UPDATE llm_calls SET proposal_id = ? WHERE id = ?",
-                       [(proposal_id, c) for c in call_ids])  # fmt: skip
-
-
 # energy.db belongs to the logger: the app only ever reads it (decision ADR-006).
 
 
@@ -510,6 +475,13 @@ def load_events(db: sqlite3.Connection, *, site_id: int) -> list[Event]:
     return [_event(*row) for row in db.execute(sql, (site_id,))]
 
 
+def get_event(db: sqlite3.Connection, *, event_id: int) -> Event | None:
+    """One event by its id."""
+    sql = "SELECT kind, plug_mac, start_utc, facts FROM events WHERE id = ?"
+    row = db.execute(sql, (event_id,)).fetchone()
+    return _event(*row) if row else None
+
+
 def new_events(db: sqlite3.Connection, *, site_id: int, kind: str) -> list[tuple[int, Event]]:
     """Events of one kind that nothing has handled yet, as (id, event), oldest first."""
     sql = """SELECT id, kind, plug_mac, start_utc, facts FROM events
@@ -517,10 +489,20 @@ def new_events(db: sqlite3.Connection, *, site_id: int, kind: str) -> list[tuple
     return [(eid, _event(*row)) for eid, *row in db.execute(sql, (site_id, kind))]
 
 
-def event_done(db: sqlite3.Connection, *, event_id: int) -> None:
-    """Mark an event handled. What came of it is in proposals and audit."""
+def event_done(db: sqlite3.Connection, *, event_id: int, status: str = "done") -> None:
+    """Mark an event handled: done (looked at) or skipped. What came of it is in audit."""
     with db:
-        db.execute("UPDATE events SET status = 'done' WHERE id = ?", (event_id,))
+        db.execute("UPDATE events SET status = ? WHERE id = ?", (status, event_id))
+
+
+def recent_events(
+    db: sqlite3.Connection, *, site_id: int, mac: str, kind: str, since: datetime
+) -> list[tuple[int, str, Event]]:
+    """This plug's events of one kind that started since `since`, as (id, status, event)."""
+    sql = """SELECT id, status, kind, plug_mac, start_utc, facts FROM events
+             WHERE site_id = ? AND plug_mac = ? AND kind = ? AND start_utc >= ? ORDER BY id"""
+    rows = db.execute(sql, (site_id, mac, kind, since.astimezone(UTC).isoformat()))
+    return [(eid, status, _event(*row)) for eid, status, *row in rows]
 
 
 def event_failed(db: sqlite3.Connection, *, event_id: int, limit: int) -> bool:
@@ -605,6 +587,78 @@ def end_habit(db: sqlite3.Connection, *, habit_id: int, now: datetime) -> None:
     with db:
         db.execute("UPDATE habits SET ended = ? WHERE id = ?",
                    (now.astimezone(UTC).isoformat(), habit_id))  # fmt: skip
+
+
+def add_question(
+    db: sqlite3.Connection, *, site_id: int, event_id: int, mac: str, decision: Decision,
+    send_at: datetime, now: datetime,
+) -> int:  # fmt: skip
+    """Save an ask or a proposal for the owner; return its id."""
+    choices = json.dumps([c.__dict__ for c in decision.choices])
+    with db:
+        cur = db.execute(
+            "INSERT INTO questions (site_id, event_id, plug_mac, action, text, choices, send_at,"
+            " created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (site_id, event_id, mac, decision.action, decision.text, choices,
+             send_at.astimezone(UTC).isoformat(), now.astimezone(UTC).isoformat()),
+        )  # fmt: skip
+    return cur.lastrowid or 0
+
+
+QUESTION = "SELECT id, event_id, plug_mac, action, text, choices, status, send_at, answer"
+
+
+def questions(db: sqlite3.Connection, *, site_id: int, status: str | None = None) -> list[Question]:
+    """Questions, oldest first: all of them, or one status."""
+    sql = f"""{QUESTION} FROM questions
+              WHERE site_id = ? AND status = COALESCE(?, status) ORDER BY id"""
+    return [_question(*row) for row in db.execute(sql, (site_id, status))]
+
+
+def get_question(db: sqlite3.Connection, *, question_id: int) -> Question | None:
+    row = db.execute(f"{QUESTION} FROM questions WHERE id = ?", (question_id,)).fetchone()
+    return _question(*row) if row else None
+
+
+def count_questions(
+    db: sqlite3.Connection, *, site_id: int, start: datetime, end: datetime,
+    mac: str | None = None,
+) -> int:  # fmt: skip
+    """Questions due to reach the owner from start to end: all plugs, or one."""
+    sql = """SELECT COUNT(*) FROM questions WHERE site_id = ? AND send_at >= ? AND send_at < ?
+             AND plug_mac = COALESCE(?, plug_mac)"""
+    return db.execute(sql, (site_id, *_utc_bounds(start, end), mac)).fetchone()[0]
+
+
+def answer_question(
+    db: sqlite3.Connection, *, question_id: int, answer: int, now: datetime
+) -> None:
+    with db:
+        db.execute("UPDATE questions SET status = 'answered', answer = ?, answered = ?"
+                   " WHERE id = ?",
+                   (answer, now.astimezone(UTC).isoformat(), question_id))  # fmt: skip
+
+
+def ask_again(db: sqlite3.Connection, *, question_id: int, at: datetime) -> None:
+    """Remind later: the question is open again from `at`."""
+    with db:
+        db.execute("UPDATE questions SET status = 'open', send_at = ? WHERE id = ?",
+                   (at.astimezone(UTC).isoformat(), question_id))  # fmt: skip
+
+
+def expire_questions(db: sqlite3.Connection, *, site_id: int, before: datetime) -> int:
+    """Open questions due before `before` are stale: expire them. How many."""
+    with db:
+        cur = db.execute("UPDATE questions SET status = 'expired' WHERE site_id = ?"
+                         " AND status = 'open' AND send_at < ?",
+                         (site_id, before.astimezone(UTC).isoformat()))  # fmt: skip
+    return cur.rowcount
+
+
+def _question(qid: int, eid: int, mac: str, action: str, text: str, choices: str, status: str,
+              send_at: str, answer: int | None) -> Question:  # fmt: skip
+    d = Decision(action, text, tuple(Choice(**c) for c in json.loads(choices)))
+    return Question(qid, eid, mac, d, status, datetime.fromisoformat(send_at), answer)
 
 
 def count_events(db: sqlite3.Connection, *, site_id: int, status: str) -> int:

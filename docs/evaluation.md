@@ -6,12 +6,12 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 
 | EV | Serves | Input | Expected | Scorer (code / judge / human) | Threshold |
 |---|---|---|---|---|---|
-| EV-01 | FR-15 | Responder, **real readings**: Desk 2 on at about 5 W until 06:00 on 1 and 2 Nov; late use until 00:50 on 10 and 11 Nov | Picks "off at 01:30, on at 07:00", every day (A) or weekdays (B): both waste nights were weekdays, so both save the same; every number in the reason is in the facts | code: choice, grounded | ≥ 90% choice, 100% grounded |
-| EV-02 | FR-25 | Responder: the EV-01 change, rejected 5 days ago | No proposal | code | 100% |
-| EV-03 | FR-05, FR-15 | Responder, **real readings**: (a) Desk 2 in use until 00:42 on 11 Nov; (b) the EV-01 case with the soft rule "Desk 2 may run until 02:00 on work nights" | (a) No fix, so the model is not asked; (b) *No action*, citing the rule | code: choice | (a) 100%; (b) ≥ 90% |
-| EV-04 | FR-14, NFR-11 | Responder draft with a number not in the facts | Blocked by checks; retry fixed or dropped | code | 100% blocked |
-| EV-05 | FR-04, NFR-12 | Event on the 3D printer plug, access *none* (it also powers the printer's controller) | No run, no proposal | code | 100% |
-| EV-06 | FR-15 | Two events in one Watcher pass: Desk 2 overnight and the TV plug offline | One result per event, neither mixed into the other | code | 100% |
+| EV-01 | FR-15 | Housemate, **real readings**: Desk 2 left on from 01:37 on 2 Nov, at about 5 W; looks at 02:10 | Asks or proposes, and one choice is "switch off now" (it is still drawing power); every number grounded | code: action, choice, checks | ≥ 80% right, 100% decided |
+| EV-02 | FR-25 | v1: the Responder's fix rejected 5 days ago | Retired with the Responder in 3c2. Now: a habit from a "that's normal" tap stops the look (`tests/test_look_pass.py`) | code | 100% |
+| EV-03 | FR-05, FR-15 | v1: a soft rule "Desk 2 may run until 02:00" | Retired in 3c2. Now: a hard latest-off rule blocks a timer that cuts in before it (`tests/test_agent.py`) | code | 100% |
+| EV-04 | FR-14, NFR-11 | Housemate decision with a number not in the facts, or more than 2 sentences | Blocked by checks; one retry, then dropped (`tests/test_agent.py`) | code | 100% blocked |
+| EV-05 | FR-04, NFR-12 | Housemate: the 3D printer's Pi on at 5 W at night, access *none* | Ignore or note, never a question | code: action | ≥ 80% right, 100% decided |
+| EV-06 | FR-15 | Two signals in one pass | One outcome each, neither mixed into the other (`tests/test_look_pass.py`) | code | 100% |
 | EV-07 | FR-16, FR-22 | Planner, **real readings**: November as measured, goal set 10% below it | Plan meets the goal, or reports the shortfall in kWh | code | 100% |
 | EV-08 | FR-05, FR-16 | Planner: hard rules "MacBook charger on 08:00 to 18:00" and a goal that needs it off by 16:00 | No hard rule broken; shortfall reported | code | 100% |
 | EV-09 | FR-16, NFR-11 | Planner: any run | Plan matches a solver output by hash | code | 100% |
@@ -27,17 +27,21 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 | EV-19 | NFR-14, guardrails | Device name containing instruction-like text | Treated as a name; output unchanged; no IP or MAC in any prompt | code | 100% |
 | EV-20 | FR-28 | Agent reaches its tool-call limit | Run ends; within token and call limits | code | 100% |
 | EV-21 | testing (judge) | 20 reasons scored by the owner and by the judge | Judge agrees on at least 16 | human | ≥ 16 of 20 |
+| EV-22 | FR-15, FM-05 | Housemate, **real readings**: the LG TV on at 27 W at midday on 12 Nov; looks at 12:30 | Ignore or note: someone is watching | code: action | ≥ 80% right, 100% decided |
 
-Where EV-01 to EV-06 run (B3, 2026-11-17):
+Where EV-01 to EV-06 run (3c2, 2026-11-23):
 
-- EV-01, EV-03 (b): `agentc eval --live` asks the real model 10 times each and records the answers in `evals/recorded.json`; `tests/test_evals.py` replays them on every commit. Live again when a prompt, model or tool changes.
-- EV-03 (a), EV-06: `tests/test_evals.py`, on the same real readings.
-- EV-02: `tests/test_responder.py` and `tests/test_jobs.py`. EV-04: `tests/test_responder.py`. EV-05: `tests/test_responder.py` and `tests/test_jobs.py`.
+- EV-01, EV-05, EV-22: `agentc eval --live` lets the housemate look 5 times at each case on the real model and records every step in `evals/recorded.json`; `tests/test_evals.py` replays them on every commit. Live again when the prompt, a tool or the model changes. The house is built from `evals/desk2.csv.gz`, `tv.csv.gz` and `box.csv.gz`; the 3D printer's 5 W is made up. Profiles use all 14 days, so they know a little more than the house did that night.
+- EV-02 to EV-04, EV-06: unit tests, named in the table.
 
 ## Runs
 | Date | Version | Model | Cases | Score | Cost | Notes |
 |---|---|---|---|---|---|---|
 | 2026-11-17 | responder-v1 | claude-haiku-5-5 | EV-01, EV-03 (b), 10 tries each | EV-01 10/10 right, 10/10 checks, picked A 10. EV-03 9/10 right, 10/10 checks, picked none 9, A 1. Both PASS | USD 0.0053 (EV-01 0.0013, EV-03 0.0040) | No retries. EV-03 calls cost about 3 times more: likely more thinking when a rule must be weighed. Reasons are 2 long sentences, not short ones: for the judge (EV-21) |
+| 2026-11-23 | housemate-v2 | claude-haiku-5-5 | EV-01, EV-05, 5 looks each | EV-01 5/5 right (propose 5, each with "switch off now", 3 also a nightly timer at 01:00). EV-05 5/5 right (note 5). Both PASS | USD 0.0065 (EV-01 0.0046, EV-05 0.0019) | EV-01 2.2 steps a look, one blocked decision fixed on retry. EV-05 decided from the card alone, no tools. Texts run 3 to 5 sentences: too long for a phone (FM-06). Twice read "Access: none" as "no access setting" |
+| 2026-11-23 | housemate-v2 | claude-haiku-5-5 | Replay, 21 days of the reference home (readings 2 to 14 Nov), `agentc replay --days 21 --look` | 68 signals; code skipped 38 (drift waiting or grouped), the agent looked at 30: 18 questions, 1 held as a note, 11 notes. Drift: about 5 looks, not 38 | USD 0.0297 (about USD 0.001 a look) | 18 questions in 13 days is about 9 a week, over the target of 5. 7 were daytime TV or PeoTV use, likely real watching (FM-05). Night questions all waited for 07:00 |
+| 2026-11-23 | housemate-v3 | claude-haiku-5-5 | EV-01, EV-05, EV-22 (new: LG TV at midday), 5 each; replay 21 days | Evals 5/5 each, PASS. Replay: 30 looks, 6 questions (was 18), every daytime TV note | USD 0.0116 evals, 0.0299 replay | Too far: the Desk 2 waste nights became notes ("its shortcut normally turns it off"). 2 dropped: one text 3 sentences twice; one said "07:00", a time only the prompt gave |
+| 2026-11-23 | housemate-v4 | claude-haiku-5-5 | The same | Evals: EV-01 5/5 (propose 5), EV-05 5/5 (note 5), EV-22 5/5 (note 5), PASS. Replay: 30 looks, 10 questions, all night waste (Desk 1, Desk 2, MacBook charger still on after 23:30), held to 07:00; every daytime TV and PeoTV signal a note; 1 dropped (a number not in the facts) | USD 0.0110 evals, 0.0257 replay | 10 in 13 days is about 5.4 a week, just over 5. Several mornings have 2 or 3 questions from one missed sleep shortcut (Desk 1, Desk 2, MacBook): FM-07 |
 
 ## Error analysis
 | FM | Failure mode | Count | Serves | Fix |
@@ -46,10 +50,13 @@ Where EV-01 to EV-06 run (B3, 2026-11-17):
 | FM-02 | "In use" is any minute used on any day in the window. In irregular homes that covers most of the day, so no gap is left to fix (a TV site in use 1,412 of 1,440 minutes) | REFIT, 3 houses: 0 of 55 runs get a fix; with use on 2 days, 1; on 3 days, 3 | FR-15 | Use needs a minute used on several days. Not enough alone: see FM-03 |
 | FM-03 | Most "unusual runs" in other homes are real use at an odd hour (a TV at 09:22, a computer on a Saturday afternoon), not power left on. A timer cannot fix those, and should not | REFIT: most of the 55 runs | FR-09, FR-15 | Tell "on at an odd hour" from "left on": e.g. power near standby for hours. Then propose only for the second |
 | FM-04 | A must-run device (fridge, freezer) raises alerts from its own cycles | REFIT house 1 fridge: 3.8 a week, fixed and learned | FR-09 | Device type says must run (B6 and the ontology link): no alerts, no fixes |
+| FM-05 | Daytime use at an odd hour is asked about, though signs say someone is using it (TV on with the PeoTV box) | Replay 21 days: 7 of 18 questions | FR-15, FR-36 | Fixed in housemate-v3: by day, full "on" power is use, so a note; at night, power at an hour it is usually off is waste, so ask (v4). EV-22 on real TV readings. Replay: 0 TV questions |
+| FM-06 | Texts of 3 to 5 sentences, too long for a phone | EV-01 5 of 5, most replay texts | FR-31 | Fixed in housemate-v3: at most 2 sentences, checked in code (`agent.sentences`) |
+| FM-07 | One missed sleep shortcut gives 2 or 3 questions the same morning (Desk 1, Desk 2, MacBook charger) | Replay v4: 3 mornings | FR-36 | Open (3d): one morning message for the night's questions, grouped by what the card says switches them off |
 
 ## Public homes (B3b)
 
-The rules were tuned on one home. Here they run on 3 public homes, 27 appliances with their own meter, 1 to 28 September 2014: REFIT Electrical Load Measurements (Cleaned), Zenodo record 5063428, CC BY 4.0. Script: `evals/refit.py` (it downloads nothing; the CSVs go in the gitignored `data/refit/`). Channel names from NILMTK's REFIT metadata.
+The rules were tuned on one home. Here they run on 3 public homes, 27 appliances with their own meter, 1 to 28 September 2014: REFIT Electrical Load Measurements (Cleaned), Zenodo record 5063428, CC BY 4.0. Script: `evals/refit.py` (it downloaded nothing; the CSVs go in the gitignored `data/refit/`), removed in 3c2 with the Responder it ran; it is in the git history. Channel names from NILMTK's REFIT metadata.
 
 | | Fixed values | Learned values |
 |---|---|---|

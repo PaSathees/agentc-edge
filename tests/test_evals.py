@@ -1,103 +1,96 @@
+"""The housemate's evals: real nights, recorded live, replayed free on every commit."""
+
 import json
-import sqlite3
-from datetime import datetime
 
 import pytest
 
-from agentc import calc, cli, evals, jobs, responder, store
-from agentc.config import Device
-from agentc.llm import Llm
-from agentc.options import Money
-from agentc.watcher import Event, Run
-from tests.fake_model import FakeModel
+from agentc import agent, cli, evals
 
-AA = {"option": "A", "reason": "It stays on all night."}
-NONE = {"option": "none", "reason": "Desk 2 may run until 02:00 on work nights."}
+NONE = {"off": None, "on": None, "days": None}
+OFF = [{"label": "Switch off", "does": "switch_off_now", **NONE},
+       {"label": "That's normal", "does": "save_habit", **NONE}]  # fmt: skip
 
 
-class Script:
-    """A fake model: these answers in turn, again from the start for each new try."""
-
-    def __init__(self, *answers):
-        self.answers, self.n = [json.dumps(a) if isinstance(a, dict) else a for a in answers], 0
-
-    def __call__(self, *, tier, system, prompt, schema):
-        self.n += 1
-        return self.answers[(self.n - 1) % len(self.answers)], 1000, 100
+def decide(action, choices=()):
+    args = {"action": action, "text": "Still on at night." if choices else "Normal.",
+            "choices": list(choices)}  # fmt: skip
+    return [{"type": "tool_use", "id": "t1", "name": "decide", "input": args}]
 
 
-# the live cases: Desk 2's real readings
+class Wise:
+    """A stand-in model: asks about Desk 2, ignores the rest. Counts its steps."""
+
+    def __init__(self):
+        self.steps = 0
+
+    def __call__(self, *, tier, system, messages, tools):
+        self.steps += 1
+        desk = messages[0]["content"].startswith("Signal: Desk 2:")
+        return (decide("ask", OFF) if desk else decide("ignore")), "tool_use", 1000, 100
 
 
-def test_the_case_is_desk_2s_first_wasted_night():
-    facts = responder.describe(evals.case(Device("Desk 2")), tz=evals.TZ)
-    assert "on at up to 37 W from 01:37 to 06:29 on Mon 02 Nov." in facts
-    assert "Over the last 13 days it was never in use between 00:52 and 07:45." in facts
-    assert "\nA: off at 01:30, on at 07:00, every day." in facts
+def always(blocks):
+    def send(*, tier, system, messages, tools):
+        return blocks, "tool_use", 1000, 100
+
+    return send
 
 
-def test_a_model_that_answers_well_passes(tmp_path):
-    def well(*, tier, system, prompt, schema):  # the fix, unless a rule says no
-        return json.dumps(NONE if "until 02:00" in prompt else AA), 1000, 100
-
-    scores = evals.run(well, samples=2, path=tmp_path / "r.json")
-    assert [s.line() for s in scores] == [
-        "EV-01: right 2/2, checks 2/2, format 2/2, picked A 2, USD 0.0003: PASS",
-        "EV-03: right 2/2, checks 2/2, format 2/2, picked none 2, USD 0.0003: PASS",
-    ]
+# the cases: real readings, as the house was when the agent looks
 
 
-def test_one_wrong_choice_in_ten_still_passes_two_do_not():
-    right, wrong = (
-        evals.Sample([], True, True, True, "A", 0),
-        evals.Sample([], False, True, True, "B", 0),
-    )
-    assert evals.Score("EV-01", [right] * 9 + [wrong]).passed
-    assert not evals.Score("EV-01", [right] * 8 + [wrong] * 2).passed
+def test_ev01_is_desk_2s_first_left_on_night():
+    signal, tools = evals.case(evals.LIVE[0], evals.settings())
+    assert signal == "Desk 2: left on since Mon 02 Nov 01:37, 33 min so far, about 37 W"
+    assert tools.run("house_now", {}) == "Desk 2: 6 W\n3D printer: 5 W\nLG TV: 0 W\nPeoTV box: 0 W"
+    assert "iPhone sleep shortcut" in tools.run("device", {"device": "Desk 2"})
 
 
-def test_a_number_not_in_the_facts_fails_the_checks(tmp_path):  # every try is blocked
-    bad = {"option": "A", "reason": "It saves LKR 40 a week."}
-    (ev01, _) = evals.run(Script(bad), samples=1, path=tmp_path / "r.json")
-    assert ev01.line() == "EV-01: right 0/1, checks 0/1, format 1/1, picked A 1, USD 0.0003: FAIL"
+def test_ev05_is_the_3d_printer_on_at_night():
+    signal, tools = evals.case(evals.LIVE[1], evals.settings())
+    assert signal.startswith("3D printer: left on since Mon 02 Nov 01:00")
+    assert "Access: none." in tools.run("device", {"device": "3D printer"})
 
 
-def test_an_answer_that_is_not_json_fails_the_format(tmp_path):
-    (ev01, _) = evals.run(Script("Off at 01:30.", AA), samples=1, path=tmp_path / "r.json")
-    assert ev01.line() == "EV-01: right 1/1, checks 1/1, format 0/1, picked A 1, USD 0.0003: FAIL"
+def test_ev22_is_the_tv_on_at_midday():
+    signal, tools = evals.case(evals.LIVE[2], evals.settings())
+    assert signal == "LG TV: on at an unusual time from Thu 12 Nov 11:46, 44 min, peak 29 W"
+    assert tools.run("power", {"device": "LG TV", "hours": 1}).endswith("12:29: about 27 W")
 
 
-def test_no_action_must_name_the_rule(tmp_path):  # EV-03: "none" alone is not enough
-    vague = {"option": "none", "reason": "No change is needed."}
-    (_, ev03) = evals.run(Script(vague), samples=1, path=tmp_path / "r.json")
-    assert ev03.line().startswith("EV-03: right 0/1,")
+def test_a_model_that_decides_well_passes(tmp_path):
+    scores = evals.run(Wise(), samples=2, path=tmp_path / "r.json")
+    assert [s.passed for s in scores] == [True, True, True]
+    assert scores[0].line() == "EV-01: right 2/2, actions ask 2, 1.0 steps each, USD 0.0003: PASS"
 
 
-# recorded, then replayed for free
+def test_asking_without_a_switch_off_is_wrong_for_a_device_still_on(tmp_path):
+    normal = [{**OFF[1]}, {**OFF[1], "label": "Later", "does": "remind_later"}]
+    ev01, *_ = evals.run(always(decide("ask", normal)), samples=1, path=tmp_path / "r.json")
+    assert not ev01.passed
 
 
-def test_live_answers_are_recorded_and_replayed_at_no_cost(tmp_path):
+def test_no_decision_fails_even_when_most_are_right():
+    right = evals.Sample([], "ignore", True, [], 0.0)
+    none = evals.Sample([], "none", True, [], 0.0)
+    assert not evals.Score("EV-05", [right] * 4 + [none]).passed
+    assert evals.Score("EV-05", [right] * 4 + [evals.Sample([], "ask", False, [], 0.0)]).passed
+
+
+def test_live_steps_are_recorded_and_replayed_at_no_cost(tmp_path):
     path = tmp_path / "r.json"
-    live = evals.run(FakeModel(), samples=2, path=path)
+    live = evals.run(Wise(), samples=2, path=path)
     saved = json.loads(path.read_text())
-    assert saved["EV-01"]["model"] == "claude-haiku-5-5"
-    assert len(saved["EV-01"]["answers"]) == 2
+    assert saved["EV-01"]["model"] == "claude-haiku-5-5" and len(saved["EV-01"]["samples"]) == 2
     again = evals.run(None, path=path)
     assert [s.line().replace("0.0003", "0.0000") for s in live] == [s.line() for s in again]
 
 
-@pytest.mark.parametrize(
-    ("what", "change"),
-    [
-        ("SYSTEM", lambda: responder.SYSTEM + " Be brief."),
-        ("schema", lambda: lambda c: {**responder.Answer.model_json_schema(), "title": "New"}),
-    ],
-)
-def test_a_change_to_what_the_model_reads_makes_the_recording_stale(tmp_path, monkeypatch,
-                                                                    what, change):  # fmt: skip
+@pytest.mark.parametrize("what", ["SYSTEM", "VERSION"])
+def test_a_change_to_what_the_model_reads_makes_the_recording_stale(tmp_path, monkeypatch, what):
     path = tmp_path / "r.json"
-    evals.run(FakeModel(), samples=1, path=path)
-    monkeypatch.setattr(responder, what, change())
+    evals.run(Wise(), samples=1, path=path)
+    monkeypatch.setattr(agent, what, getattr(agent, what) + " v")
     with pytest.raises(evals.Stale, match="EV-01: the prompt changed"):
         evals.run(None, path=path)
 
@@ -113,71 +106,36 @@ def recorded(tmp_path, monkeypatch):
     return path
 
 
-def agentc(capsys, *args, send=None):
-    code = cli.main(list(args), send=send)  # eval needs no config.toml
+def agentc(capsys, *args, step=None):
+    code = cli.main(list(args), step=step)  # eval needs no config.toml
     return code, capsys.readouterr().out
 
 
 def test_eval_live_records_then_eval_replays(recorded, capsys):
-    code, out = agentc(capsys, "eval", "--live", "--samples", "1", send=FakeModel())
-    assert (code, out.splitlines()[1]) == (1, "EV-03: right 0/1, checks 1/1, format 1/1,"
-                                              " picked A 1, USD 0.0001: FAIL")  # fmt: skip
+    code, out = agentc(capsys, "eval", "--live", "--samples", "1", step=Wise())
+    assert (code, out.splitlines()[1]) == (
+        0, "EV-05: right 1/1, actions ignore 1, 1.0 steps each, USD 0.0001: PASS")  # fmt: skip
     assert recorded.exists()
-    assert agentc(capsys, "eval")[1].endswith("USD 0.0000: FAIL\n")
+    assert agentc(capsys, "eval")[1].endswith("USD 0.0000: PASS\n")
 
 
-def test_eval_live_needs_a_key(recorded, capsys):
+def test_a_failing_case_fails_the_command(recorded, capsys):
+    assert agentc(capsys, "eval", "--live", "--samples", "1", step=always(decide("note")))[0] == 1
+
+
+def test_eval_live_needs_a_key(recorded, capsys, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     assert agentc(capsys, "eval", "--live") == (1, cli.NO_KEY + "\n")
 
 
 def test_a_stale_recording_is_reported(recorded, capsys, monkeypatch):
-    agentc(capsys, "eval", "--live", "--samples", "1", send=FakeModel())
-    monkeypatch.setattr(responder, "SYSTEM", responder.SYSTEM + " Be brief.")
+    agentc(capsys, "eval", "--live", "--samples", "1", step=Wise())
+    monkeypatch.setattr(agent, "SYSTEM", agent.SYSTEM + " Be brief.")
     assert agentc(capsys, "eval") == (
         1,
         "EV-01: the prompt changed. Run `agentc eval --live` again.\n",
     )
 
 
-# code-only cases on the same real readings
-
-
-def test_late_use_gets_no_fix_so_the_model_is_not_asked():  # EV-03 (a)
-    cfg, rs = evals.settings(), evals.readings()
-    at = lambda h, m: datetime(2026, 11, 11, h, m, tzinfo=evals.NOW.tzinfo)  # noqa: E731
-    late = Run(at(0, 0), at(0, 42), 29.0)  # in use until 00:42, as the Watcher saw it
-    money = Money(cfg.tariff, cfg.month_kwh, cfg.levy, cfg.factor)
-    case = responder.gather(late, mac="desk2", device=Device("Desk 2"), readings=rs, usual={},
-                            timers=[], money=money, rejected=[], tz=cfg.tz, days=13)  # fmt: skip
-    assert case is None
-
-
-def test_two_events_in_one_pass_get_one_result_each(tmp_path):  # EV-06
-    energy = tmp_path / "energy.db"
-    with sqlite3.connect(energy) as db:
-        db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
-        db.executemany("INSERT INTO readings VALUES (?, 'Plug-6', ?, NULL)",
-                       [(t.isoformat(), w) for t, w in evals.readings()])  # fmt: skip
-    db.close()
-    app = store.connect(tmp_path / "app.db")
-    store.add_site(app, name="home", tz=evals.TZ)
-    for name, mac in (("Plug-6", "DD"), ("Plug-5", "TV")):
-        store.plug_seen(app, site_id=1, mac=mac, name=name, ip="192.0.2.1", timers_on=True,
-                        now=evals.NOW)  # fmt: skip
-    store.save_profile(app, site_id=1, mac="DD",
-                       profile=calc.build_profile(evals.readings(), tz=evals.TZ) or [])  # fmt: skip
-    night = evals.case(Device("Desk 2")).run.start
-    store.add_event(app, site_id=1, event=Event("offline", "TV", night, {}), dedupe="tv")
-    store.add_event(app, site_id=1, event=Event("unusual_use", "DD", night, {}), dedupe="desk")
-    cfg = evals.settings()
-    llm = Llm(app, 1, cfg.tz, cfg.tiers, cfg.budget, FakeModel(), clock=lambda: evals.NOW)
-    made = jobs.respond_pass(app, store.open_readings(energy), cfg, llm, site_id=1, now=evals.NOW)
-    assert [p.plug_mac for p in made] == ["DD"]
-    assert app.execute("SELECT event_id FROM proposals").fetchall() == [(2,)]
-    assert app.execute("SELECT kind, status FROM events ORDER BY id").fetchall() == [
-        ("offline", "new"), ("unusual_use", "done")
-    ]  # fmt: skip
-
-
-def test_the_recorded_live_answers_still_pass():  # free on every commit
-    assert [s.passed for s in evals.run(None)] == [True, True]
+def test_the_recorded_live_steps_still_pass():  # free on every commit
+    assert [s.passed for s in evals.run(None)] == [True, True, True]
