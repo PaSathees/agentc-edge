@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from agentc import (
     agent,
     agent_tools,
+    calc,
     config,
     house,
     learn,
@@ -42,6 +43,7 @@ QUESTION_LIFE = timedelta(hours=12)  # an unanswered question expires this long 
 REMIND = timedelta(hours=2)  # "remind me later"
 SUMMARY_AT = time(21, 0)  # the day's notes, in one quiet message
 NOTES_SINCE = timedelta(days=1)  # the summary and the inbox show notes this recent
+PROFILE_DAYS = timedelta(days=28)  # the usual week is built from this many days
 
 
 @dataclass(frozen=True)
@@ -406,14 +408,18 @@ def change_check(
 def learn_pass(
     app: Connection, energy: Connection, cfg: Config, *, site_id: int, now: datetime
 ) -> dict[str, learn.Levels | None]:
-    """Learn each plug's levels and save the values they give. plug name -> levels.
+    """Each plug's usual week (FR-02) and its levels, saved. plug name -> levels.
 
-    A plug with under min_days of readings keeps what it had. One with a single level,
-    or none, learns nothing, so it keeps the defaults.
+    The usual week comes from the last PROFILE_DAYS, rebuilt daily so it follows new
+    habits. A plug with under min_days of readings keeps what it had. One with a single
+    level, or none, learns nothing, so it keeps the defaults.
     """
     found: dict[str, learn.Levels | None] = {}
     for name, mac in store.plug_macs(app, site_id=site_id).items():
         policy = config.device(cfg, name).policy
+        week = store.readings(energy, plug=name, start=now - PROFILE_DAYS, end=now)
+        if profile := calc.build_profile(week, tz=cfg.tz, policy=policy):
+            store.save_profile(app, site_id=site_id, mac=mac, profile=profile)
         readings = store.readings(energy, plug=name, end=now,
                                   start=now - timedelta(days=policy.history_days))  # fmt: skip
         if not readings or (now - readings[0][0]).days < policy.min_days:

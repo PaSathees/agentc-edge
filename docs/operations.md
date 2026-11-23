@@ -1,6 +1,6 @@
 # Operations
 
-Setup scripts and services: `../deploy/`.
+Setup and running: [setup.md](setup.md) (Docker Compose). My own hub's OS notes: `../deploy/`.
 
 ## Shadow mode log
 | Week | Proposals | Approved | Rejected | Top rejection reason |

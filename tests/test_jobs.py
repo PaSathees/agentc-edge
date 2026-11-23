@@ -326,3 +326,10 @@ def test_learning_runs_once_a_day(app, plugs, tmp_path):
     jobs.run_due(app, desk_energy(tmp_path), replace(CFG, plugs=ips), site_id=1, now=END)
     assert store.last_run(app, site_id=1, job="learn") == END
     assert store.learned(app, mac="AA") != {}
+
+
+def test_learning_builds_each_plugs_usual_week_every_day(app, tmp_path):  # FR-02, no manual step
+    app.execute("DELETE FROM profiles")
+    jobs.learn_pass(app, desk_energy(tmp_path), CFG, site_id=1, now=END)
+    week = {p.hour: p.median_w for p in store.load_profile(app, mac="AA")}
+    assert len(week) == 168 and week[0 * 24 + 20] == 30.0  # Monday 20:00: in use at the desk

@@ -86,6 +86,13 @@ def night(
     return Message(f"{n} devices stayed on last night", "\n".join(lines), tuple(buttons))
 
 
+def ping(*, hub: str, secret: str, at: str) -> Message:
+    """A test message for setting up the phone: a link, and a tap the hub answers."""
+    return Message("AgentC test", f"Sent {at}. Tap the button: the hub should answer.",
+                   (Button("Tap test", f"{hub}/ping/{token(secret, 'ping')}"),
+                    Button("Open inbox", f"{hub}/", post=False)))  # fmt: skip
+
+
 def summary(notes: Sequence[str]) -> Message:
     """The day's notes in one quiet message."""
     n = len(notes)

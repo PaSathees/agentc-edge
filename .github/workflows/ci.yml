@@ -24,3 +24,7 @@ jobs:
         run: uv run basedpyright
       - name: Tests
         run: uv run pytest
+      - name: Image
+        run: docker build -t agentc-edge:ci . && docker run --rm agentc-edge:ci --help > /dev/null
+      - name: Compose file
+        run: touch config.toml && docker compose config -q

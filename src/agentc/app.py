@@ -30,10 +30,9 @@ def settings() -> Config:
     return config.load(os.environ.get("AGENTC_CONFIG", "config.toml"))
 
 
-def secret() -> str:
-    if not (s := os.environ.get("AGENTC_SECRET", "")):
-        raise HTTPException(503, "No AGENTC_SECRET: answers are switched off")
-    return s
+def secret(cfg: Annotated[Config, Depends(settings)]) -> str:
+    """The key that signs the buttons: AGENTC_SECRET, else the data folder's own."""
+    return config.secret(cfg)
 
 
 def publisher(cfg: Annotated[Config, Depends(settings)]) -> Publish | None:
@@ -97,6 +96,14 @@ def answer(question_id: int, choice: int, tok: str, cfg: Cfg, key: Secret, now: 
     except LookupError as err:
         raise HTTPException(409, err.args[0]) from None
     return _done(done, say)
+
+
+@app.post("/ping/{tok}", response_class=HTMLResponse)
+def ping(tok: str, key: Secret, say: Say) -> str:
+    """The phone's tap test (`agentc ping`): answers with a message back."""
+    if not notify.valid(key, tok, "ping"):
+        raise HTTPException(403, "Not a button from this hub")
+    return _done("Tap works: the phone reached the hub.", say)
 
 
 @app.post("/night/{night}/{does}/{tok}", response_class=HTMLResponse)

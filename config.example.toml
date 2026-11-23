@@ -1,15 +1,18 @@
-# Copy to config.toml and fill in your own values. config.toml is gitignored.
+# Copy to config.toml. Only [site] and [plugs] are needed to start; the rest is optional.
+# `agentc find` (docs/setup.md) prints your plugs' lines. Secrets go in .env, never here.
 
 [site]
 name = "home"
-tz = "Asia/Colombo"
-month_kwh = 150  # the whole house's units in 30 days; from your bill: units / days x 30
+tz = "Asia/Colombo"  # your time zone, as in https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
-[paths]  # relative to this file
-app_db = "app.db"
-energy_db = "energy.db"
+[plugs]  # a name you choose = the plug's address on your home network
+"Plug-1" = "192.0.2.11"
+"Plug-2" = "192.0.2.12"
 
-# The grid's average kgCO2e per kWh (location-based Scope 2).
+# ---------------------------------------------------------------------------------------
+# Optional. Without these, costs are in kWh only, with no money or carbon.
+
+# The grid's average kgCO2e per kWh (location-based Scope 2), with its source.
 [carbon]
 id = "slsea-2023"
 factor = 0.4242
@@ -33,17 +36,6 @@ model = "claude-sonnet-5-5"
 usd_in = 2.0
 usd_out = 10.0
 effort = "medium"
-
-# Messages to your phone (optional). Without it, questions wait in `agentc questions`
-# and the inbox page. Buttons carry a token signed with AGENTC_SECRET from .env.
-[owner]
-ntfy_url = "http://127.0.0.1:8090"  # the hub's own ntfy server
-topic = "agentc"  # the topic your phone subscribes to
-hub_url = "https://edge-hub.example.ts.net"  # how your phone reaches the hub (Tailscale)
-
-[plugs]
-"Plug-1" = "192.0.2.11"
-"Plug-2" = "192.0.2.12"
 
 # What is plugged into each plug. Optional: a plug not listed keeps its own name,
 # access "advice" and timer slots 9 to 16. The name is the only one a model sees.
@@ -71,6 +63,7 @@ access = "none"  # it also powers the printer's controller
 # kind = "block": the month's total picks a schedule (no up_to = no limit), then band by band.
 [tariff]
 kind = "block"
+month_kwh = 150  # your whole house's units in 30 days, from your bill: it picks the block
 source = "Example tariff, not real rates"
 levy = 0.025  # tax on the whole bill (Sri Lanka's SSCL is 2.5%); leave out if none
 

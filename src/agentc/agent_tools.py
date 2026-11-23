@@ -155,13 +155,18 @@ class Tools:
         readings = store.readings(self.energy, plug=plug, start=a, end=b)
         kwh = sum(w * min(_next(readings, i, b) - at, watcher.MAX_GAP).total_seconds()
                   for i, (at, w) in enumerate(readings)) / 3600 / 1000  # fmt: skip
-        cfg = self.cfg
+        cfg, parts = self.cfg, [f"{kwh:.3f} kWh"]
         if isinstance(cfg.tariff, TimeOfUse):
-            lkr = kwh * tou_rate(cfg.tariff, a, tz=cfg.tz) / (1 - cfg.levy)
-        else:
-            lkr = saving_lkr(cfg.month_kwh, kwh, cfg.tariff, levy=cfg.levy)
-        return (f"From {a:%a %H:%M} to {b:%a %H:%M}: {kwh:.3f} kWh, LKR {lkr:.1f},"
-                f" {kgco2e(kwh, cfg.factor):.3f} kgCO2e")  # fmt: skip
+            parts.append(f"LKR {kwh * tou_rate(cfg.tariff, a, tz=cfg.tz) / (1 - cfg.levy):.1f}")
+        elif cfg.tariff:
+            parts.append(f"LKR {saving_lkr(cfg.month_kwh, kwh, cfg.tariff, levy=cfg.levy):.1f}")
+        if cfg.factor:
+            parts.append(f"{kgco2e(kwh, cfg.factor):.3f} kgCO2e")
+        missing = [
+            x for x, set_ in (("tariff", cfg.tariff), ("carbon factor", cfg.factor)) if not set_
+        ]
+        note = f" (no {' or '.join(missing)} set)" if missing else ""
+        return f"From {a:%a %H:%M} to {b:%a %H:%M}: {', '.join(parts)}{note}"
 
 
 def _next(readings: list[tuple[datetime, float]], i: int, end: datetime) -> datetime:

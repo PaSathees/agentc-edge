@@ -1,3 +1,4 @@
+import ipaddress
 import sqlite3
 from dataclasses import fields
 from datetime import UTC, datetime, timedelta
@@ -6,7 +7,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import cli, jobs, store, watcher, words
+from agentc import cli, config, jobs, notify, store, watcher, words
+from agentc.devices import tasmota
 from agentc.owner import Decision
 from agentc.policy import Policy
 from agentc.watcher import Event
@@ -139,7 +141,7 @@ def test_watch_shows_new_events_once(cfg, capsys, tmp_path):
     assert code == 0
     assert "3D printer: on at an unusual time from " in out and ", 119 min, peak 30 W\n" in out
     again = run(cfg, capsys, "watch")[1]  # 15 min: not yet
-    assert again == f"Nothing new.\n{cli.NO_KEY}\n{cli.NO_SECRET}\n"
+    assert again == f"Nothing new.\n{cli.NO_KEY}\n{cli.NO_HUB}\n"
 
 
 def test_watch_flags_parked_events(cfg, capsys, tmp_path):
@@ -267,6 +269,7 @@ def test_watch_shows_what_the_housemate_made_of_a_signal(cfg, capsys, tmp_path):
 
 def test_watch_sends_due_questions_to_the_phone(cfg, capsys, tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTC_SECRET", "s3cret")
+    monkeypatch.setenv("AGENTC_HUB", "http://192.0.2.50")
     sent = []
     run(cfg, capsys, "timers")
     start = desk_till_yesterday(tmp_path)
@@ -275,7 +278,7 @@ def test_watch_sends_due_questions_to_the_phone(cfg, capsys, tmp_path, monkeypat
     store.add_event(app, site_id=1, event=left_on, dedupe="d")
     # by day the question is sent at once; at night it waits, so allow both
     out = run(cfg, capsys, "watch", step=decides("ask"), publish=sent.append)[1]
-    assert cli.NO_SECRET not in out
+    assert cli.NO_HUB not in out
     assert ("Sent: Desk 2\n" in out) == (len(sent) == 1)
 
 
@@ -497,3 +500,78 @@ def test_look_can_look_as_of_a_past_time(cfg, capsys, tmp_path):
 
     run(cfg, capsys, "look", str(eid), "--at", "2026-11-02 02:10", step=step)
     assert "Now: Mon 02 Nov 02:10" in seen["brief"]
+
+
+def test_ping_sends_one_test_message(cfg, capsys, monkeypatch):
+    monkeypatch.setenv("AGENTC_SECRET", "s3cret")
+    monkeypatch.setenv("AGENTC_HUB", "http://192.0.2.50")
+    sent = []
+    code, out = run(cfg, capsys, "ping", publish=sent.append)
+    assert code == 0 and out.startswith(
+        "In the ntfy app: add server http://192.0.2.50:8090, subscribe to agentc\n"
+        "Inbox: http://192.0.2.50:8765/\nSent at "
+    )
+    (m,) = sent
+    assert m.title == "AgentC test" and [b.label for b in m.buttons] == ["Tap test", "Open inbox"]
+
+
+def test_ping_without_a_hub_says_why(cfg, capsys, monkeypatch):
+    monkeypatch.delenv("AGENTC_HUB", raising=False)
+    assert run(cfg, capsys, "ping") == (1, cli.NO_HUB + "\n")
+
+
+def test_ping_with_ntfy_out_of_reach(cfg, capsys, monkeypatch):
+    monkeypatch.setenv("AGENTC_SECRET", "s3cret")
+    monkeypatch.setenv("AGENTC_HUB", "http://192.0.2.50")
+
+    def down(m):
+        raise notify.NotSent("ntfy at x: refused")
+
+    code, out = run(cfg, capsys, "ping", publish=down)
+    assert code == 1 and out.endswith("ntfy at x: refused\n")
+
+
+# one-command setup (3d2): find, log, run
+
+
+def test_find_prints_the_plugs_lines_in_address_order(capsys, monkeypatch):
+    info = tasmota.Info(mac="AA", hostname="tasmota-1")
+    monkeypatch.setattr(tasmota, "find", lambda hosts: [("192.0.2.12", info), ("192.0.2.9", info)])
+    code = cli.main(["find", "192.0.2.0/24"])
+    out = capsys.readouterr().out
+    assert code == 0 and out.startswith("Asking 254 addresses in 192.0.2.0/24 ...\nFound 2.")
+    assert '"Plug-1" = "192.0.2.9"  # tasmota-1\n"Plug-2" = "192.0.2.12"  # tasmota-1\n' in out
+    assert out.endswith(f"AGENTC_HUB=http://{tasmota.this_ip()}\n")
+
+
+def test_find_with_nothing_found(capsys, monkeypatch):
+    monkeypatch.setattr(tasmota, "find", lambda hosts: [])
+    monkeypatch.setattr(tasmota, "home_network", lambda: ipaddress.IPv4Network("192.0.2.0/30"))
+    assert cli.main(["find"]) == 1
+    assert "No Tasmota plugs found" in capsys.readouterr().out
+
+
+def test_log_runs_the_logger_on_the_configs_plugs(cfg, monkeypatch, tmp_path):
+    seen = {}
+    monkeypatch.setattr(cli.logger, "run", lambda db, plugs: seen.update(db=db, plugs=plugs))
+    assert cli.main(["--config", str(cfg), "log"]) == 0
+    assert seen["db"] == tmp_path / "energy.db" and list(seen["plugs"]) == ["Plug-1", "Plug-2"]
+
+
+def test_run_starts_the_jobs_loop(cfg, capsys, monkeypatch):
+    monkeypatch.setattr(cli, "show_run", lambda db, cfg, **kw: 7)
+    assert run(cfg, capsys, "run")[0] == 7
+
+
+def test_the_jobs_loop_waits_for_the_logger_then_runs_each_minute(cfg, capsys, tmp_path):
+    c = config.load(cfg)
+    db = store.connect(c.app_db)
+    store.add_site(db, name=c.site, tz=c.tz)
+    naps = []
+    cli.show_run(db, c, site_id=1, model=None, sender=None, rounds=1, sleep=naps.append)
+    assert store.last_run(db, site_id=1, job="watch") is None  # no energy.db yet: waits
+    write_energy_db(tmp_path / "energy.db", "Plug-1", 1)
+    cli.show_run(db, c, site_id=1, model=None, sender=None, rounds=2, sleep=naps.append)
+    out = capsys.readouterr().out
+    assert store.last_run(db, site_id=1, job="watch") is not None and naps == [60, 60, 60]
+    assert out.startswith("Running every 60 s.") and "Nothing new" not in out

@@ -48,7 +48,7 @@ def test_the_example_config_loads():  # keeps the committed example valid
     assert c.tariff[1].bands[-1] == Band(None, 50.0, 500.0)  # no up_to = no limit
     assert c.levy == 0.025
     assert c.month_kwh == 150
-    assert c.factor.value == 0.4242
+    assert c.factor is not None and c.factor.value == 0.4242
 
 
 def test_paths_are_relative_to_the_config_file():
@@ -184,3 +184,42 @@ def test_the_owner_beats_what_was_learned(tmp_path):
     d = config.device(c, "Plug-1", LEARNED)
     assert (d.policy.use_w, d.policy.night_wake_w, d.learned) == (5, 16, {})
     assert config.device(c, "Plug-2", LEARNED).policy.night_wake_w == 16  # site beats learned too
+
+
+# the smallest config (3d2): [site] and [plugs] only
+
+
+MINIMAL = '[site]\nname = "home"\ntz = "Asia/Colombo"\n\n[plugs]\n"Plug-1" = "192.0.2.11"\n'
+
+
+def test_site_and_plugs_are_enough(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(MINIMAL)
+    c = config.load(path)
+    assert (c.tariff, c.factor, c.month_kwh, c.owner) == (None, None, 0.0, None)
+    assert c.app_db == tmp_path / "app.db"
+
+
+def test_the_data_folder_can_be_set_apart(tmp_path, monkeypatch):
+    path = tmp_path / "config.toml"
+    path.write_text(MINIMAL)
+    monkeypatch.setenv("AGENTC_DATA", "/data")
+    c = config.load(path)
+    assert (c.app_db, c.energy_db) == (Path("/data/app.db"), Path("/data/energy.db"))
+
+
+def test_month_kwh_under_site_still_counts(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(TOU)
+    assert config.load(path).month_kwh == 200
+
+
+@pytest.mark.parametrize(
+    ("hub", "inbox", "ntfy"),
+    [("http://192.0.2.50/", "http://192.0.2.50:8765", "http://192.0.2.50:8090"),
+     ("https://hub.example.ts.net", "https://hub.example.ts.net", "https://hub.example.ts.net:8443")],
+)  # fmt: skip
+def test_the_phone_settings_come_from_agentc_hub(monkeypatch, hub, inbox, ntfy):
+    monkeypatch.setenv("AGENTC_HUB", hub)
+    o = config.owner()
+    assert o is not None and (o.inbox_url, o.phone_ntfy, o.topic) == (inbox, ntfy, "agentc")

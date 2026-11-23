@@ -26,10 +26,12 @@ flowchart LR
 
 | Command | Does |
 |---|---|
+| `agentc find` | Finds the Tasmota plugs on your home network and prints their config lines. Reads only |
+| `agentc ping` | Sends a test message to your phone, with a tap test |
+| `agentc run` | The jobs service: the due jobs every minute, for good. `agentc log` is the logger service |
 | `agentc timers` | Reads every plug and shows its timers in plain words. Also reads what each plug does on its own (auto-off, rules) for the house model. Problems come last |
 | `agentc profile Plug-6` | Shows a plug's usual week, hour by hour, and the kWh it used |
-| `agentc watch` | Runs the checks that are due now and shows new signals. With an API key, the housemate looks at each one and decides: ignore, note, ask or propose. With `[owner]` and `AGENTC_SECRET`, due questions go to your phone through ntfy: the night's as one message at 07:00, the day's notes at 21:00 |
-| `uvicorn agentc.app:app` | The inbox page and the phone's taps, inside Tailscale only. Needs `AGENTC_SECRET` in `.env` |
+| `agentc watch` | Runs the checks that are due now and shows new signals. With an API key, the housemate looks at each one and decides: ignore, note, ask or propose. With `AGENTC_HUB` in `.env`, due questions go to your phone through ntfy: the night's as one message at 07:00, the day's notes at 21:00 |
 | `agentc questions` | The housemate's open questions, numbered, with when each one reaches you (07:00 for a small load at night) |
 | `agentc answer 3 2` | Answers question 3 with choice 2, as a tap would. "That's normal" saves a habit; a switch off is only recorded (shadow mode) |
 | `agentc look 12 --at "2026-11-02 02:10"` | Runs the housemate on one saved signal and shows the tools it used and its decision |
@@ -38,14 +40,19 @@ flowchart LR
 | `agentc house` | Shows what the system knows about each device: its card, timers and habits, as the agent will read it |
 | `agentc house Plug-6 kind=computer room=study` | Changes a device's card. Keys: kind, room (where it is), what, notes, must_run, why.N (why timer N is set) |
 
-None of these change a plug. They only read the plugs; answers and cards are saved in app.db.
+In Docker, run them as `docker compose exec jobs agentc ...`. None of these change a plug. They only read the plugs; answers and cards are saved in app.db.
 
 ## Quickstart
 
+Needs Tasmota smart plugs on your Wi-Fi and Docker on an always-on computer. Full guide, with the phone: [docs/setup.md](docs/setup.md).
+
 ```bash
-cp config.example.toml config.toml   # add your plugs and tariff
-python3 logger/logger.py energy.db config.toml   # start recording, one reading a minute
-uv run agentc timers
+git clone https://github.com/PaSathees/agentc-edge.git && cd agentc-edge
+cp config.example.toml config.toml        # set your site name and time zone
+docker compose run --rm jobs find         # finds your plugs: paste the lines into config.toml
+echo "AGENTC_HUB=http://192.168.1.50" > .env   # this box's address (find prints it); add ANTHROPIC_API_KEY= if you have one
+docker compose up -d                      # logger, jobs, inbox and ntfy
+docker compose exec jobs agentc ping      # connect the ntfy app on your phone
 ```
 
 ## Develop
@@ -56,7 +63,8 @@ Needs [uv](https://docs.astral.sh/uv/). Tests use a fake plug, so no hardware is
 uv sync                      # Python 3.12 and the libraries
 uv run pytest                # all tests, with coverage
 uv run ruff check . && uv run basedpyright   # style and type checks, as in CI
-uv run uvicorn agentc.app:app                # the app at localhost:8000/health
+uv run uvicorn agentc.app:app                # the inbox at localhost:8000
+docker compose up -d --build                 # the whole system, as users run it
 ```
 
 ## Results
@@ -102,11 +110,13 @@ Commits from 2026-11-21 on say so with an `Assisted-by:` line, in the Linux kern
 ## Folders
 
 ```
-logger/   the plug logger (Python standard library only)
-src/      the app: the agentc package
-tests/    tests and the fake plug
-deploy/   setup scripts for the hub
-docs/     requirements, design, decisions, evaluation, operations
+src/          the app: the agentc package (the logger is agentc/logger.py, standard library only)
+tests/        tests and the fake plug
+evals/        real readings and recorded model steps for the evals
+docs/         setup, requirements, design, decisions, evaluation, operations
+deploy/       notes for my own hub's operating system (not needed to run AgentC)
+compose.yaml  the whole system: logger, jobs, inbox, ntfy
+data/         your data, made on first start: readings, the house model, answers
 ```
 
 ## Limits

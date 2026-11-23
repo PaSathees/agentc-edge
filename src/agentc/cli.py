@@ -1,8 +1,11 @@
 """The `agentc` command. It only reads plugs; it never changes them."""
 
 import argparse
+import ipaddress
 import os
 import sqlite3
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from sqlite3 import Connection
@@ -19,11 +22,13 @@ from agentc import (
     house,
     jobs,
     llm,
+    logger,
     notify,
     store,
     timers,
 )
 from agentc.config import Config
+from agentc.devices import tasmota
 from agentc.devices.base import describe
 from agentc.policy import explain
 from agentc.watcher import Event
@@ -44,6 +49,8 @@ def main(
     if a key and an [owner] are set."""
     args = _parser().parse_args(argv)
 
+    if args.command == "find":  # before config.toml exists: it helps write it
+        return show_find(args.network)
     if args.command == "eval":  # needs no config.toml: the evals bring their own
         model = _step(step) if args.live else None
         if args.live and model is None:
@@ -52,6 +59,9 @@ def main(
         return show_eval(model, samples=args.samples)
 
     cfg = config.load(args.config)
+    if args.command == "log":  # the logger: no app.db, nothing but readings
+        logger.run(cfg.energy_db, cfg.plugs)
+        return 0
     db = store.connect(cfg.app_db)
     site_id = store.add_site(db, name=cfg.site, tz=cfg.tz)
     if args.command == "policy":
@@ -68,11 +78,13 @@ def main(
         return show_learn(db, cfg, site_id=site_id)
     if args.command == "profile":
         return show_profile(db, cfg, site_id=site_id, plug=args.plug, days=args.days)
-    if args.command == "watch":
-        sender = _sender(cfg, publish)
-        return show_watch(
-            db, cfg, site_id=site_id, model=_llm(db, cfg, site_id, step), sender=sender
-        )
+    if args.command == "ping":
+        return show_ping(cfg, _sender(cfg, publish))
+    if args.command in ("watch", "run"):
+        model, sender = _llm(db, cfg, site_id, step), _sender(cfg, publish)
+        if args.command == "run":
+            return show_run(db, cfg, site_id=site_id, model=model, sender=sender)
+        return show_watch(db, cfg, site_id=site_id, model=model, sender=sender)
     if args.command == "replay":
         model = _step(step) if args.look else None
         if args.look and model is None:
@@ -115,7 +127,8 @@ def show_house(
 def _parser() -> argparse.ArgumentParser:
     """The commands and their arguments."""
     parser = argparse.ArgumentParser(prog="agentc")
-    parser.add_argument("--config", type=Path, default=Path("config.toml"))
+    parser.add_argument("--config", type=Path,
+                        default=Path(os.environ.get("AGENTC_CONFIG", "config.toml")))  # fmt: skip
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("timers", help="read each plug's timers and show them in plain words")
     profile = commands.add_parser("profile", help="build one plug's week of use and save it")
@@ -134,6 +147,11 @@ def _parser() -> argparse.ArgumentParser:
     peek = commands.add_parser("look", help="run the housemate agent on one saved event (costs)")
     peek.add_argument("event", type=int, help="the event's id in app.db")
     peek.add_argument("--at", help="look as of this local time, YYYY-MM-DD HH:MM (default: now)")
+    where = commands.add_parser("find", help="find the Tasmota plugs on the home network")
+    where.add_argument("network", nargs="?", help="e.g. 192.168.1.0/24 (default: this one)")
+    commands.add_parser("log", help="the logger: read every plug each minute, for good")
+    commands.add_parser("run", help="run the due jobs every minute, for good (the jobs service)")
+    commands.add_parser("ping", help="send a test message to the phone, with a tap test")
     commands.add_parser("questions", help="the housemate's open questions, numbered")
     tap = commands.add_parser("answer", help="answer a question, as a tap on the phone would")
     tap.add_argument("question", type=int, help="the question's number")
@@ -288,23 +306,56 @@ def _llm(db: Connection, cfg: Config, site_id: int, step: llm.StepSend | None) -
     return llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, s)
 
 
-NO_SECRET = "No AGENTC_SECRET in .env: nothing was sent. Questions wait in `agentc questions`."
+NO_HUB = "No AGENTC_HUB in .env: nothing goes to the phone. Questions wait in the inbox."
+RUN_EVERY = 60  # seconds between passes of `agentc run`; each job keeps its own timetable
 
 
 def _sender(cfg: Config, publish: notify.Publish | None) -> jobs.Sender | None:
-    """How messages reach the phone, or None: no [owner] in config.toml, or no secret."""
-    secret = os.environ.get("AGENTC_SECRET", "")
-    if cfg.owner is None or not secret:
+    """How messages reach the phone, or None: no AGENTC_HUB in .env."""
+    if cfg.owner is None:
         return None
-    return jobs.Sender(publish or notify.ntfy(cfg.owner), cfg.owner.hub_url, secret)
+    return jobs.Sender(publish or notify.ntfy(cfg.owner), cfg.owner.inbox_url, config.secret(cfg))
+
+
+def show_find(network: str | None) -> int:
+    """Ask every address on the home network if it is a Tasmota plug; print config lines."""
+    net = ipaddress.IPv4Network(network, strict=False) if network else tasmota.home_network()
+    print(f"Asking {net.num_addresses - 2} addresses in {net} ...")
+    found = sorted(tasmota.find(str(h) for h in net.hosts()),
+                   key=lambda f: ipaddress.IPv4Address(f[0].split(":")[0]))  # fmt: skip
+    if not found:
+        print("No Tasmota plugs found. Are they on this network, with Wi-Fi set up?")
+        return 1
+    print(f"Found {len(found)}. Paste under [plugs] in config.toml, and rename as you like:")
+    for n, (ip, info) in enumerate(found, 1):
+        print(f'"Plug-{n}" = "{ip}"  # {info.hostname}')
+    print(f"\nFor the phone, put this box's address in .env: AGENTC_HUB=http://{tasmota.this_ip()}")
+    return 0
+
+
+def show_ping(cfg: Config, sender: jobs.Sender | None) -> int:
+    """One test message to the phone: is ntfy set up, and does a tap reach the hub?"""
+    if sender is None or cfg.owner is None:
+        print(NO_HUB)
+        return 1
+    print(f"In the ntfy app: add server {cfg.owner.phone_ntfy}, subscribe to {cfg.owner.topic}")
+    print(f"Inbox: {cfg.owner.inbox_url}/")
+    at = datetime.now(ZoneInfo(cfg.tz)).strftime("%H:%M:%S")
+    try:
+        sender.publish(notify.ping(hub=sender.hub, secret=sender.secret, at=at))
+    except notify.NotSent as err:
+        print(err)
+        return 1
+    print(f'Sent at {at}. On the phone, tap "Tap test": a "Tap works" message should follow.')
+    return 0
 
 
 def show_watch(
     db: Connection, cfg: Config, *, site_id: int, model: llm.Llm | None,
-    sender: jobs.Sender | None = None,
+    sender: jobs.Sender | None = None, quiet: bool = False,
 ) -> int:  # fmt: skip
     """Run the jobs that are due now; print new signals, what the housemate made of them,
-    and what went to the phone."""
+    and what went to the phone. quiet: say nothing when nothing is new (for `run`)."""
     energy = store.open_readings(cfg.energy_db)
     now = datetime.now(UTC)
     events, looked, sent = jobs.run_due(db, energy, cfg, site_id=site_id, now=now, llm=model,
@@ -316,15 +367,33 @@ def show_watch(
         print(outcome_words(o))
     for m in sent:
         print(f"Sent: {m.title}")
-    if not events and not looked and not sent:
+    if not events and not looked and not sent and not quiet:
         print("Nothing new.")
     if parked := store.count_events(db, site_id=site_id, status="parked"):
         print(f"{parked} event{'s' if parked > 1 else ''} parked after {jobs.MAX_TRIES} failed"
               " tries: see the audit log")  # fmt: skip
+    if quiet:
+        return 0
     if model is None:
         print(NO_KEY)
-    if cfg.owner and sender is None:
-        print(NO_SECRET)
+    if sender is None:
+        print(NO_HUB)
+    return 0
+
+
+def show_run(
+    db: Connection, cfg: Config, *, site_id: int, model: llm.Llm | None,
+    sender: jobs.Sender | None, rounds: int | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> int:  # fmt: skip
+    """Run the due jobs every minute, for good (the jobs service). Prints only what is new."""
+    print(f"Running every {RUN_EVERY} s. {'' if model else NO_KEY} {'' if sender else NO_HUB}")
+    done = 0
+    while rounds is None or done < rounds:
+        if cfg.energy_db.exists():  # on a first start the logger makes it within a minute
+            show_watch(db, cfg, site_id=site_id, model=model, sender=sender, quiet=True)
+        done += 1
+        sleep(RUN_EVERY)
     return 0
 
 

@@ -89,7 +89,7 @@ def server():
 
 
 def test_ntfy_gets_the_message_as_json(server):
-    publish = notify.ntfy(Owner(server, "agentc", HUB))
+    publish = notify.ntfy(Owner(HUB, "agentc", server))
     publish(
         Message("Desk 2", "Off?", (Button("Off", f"{HUB}/x"), Button("Inbox", HUB, post=False)))
     )
@@ -106,6 +106,6 @@ def test_ntfy_gets_the_message_as_json(server):
 
 
 def test_ntfy_out_of_reach_is_not_sent():
-    publish = notify.ntfy(Owner("http://127.0.0.1:9", "agentc", HUB), timeout_s=1)
+    publish = notify.ntfy(Owner(HUB, "agentc", "http://127.0.0.1:9"), timeout_s=1)
     with pytest.raises(notify.NotSent, match="ntfy at http://127.0.0.1:9"):
         publish(Message("t", "x"))

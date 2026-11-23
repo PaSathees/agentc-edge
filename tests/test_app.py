@@ -1,6 +1,7 @@
 """The web app on the hub: health, the inbox, and taps signed with the secret (3d)."""
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -104,10 +105,15 @@ def test_a_night_tap_needs_its_own_token_and_an_open_night(client):
     assert c.post(f"/night/2026-11-03/save_habit/{tok}").status_code == 409
 
 
-def test_without_a_secret_answers_are_off(client, monkeypatch):
-    c, _, _ = client
+def test_without_agentc_secret_the_data_folder_makes_one(client, monkeypatch):
+    c, db, _ = client
     monkeypatch.delenv("AGENTC_SECRET")
-    assert c.get("/").status_code == 503
+    page = c.get("/").text
+    made = Path(db.execute("PRAGMA database_list").fetchone()[2]).parent / "secret"
+    key = made.read_text()
+    assert len(key) == 64 and oct(made.stat().st_mode)[-3:] == "600"
+    assert f"/answer/1/1/{notify.token(key, 1, 1)}" in page  # and the buttons use it
+    assert c.get("/").text == page  # the same one next time
 
 
 def test_an_echo_ntfy_refused_still_saves_the_answer(client):
@@ -123,7 +129,15 @@ def test_an_echo_ntfy_refused_still_saves_the_answer(client):
 
 def test_the_real_dependencies(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTC_CONFIG", str(EXAMPLE))
+    monkeypatch.setenv("AGENTC_HUB", "http://192.0.2.50")
     cfg = web.settings()
     assert cfg.owner is not None and web.publisher(cfg) is not None
     assert web.publisher(config.Config(**{**cfg.__dict__, "owner": None})) is None
     assert web.clock().tzinfo is UTC
+
+
+def test_the_tap_test_answers_back(client):
+    c, _, said = client
+    assert c.post(f"/ping/{notify.token(KEY, 'ping')}").status_code == 200
+    assert [m.text for m in said] == ["Tap works: the phone reached the hub."]
+    assert c.post("/ping/forged").status_code == 403
