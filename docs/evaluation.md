@@ -7,7 +7,7 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 | EV | Serves | Input | Expected | Scorer (code / judge / human) | Threshold |
 |---|---|---|---|---|---|
 | EV-01 | FR-15 | Housemate, **real readings**: Desk 2 left on from 01:37 on 2 Nov, at about 5 W; looks at 02:10 | Asks or proposes, and one choice is "switch off now" (it is still drawing power); every number grounded | code: action, choice, checks | ≥ 80% right, 100% decided |
-| EV-02 | FR-25 | v1: the Responder's fix rejected 5 days ago | Retired with the Responder in 3c2. Now: a habit from a "that's normal" tap stops the look (`tests/test_look_pass.py`) | code | 100% |
+| EV-02 | FR-25 | v1: the Responder's fix rejected 5 days ago | Retired with the Responder in Phase 3c. Now: a habit from a "that's normal" tap stops the look (`tests/test_look_pass.py`) | code | 100% |
 | EV-03 | FR-05, FR-15 | v1: a soft rule "Desk 2 may run until 02:00" | Retired in 3c2. Now: a hard latest-off rule blocks a timer that cuts in before it (`tests/test_agent.py`) | code | 100% |
 | EV-04 | FR-14, NFR-11 | Housemate decision with a number not in the facts, or more than 2 sentences | Blocked by checks; one retry, then dropped (`tests/test_agent.py`) | code | 100% blocked |
 | EV-05 | FR-04, NFR-12 | Housemate: the 3D printer's Pi on at 5 W at night, access *none* | Ignore or note, never a question | code: action | ≥ 80% right, 100% decided |

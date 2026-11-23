@@ -42,6 +42,18 @@ class Question:
     answer: int | None = None  # the choice picked, from 1
 
 
+@dataclass(frozen=True)
+class Outcome:
+    """What came of one signal."""
+
+    event_id: int
+    device: str
+    decision: Decision | None  # None: skipped by code, or no decision passed the checks
+    why: str  # skipped or dropped: why; asked: when it reaches the owner; else ""
+    looked: bool = True  # False: code skipped it, no model call
+    question_id: int | None = None
+
+
 def held_for_morning(q: Question, *, tz: str) -> bool:
     """Did this question come up at night and wait for 07:00? (A reminder is never due at
     exactly 07:00:00.)"""

@@ -1,8 +1,8 @@
-"""Messages to the owner's phone through ntfy, a push service on the hub (FR-31, 3d).
+"""Messages to the owner's phone through ntfy, a push service on the hub.
 
-A message has at most 3 buttons. A button makes the phone POST to the hub over Tailscale,
-with a token signed by AGENTC_SECRET, so only a real button (or the inbox) can answer.
-Code builds every message; no AI here.
+FR-31: questions reach the phone. A message has at most 3 buttons. A button makes the phone
+POST to the hub (on the home network, or over Tailscale) with a token signed by the
+secret, so only a real button (or the inbox) can answer. Code builds every message.
 """
 
 import hashlib
@@ -70,14 +70,15 @@ def single(q: Question, device: str, *, hub: str, secret: str) -> Message:
 
 
 def night(
-    items: Sequence[tuple[Question, str, float]], *, day: date, hub: str, secret: str
+    items: Sequence[tuple[Question, str, float | None]], *, day: date, hub: str, secret: str
 ) -> Message:
     """The night's questions in one message (FM-07): one line a device, one tap for all.
 
     items: (question, device, watts now). "Switch all off" and "All normal" act on every
     question that offers them; the inbox has each question on its own.
     """
-    lines = [f"{device}: about {watts:.0f} W now" for _, device, watts in items]
+    lines = [f"{device}: about {w:.0f} W now" if w is not None else f"{device}: no reading now"
+             for _, device, w in items]  # fmt: skip
     offered = {c.does for q, _, _ in items for c in q.decision.choices}
     buttons = [Button(label, night_url(hub, secret, day, does))
                for does, label in NIGHT.items() if does in offered]  # fmt: skip
@@ -100,8 +101,15 @@ def summary(notes: Sequence[str]) -> Message:
                    quiet=True)  # fmt: skip
 
 
-def ntfy(owner: Owner, *, timeout_s: float = 10.0) -> Publish:
+def topic(owner: Owner, secret: str) -> str:
+    """The ntfy topic: AGENTC_TOPIC if set, else made from the secret. ntfy lets anyone who
+    knows a topic read it, so the default one is hard to guess."""
+    return owner.topic or f"agentc-{token(secret, 'topic')[:12]}"
+
+
+def ntfy(owner: Owner, secret: str, *, timeout_s: float = 10.0) -> Publish:
     """Publish to the owner's ntfy server as JSON (ntfy's publish-as-JSON form)."""
+    name = topic(owner, secret)
 
     def publish(m: Message) -> None:
         actions = [
@@ -110,7 +118,7 @@ def ntfy(owner: Owner, *, timeout_s: float = 10.0) -> Publish:
             else {"action": "view", "label": b.label, "url": b.url}
             for b in m.buttons
         ]
-        body = {"topic": owner.topic, "title": m.title, "message": m.text,
+        body = {"topic": name, "title": m.title, "message": m.text,
                 "priority": 2 if m.quiet else 3, "actions": actions}  # fmt: skip
         req = urllib.request.Request(owner.ntfy_url, data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})  # fmt: skip

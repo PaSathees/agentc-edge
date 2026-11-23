@@ -10,7 +10,11 @@ x-agentc: &agentc
   user: "${AGENTC_UID:-1000}:${AGENTC_GID:-1000}"  # the files in ./data stay yours
   env_file: [{path: .env, required: false}]
   volumes:
-    - ./config.toml:/config/config.toml:ro
+    - type: bind  # config.toml must exist first: else Docker would make an empty folder
+      source: ./config.toml
+      target: /config/config.toml
+      read_only: true
+      bind: {create_host_path: false}
     - ${AGENTC_DATA_DIR:-./data}:/data
 
 services:
@@ -30,16 +34,18 @@ services:
     image: binwiederhier/ntfy:v2.11.0
     network_mode: host
     restart: unless-stopped
-    env_file: [{path: .env, required: false}]
-    environment:
+    user: "${AGENTC_UID:-1000}:${AGENTC_GID:-1000}"
+    environment:  # only what ntfy needs: never the whole .env, which holds the API key
+      AGENTC_HUB: "${AGENTC_HUB:-}"
       NTFY_LISTEN_HTTP: ":8090"
-      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
-      NTFY_BEHIND_PROXY: "true"
-      NTFY_UPSTREAM_BASE_URL: https://ntfy.sh
+      NTFY_CACHE_FILE: /data/ntfy.db
     volumes:
-      - ${AGENTC_DATA_DIR:-./data}/ntfy:/var/cache/ntfy
-    # its own address as the phone sees it, from AGENTC_HUB: port 8090, or 8443 by Tailscale
+      - ${AGENTC_DATA_DIR:-./data}:/data
+    # its own address as the phone sees it, from AGENTC_HUB (port 8090, or 8443 behind
+    # Tailscale Serve); the iOS relay needs that address, so it is set only with it
     entrypoint: ["/bin/sh", "-c"]
     command:
       - case "$$AGENTC_HUB" in https://*) export NTFY_BASE_URL="$$AGENTC_HUB:8443";;
-        ?*) export NTFY_BASE_URL="$$AGENTC_HUB:8090";; esac; exec ntfy serve
+        ?*) export NTFY_BASE_URL="$$AGENTC_HUB:8090";; esac;
+        [ -n "$$NTFY_BASE_URL" ] && export NTFY_UPSTREAM_BASE_URL=https://ntfy.sh;
+        exec ntfy serve

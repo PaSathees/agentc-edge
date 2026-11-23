@@ -89,7 +89,7 @@ def server():
 
 
 def test_ntfy_gets_the_message_as_json(server):
-    publish = notify.ntfy(Owner(HUB, "agentc", server))
+    publish = notify.ntfy(Owner(HUB, "agentc", server), KEY)
     publish(
         Message("Desk 2", "Off?", (Button("Off", f"{HUB}/x"), Button("Inbox", HUB, post=False)))
     )
@@ -106,6 +106,12 @@ def test_ntfy_gets_the_message_as_json(server):
 
 
 def test_ntfy_out_of_reach_is_not_sent():
-    publish = notify.ntfy(Owner(HUB, "agentc", "http://127.0.0.1:9"), timeout_s=1)
+    publish = notify.ntfy(Owner(HUB, "agentc", "http://127.0.0.1:9"), KEY, timeout_s=1)
     with pytest.raises(notify.NotSent, match="ntfy at http://127.0.0.1:9"):
         publish(Message("t", "x"))
+
+
+def test_the_topic_is_made_from_the_secret_unless_set():
+    assert notify.topic(Owner(HUB), KEY) == f"agentc-{notify.token(KEY, 'topic')[:12]}"
+    assert notify.topic(Owner(HUB), "other") != notify.topic(Owner(HUB), KEY)
+    assert notify.topic(Owner(HUB, "mine"), KEY) == "mine"

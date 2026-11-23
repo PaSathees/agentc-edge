@@ -1,13 +1,16 @@
-"""The web app on the hub: the inbox page and the taps from the phone (3d).
+"""The web app: the inbox page and the taps from the phone.
 
-Served inside Tailscale only (a private network of the owner's own devices). Every answer
-needs a token signed with AGENTC_SECRET, so a button from a message or the inbox works,
-and a guessed URL does not. The jobs run apart from this app (`agentc watch`).
+It listens on the home network (and the tailnet, if the hub is on Tailscale). The page
+shows open questions with their buttons, so anyone who can open it can answer: keep the
+hub on a network you trust. Each answer needs a token signed with the secret, so a guessed
+address does nothing. The jobs run apart from this app (`agentc run`).
 """
 
 import os
+from collections.abc import Iterator
 from datetime import UTC, date, datetime
 from html import escape
+from sqlite3 import Connection
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -35,9 +38,21 @@ def secret(cfg: Annotated[Config, Depends(settings)]) -> str:
     return config.secret(cfg)
 
 
-def publisher(cfg: Annotated[Config, Depends(settings)]) -> Publish | None:
-    """ntfy, to say back what a tap did. None without [owner]."""
-    return notify.ntfy(cfg.owner) if cfg.owner else None
+def publisher(cfg: Annotated[Config, Depends(settings)],
+              key: Annotated[str, Depends(secret)]) -> Publish | None:  # fmt: skip
+    """ntfy, to say back what a tap did. None without AGENTC_HUB."""
+    return notify.ntfy(cfg.owner, key) if cfg.owner else None
+
+
+def database(cfg: Annotated[Config, Depends(settings)]) -> Iterator[tuple[Connection, int]]:
+    """app.db for one request, and the site's id; closed after. The jobs make the tables."""
+    db = store.open_app(cfg.app_db)
+    try:
+        if (site := store.site_id(db, name=cfg.site)) is None:
+            raise HTTPException(503, "Starting: no data yet. Try again in a minute.")
+        yield db, site
+    finally:
+        db.close()
 
 
 def clock() -> datetime:
@@ -48,6 +63,7 @@ Cfg = Annotated[Config, Depends(settings)]
 Secret = Annotated[str, Depends(secret)]
 Now = Annotated[datetime, Depends(clock)]
 Say = Annotated[Publish | None, Depends(publisher)]
+Db = Annotated[tuple[Connection, int], Depends(database)]
 
 
 @app.get("/health")
@@ -57,10 +73,9 @@ def health() -> dict[str, str]:
 
 
 @app.get("/", response_class=HTMLResponse)
-def inbox(cfg: Cfg, key: Secret, now: Now) -> str:
+def inbox(cfg: Cfg, key: Secret, now: Now, data: Db) -> str:
     """The open questions that are due, each with its buttons, and the last day's notes."""
-    db = store.connect(cfg.app_db)
-    site = store.add_site(db, name=cfg.site, tz=cfg.tz)
+    db, site = data
     names = {mac: config.device(cfg, plug).name
              for plug, mac in store.plug_macs(db, site_id=site).items()}  # fmt: skip
     parts = ["<h1>Inbox</h1>"]
@@ -84,12 +99,11 @@ def inbox(cfg: Cfg, key: Secret, now: Now) -> str:
 
 @app.post("/answer/{question_id}/{choice}/{tok}", response_class=HTMLResponse)
 def answer(question_id: int, choice: int, tok: str, cfg: Cfg, key: Secret, now: Now,
-           say: Say) -> str:  # fmt: skip
+           say: Say, data: Db) -> str:  # fmt: skip
     """A tap on one choice of one question."""
     if not notify.valid(key, tok, question_id, choice):
         raise HTTPException(403, "Not a button from this hub")
-    db = store.connect(cfg.app_db)
-    site = store.add_site(db, name=cfg.site, tz=cfg.tz)
+    db, site = data
     try:
         done = jobs.answer(db, cfg, site_id=site, question_id=question_id, choice=choice,
                            now=now)  # fmt: skip
@@ -108,12 +122,11 @@ def ping(tok: str, key: Secret, say: Say) -> str:
 
 @app.post("/night/{night}/{does}/{tok}", response_class=HTMLResponse)
 def answer_night(night: date, does: str, tok: str, cfg: Cfg, key: Secret, now: Now,
-                 say: Say) -> str:  # fmt: skip
+                 say: Say, data: Db) -> str:  # fmt: skip
     """One tap for the night's questions, from the morning message."""
     if not notify.valid(key, tok, night, does):
         raise HTTPException(403, "Not a button from this hub")
-    db = store.connect(cfg.app_db)
-    site = store.add_site(db, name=cfg.site, tz=cfg.tz)
+    db, site = data
     try:
         done = jobs.answer_night(db, cfg, site_id=site, night=night, does=does, now=now)
     except LookupError as err:

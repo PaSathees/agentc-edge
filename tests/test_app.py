@@ -131,9 +131,24 @@ def test_the_real_dependencies(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTC_CONFIG", str(EXAMPLE))
     monkeypatch.setenv("AGENTC_HUB", "http://192.0.2.50")
     cfg = web.settings()
-    assert cfg.owner is not None and web.publisher(cfg) is not None
-    assert web.publisher(config.Config(**{**cfg.__dict__, "owner": None})) is None
+    assert cfg.owner is not None and web.publisher(cfg, "k") is not None
+    assert web.publisher(config.Config(**{**cfg.__dict__, "owner": None}), "k") is None
     assert web.clock().tzinfo is UTC
+
+
+def test_before_the_jobs_make_app_db_the_inbox_says_wait(tmp_path, monkeypatch):
+    cfg = config.load(EXAMPLE)
+    cfg = config.Config(**{**cfg.__dict__, "app_db": tmp_path / "app.db"})
+    monkeypatch.setenv("AGENTC_SECRET", KEY)
+    web.app.dependency_overrides = {web.settings: lambda: cfg}
+    try:
+        r = TestClient(web.app).get("/")
+    finally:
+        web.app.dependency_overrides = {}
+    assert (r.status_code, r.json()["detail"]) == (
+        503,
+        "Starting: no data yet. Try again in a minute.",
+    )
 
 
 def test_the_tap_test_answers_back(client):

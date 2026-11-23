@@ -3,6 +3,7 @@ name = "agentc"
 version = "0.1.0"
 description = "Human-in-the-loop energy agents for a home of smart plugs"
 readme = "README.md"
+license = "Apache-2.0"
 authors = [
     { name = "Sathees Paskaran", email = "73420161+PaSathees@users.noreply.github.com" }
 ]
@@ -13,6 +14,10 @@ dependencies = [
     "pydantic>=2.14.3",
     "uvicorn>=0.54.0",
 ]
+
+[project.urls]
+Source = "https://github.com/PaSathees/agentc-edge"
+Setup = "https://github.com/PaSathees/agentc-edge/blob/main/docs/setup.md"
 
 [project.scripts]
 agentc = "agentc.cli:main"

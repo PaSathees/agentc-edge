@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # edge-hub base setup: Debian on the internal SATA SSD, always on, few writes. Safe to re-run.
-# Run: ssh -t sathees@HOST sudo bash hub-setup.sh, then reboot, then hub-data.sh.
+# Run: ssh -t YOUR_USER@HOST sudo bash hub-setup.sh, then reboot, then hub-data.sh.
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo"; exit 1; }
 [ -s "/home/${SUDO_USER:?}/.ssh/authorized_keys" ] || { echo "no SSH key installed, stopping"; exit 1; }

@@ -4,6 +4,7 @@ A job that breaks never stops the jobs after it (FR-37): an AI outage must not s
 timer check, learning or the heartbeat.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from sqlite3 import Connection
@@ -26,7 +27,7 @@ from agentc import (
 from agentc.config import Config
 from agentc.llm import Llm, OverBudget, Unreachable
 from agentc.notify import Message, NotSent, Publish
-from agentc.owner import Decision
+from agentc.owner import Decision, Outcome
 from agentc.policy import Policy
 from agentc.watcher import Event
 
@@ -47,23 +48,11 @@ PROFILE_DAYS = timedelta(days=28)  # the usual week is built from this many days
 
 
 @dataclass(frozen=True)
-class Outcome:
-    """What came of one signal."""
-
-    event_id: int
-    device: str
-    decision: Decision | None  # None: skipped by code, or no decision passed the checks
-    why: str  # skipped or dropped: why; asked: when it reaches the owner; else ""
-    looked: bool = True  # False: code skipped it, no model call
-    question_id: int | None = None
-
-
-@dataclass(frozen=True)
 class Sender:
     """How messages reach the owner: ntfy, the hub's address and the button secret."""
 
     publish: Publish
-    hub: str
+    base_url: str  # the inbox, as the phone reaches it: the buttons' address
     secret: str
 
 
@@ -80,17 +69,15 @@ def run_due(
     looked: list[Outcome] = []
     sent: list[Message] = []
     if _due(app, site_id, "watch", WATCH_EVERY, now):
-        events += watch_pass(app, energy, cfg, site_id=site_id, now=now)
+        store.expire_questions(app, site_id=site_id, before=now - QUESTION_LIFE)
+        events += _safely(app, site_id, now, "watch", lambda: watch_pass(
+            app, energy, cfg, site_id=site_id, now=now)) or []  # fmt: skip
         if llm:
-            try:
-                looked = look_pass(app, energy, cfg, llm, site_id=site_id, now=now)
-            except Exception as err:  # a bug in the look step: log it, run the other jobs
-                _broken(app, site_id, now, "look_pass_failed", err)
-        if sender:
-            try:
-                sent = send_pass(app, energy, cfg, sender, site_id=site_id, now=now)
-            except Exception as err:  # a bug in sending: the inbox still has every question
-                _broken(app, site_id, now, "send_pass_failed", err)
+            looked = _safely(app, site_id, now, "look_pass", lambda: look_pass(
+                app, energy, cfg, llm, site_id=site_id, now=now)) or []  # fmt: skip
+        if sender:  # a broken send leaves every question in the inbox
+            sent = _safely(app, site_id, now, "send_pass", lambda: send_pass(
+                app, energy, cfg, sender, site_id=site_id, now=now)) or []  # fmt: skip
         store.set_last_run(app, site_id=site_id, job="watch", at=now)
     if sender and _summary_due(app, site_id, now, cfg.tz):
         try:
@@ -100,13 +87,27 @@ def run_due(
         except NotSent as err:  # try again on the next pass
             _broken(app, site_id, now, "not_sent", err)
     if _due(app, site_id, "timers", TIMERS_EVERY, now):
-        events += timer_check(app, cfg, site_id=site_id, now=now)
+        events += _safely(app, site_id, now, "timers", lambda: timer_check(
+            app, cfg, site_id=site_id, now=now)) or []  # fmt: skip
         store.set_last_run(app, site_id=site_id, job="timers", at=now)
     if _due(app, site_id, "learn", LEARN_EVERY, now):
-        learn_pass(app, energy, cfg, site_id=site_id, now=now)
-        events += change_check(app, energy, cfg, site_id=site_id, now=now)
+        _safely(app, site_id, now, "learn", lambda: learn_pass(
+            app, energy, cfg, site_id=site_id, now=now))  # fmt: skip
+        events += _safely(app, site_id, now, "change", lambda: change_check(
+            app, energy, cfg, site_id=site_id, now=now)) or []  # fmt: skip
         store.set_last_run(app, site_id=site_id, job="learn", at=now)
     return events, looked, sent
+
+
+def _safely[T](app: Connection, site_id: int, now: datetime, job: str, run: Callable[[], T]
+               ) -> T | None:  # fmt: skip
+    """Run one job. A bug in it is logged, and the other jobs still run (FR-37: a broken job
+    never stops the others). It runs again at its next time."""
+    try:
+        return run()
+    except Exception as err:
+        _broken(app, site_id, now, f"{job}_failed", err)
+        return None
 
 
 def _broken(app: Connection, site_id: int, now: datetime, action: str, err: Exception) -> None:
@@ -162,7 +163,6 @@ def look_pass(
     rest wait. Any other error counts a try for that event only; after MAX_TRIES it is
     parked (FR-37).
     """
-    store.expire_questions(app, site_id=site_id, before=now - QUESTION_LIFE)
     plugs = {mac: name for name, mac in store.plug_macs(app, site_id=site_id).items()}
     waiting = sorted((pair for kind in LOOKED for pair in store.new_events(app, site_id=site_id,
                                                                           kind=kind)),
@@ -211,6 +211,8 @@ def _look(
         else:
             qid = store.add_question(app, site_id=site_id, event_id=eid, mac=mac, decision=d,
                                      send_at=due, now=now)  # fmt: skip
+            if qid is None:  # another run asked about it first
+                return Outcome(eid, device.name, None, "handled by another run")
             why = "reaches you now" if due == local else f"reaches you at {due:%a %H:%M}"
     detail = {"text": d.text, "why": why, "tools": ", ".join(look.tools)}
     store.add_audit(app, site_id=site_id, at=now, actor="agent", action=d.action, ref=ref,
@@ -259,17 +261,17 @@ def send_pass(
 ) -> list[Message]:  # fmt: skip
     """Send the questions that are due: each day question on its own, the night's together.
 
-    A night question whose device is off by morning is dropped: nothing to ask (3d). If
+    A night question whose device is off by morning is dropped: nothing to ask. If
     ntfy fails, the rest stay unsent and go on the next pass; the inbox has them all.
     """
     plugs = {mac: name for name, mac in store.plug_macs(app, site_id=site_id).items()}
     out: list[tuple[Message, list[int]]] = []
-    nights: list[tuple[owner.Question, str, float]] = []
+    nights: list[tuple[owner.Question, str, float | None]] = []
     for q in store.due_questions(app, site_id=site_id, now=now):
         plug = plugs[q.plug_mac]
         device = config.device(cfg, plug, store.learned(app, mac=q.plug_mac))
         if not owner.held_for_morning(q, tz=cfg.tz):
-            out.append((notify.single(q, device.name, hub=sender.hub, secret=sender.secret),
+            out.append((notify.single(q, device.name, hub=sender.base_url, secret=sender.secret),
                         [q.id]))  # fmt: skip
             continue
         w = _now_w(energy, plug, now)
@@ -278,13 +280,13 @@ def send_pass(
             store.add_audit(app, site_id=site_id, at=now, actor="code", action="off_by_morning",
                             ref=f"question:{q.id}", detail={"watts": f"{w:g}"})  # fmt: skip
             continue
-        nights.append((q, device.name, w if w is not None else 0.0))
+        nights.append((q, device.name, w))
     if len(nights) == 1:
         q, name, _ = nights[0]
-        out.append((notify.single(q, name, hub=sender.hub, secret=sender.secret), [q.id]))
+        out.append((notify.single(q, name, hub=sender.base_url, secret=sender.secret), [q.id]))
     elif nights:
         day = now.astimezone(ZoneInfo(cfg.tz)).date()
-        m = notify.night(nights, day=day, hub=sender.hub, secret=sender.secret)
+        m = notify.night(nights, day=day, hub=sender.base_url, secret=sender.secret)
         out.append((m, [q.id for q, _, _ in nights]))
     sent = []
     for m, ids in out:
@@ -335,7 +337,8 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
     if not 1 <= choice <= len(q.decision.choices):
         raise LookupError(f"Question {question_id} has choices 1 to {len(q.decision.choices)}.")
     c, ref = q.decision.choices[choice - 1], f"question:{question_id}"
-    store.answer_question(app, question_id=question_id, answer=choice, now=now)
+    if not store.answer_question(app, question_id=question_id, answer=choice, now=now):
+        raise LookupError(f"No open question {question_id}.")  # a second tap, at the same time
     store.add_audit(app, site_id=site_id, at=now, actor="owner", action="answer", ref=ref,
                     detail={"choice": c.label, "does": c.does})  # fmt: skip
     plug = next(p for p, m in store.plug_macs(app, site_id=site_id).items() if m == q.plug_mac)

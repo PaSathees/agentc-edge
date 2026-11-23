@@ -222,4 +222,14 @@ def test_month_kwh_under_site_still_counts(tmp_path):
 def test_the_phone_settings_come_from_agentc_hub(monkeypatch, hub, inbox, ntfy):
     monkeypatch.setenv("AGENTC_HUB", hub)
     o = config.owner()
-    assert o is not None and (o.inbox_url, o.phone_ntfy, o.topic) == (inbox, ntfy, "agentc")
+    assert o is not None and (o.inbox_url, o.phone_ntfy, o.topic) == (inbox, ntfy, "")
+
+
+def test_the_secret_file_is_made_once_and_only_the_owner_can_read_it(tmp_path, monkeypatch):
+    monkeypatch.delenv("AGENTC_SECRET", raising=False)
+    path = tmp_path / "config.toml"
+    path.write_text(MINIMAL)
+    c = config.load(path)
+    first = config.secret(c)
+    assert len(first) == 64 and config.secret(c) == first
+    assert oct((tmp_path / "secret").stat().st_mode)[-3:] == "600"

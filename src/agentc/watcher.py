@@ -1,4 +1,5 @@
-"""The Watcher: checks the readings and finds events. Pure code; it never calls a model."""
+"""Signals: check the readings and find what looks off (saved as events). Code only; it
+never calls a model."""
 
 import statistics
 from collections.abc import Callable

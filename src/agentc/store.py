@@ -6,27 +6,26 @@ JSON columns hold text written with json.dumps.
 
 import json
 import sqlite3
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
-from agentc.calc import Factor, ProfileHour
+from agentc.calc import ProfileHour
 from agentc.devices.base import Automations, PlugRule, Timer
 from agentc.house import SOURCES, Card, Habit
 from agentc.owner import Choice, Decision, Question
 from agentc.watcher import Event
 
-# 2: thresholds a row (B3b). 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
-# 7: questions.sent
-SCHEMA_VERSION = 7
+# 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
+# 7: questions.sent. 8: unused v1 tables dropped
+SCHEMA_VERSION = 8
+UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
 -- One home or plant room; every other row belongs to one
 CREATE TABLE IF NOT EXISTS sites (
     id        INTEGER PRIMARY KEY,
     name      TEXT NOT NULL,
-    tz        TEXT NOT NULL,
-    lat       REAL,
-    lon       REAL
+    tz        TEXT NOT NULL
 );
 -- The hardware, keyed by MAC; name matches readings.plug in energy.db
 CREATE TABLE IF NOT EXISTS plugs (
@@ -39,26 +38,6 @@ CREATE TABLE IF NOT EXISTS plugs (
     reachable   INTEGER NOT NULL DEFAULT 1 CHECK (reachable IN (0, 1)),
     last_error  TEXT,
     timers_on   INTEGER CHECK (timers_on IN (0, 1))  -- the plug's global Timers switch
-);
--- What is plugged in; access and the timer slots the system may use
-CREATE TABLE IF NOT EXISTS devices (
-    id      INTEGER PRIMARY KEY,
-    site_id INTEGER NOT NULL REFERENCES sites(id),
-    name    TEXT NOT NULL,
-    room    TEXT,
-    type    TEXT,
-    rated_w REAL,
-    access  TEXT NOT NULL DEFAULT 'advice' CHECK (access IN ('none', 'advice', 'write')),
-    slots   TEXT NOT NULL DEFAULT '9-16'
-);
--- Which device was on which plug, and when (devices move)
-CREATE TABLE IF NOT EXISTS placements (
-    site_id   INTEGER NOT NULL REFERENCES sites(id),
-    device_id INTEGER NOT NULL REFERENCES devices(id),
-    plug_mac  TEXT NOT NULL REFERENCES plugs(mac),
-    from_utc  TEXT NOT NULL,
-    to_utc    TEXT,
-    PRIMARY KEY (device_id, from_utc)
 );
 -- Last read of each plug's 16 Tasmota timers; fields as Tasmota names them
 CREATE TABLE IF NOT EXISTS timers (
@@ -77,19 +56,6 @@ CREATE TABLE IF NOT EXISTS timers (
     read_at  TEXT,
     PRIMARY KEY (plug_mac, slot)
 );
--- Owner rules per device; hard ones block a proposal, soft ones warn
-CREATE TABLE IF NOT EXISTS rules (
-    id        INTEGER PRIMARY KEY,
-    site_id   INTEGER NOT NULL REFERENCES sites(id),
-    device_id INTEGER NOT NULL REFERENCES devices(id),
-    kind      TEXT NOT NULL CHECK (kind IN
-                ('must_run', 'min_runtime', 'latest_off', 'never_off', 'priority')),
-    params    TEXT NOT NULL DEFAULT '{}',
-    hard      INTEGER NOT NULL CHECK (hard IN (0, 1)),
-    weight    REAL NOT NULL DEFAULT 1,
-    origin    TEXT NOT NULL CHECK (origin IN ('owner', 'rejection', 'chat')),
-    active    INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))
-);
 -- Usual power per plug for each hour of the week (0 = Monday 00:00)
 CREATE TABLE IF NOT EXISTS profiles (
     site_id   INTEGER NOT NULL REFERENCES sites(id),
@@ -100,7 +66,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     days_used INTEGER NOT NULL,
     PRIMARY KEY (plug_mac, hour)
 );
--- How far above its profile a plug must go to raise an event
+-- Values learned per plug, each with why (e.g. its standby level)
 CREATE TABLE IF NOT EXISTS thresholds (
     site_id  INTEGER NOT NULL REFERENCES sites(id),
     plug_mac TEXT NOT NULL REFERENCES plugs(mac),
@@ -110,71 +76,17 @@ CREATE TABLE IF NOT EXISTS thresholds (
     at       TEXT NOT NULL,
     PRIMARY KEY (plug_mac, name)
 );
--- Open-Meteo hourly temperature, forecast and actual
-CREATE TABLE IF NOT EXISTS weather (
-    site_id  INTEGER NOT NULL REFERENCES sites(id),
-    ts_utc   TEXT NOT NULL,
-    temp_c   REAL,
-    forecast INTEGER NOT NULL CHECK (forecast IN (0, 1)),
-    PRIMARY KEY (site_id, ts_utc, forecast)
-);
--- Grid factor and tariff, each with its source; reports cite the id
-CREATE TABLE IF NOT EXISTS factors (
-    id         TEXT PRIMARY KEY,
-    site_id    INTEGER NOT NULL REFERENCES sites(id),
-    kind       TEXT NOT NULL CHECK (kind IN ('grid', 'tariff')),
-    value      TEXT NOT NULL,
-    unit       TEXT NOT NULL,
-    source     TEXT NOT NULL,
-    valid_from TEXT NOT NULL
-);
--- Monthly kgCO2e goal
-CREATE TABLE IF NOT EXISTS goals (
-    site_id INTEGER NOT NULL REFERENCES sites(id),
-    month   TEXT NOT NULL,
-    kgco2e  REAL NOT NULL,
-    PRIMARY KEY (site_id, month)
-);
--- What the Watcher saw; dedupe (plug + kind + day) stops repeats
+-- The signals; dedupe (plug + kind + day) stops repeats
 CREATE TABLE IF NOT EXISTS events (
     id        INTEGER PRIMARY KEY,
     site_id   INTEGER NOT NULL REFERENCES sites(id),
     kind      TEXT NOT NULL,
     plug_mac  TEXT REFERENCES plugs(mac),
-    device_id INTEGER REFERENCES devices(id),
     start_utc TEXT NOT NULL,
     facts     TEXT NOT NULL DEFAULT '{}',
     status    TEXT NOT NULL DEFAULT 'new',  -- new, done (looked at), skipped or parked
     tries     INTEGER NOT NULL DEFAULT 0,  -- failed attempts to answer it
     dedupe    TEXT NOT NULL UNIQUE
-);
--- Agent output, one row per version; body is the JSON contract
-CREATE TABLE IF NOT EXISTS proposals (
-    id       INTEGER NOT NULL,
-    version  INTEGER NOT NULL DEFAULT 1,
-    site_id  INTEGER NOT NULL REFERENCES sites(id),
-    event_id INTEGER REFERENCES events(id),
-    source   TEXT NOT NULL CHECK (source IN ('responder', 'planner', 'assistant', 'owner')),
-    body     TEXT NOT NULL,
-    status   TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'blocked', 'open',
-               'rejected', 'expired', 'approved', 'recorded', 'written', 'verified', 'failed')),
-    created  TEXT NOT NULL,
-    PRIMARY KEY (id, version)
-);
--- Each timer write with before, after and read back; Undo restores before
-CREATE TABLE IF NOT EXISTS writes (
-    id          INTEGER PRIMARY KEY,
-    site_id     INTEGER NOT NULL REFERENCES sites(id),
-    proposal_id INTEGER NOT NULL,
-    version     INTEGER NOT NULL,
-    plug_mac    TEXT NOT NULL REFERENCES plugs(mac),
-    slot        INTEGER NOT NULL CHECK (slot BETWEEN 1 AND 16),
-    before      TEXT NOT NULL,
-    after       TEXT NOT NULL,
-    read_back   TEXT,
-    ok          INTEGER CHECK (ok IN (0, 1)),
-    ts_utc      TEXT NOT NULL,
-    FOREIGN KEY (proposal_id, version) REFERENCES proposals(id, version)
 );
 -- Append-only history of every change, by code, agent or owner
 CREATE TABLE IF NOT EXISTS audit (
@@ -200,7 +112,6 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     tokens_out     INTEGER,
     usd            REAL,
     latency_ms     INTEGER,
-    proposal_id    INTEGER,
     ts_utc         TEXT NOT NULL
 );
 -- What the device on each plug is: the house model's card (FR-30). One row a plug
@@ -262,14 +173,24 @@ CREATE TABLE IF NOT EXISTS settings (
 """
 
 
-def connect(path: str | Path) -> sqlite3.Connection:
-    """Open app.db, creating any missing table. Safe to call on every start."""
+def open_app(path: str | Path) -> sqlite3.Connection:
+    """Open app.db as it is, with no schema change: for each web request."""
     db = sqlite3.connect(path)
-    db.execute("PRAGMA journal_mode = WAL")
     db.execute("PRAGMA foreign_keys = ON")
     db.execute("PRAGMA busy_timeout = 5000")
-    if db.execute("PRAGMA user_version").fetchone()[0] == 1:
+    return db
+
+
+def connect(path: str | Path) -> sqlite3.Connection:
+    """Open app.db, creating any missing table. Safe to call on every start."""
+    db = open_app(path)
+    db.execute("PRAGMA journal_mode = WAL")
+    version = db.execute("PRAGMA user_version").fetchone()[0]
+    if version == 1:
         db.execute("DROP TABLE IF EXISTS thresholds")  # version 1's shape; never written to
+    if version < 8:  # version 1 tables, never used now; Phase 4 adds back what it needs
+        for table in UNUSED:
+            db.execute(f"DROP TABLE IF EXISTS {table}")
     db.executescript(SCHEMA)
     if "tries" not in [col[1] for col in db.execute("PRAGMA table_info(events)")]:
         db.execute("ALTER TABLE events ADD COLUMN tries INTEGER NOT NULL DEFAULT 0")  # before 3
@@ -287,6 +208,15 @@ def add_site(db: sqlite3.Connection, *, name: str, tz: str) -> int:
             sql = "INSERT INTO sites (name, tz) VALUES (?, ?) RETURNING id"
             row = db.execute(sql, (name, tz)).fetchone()
     return row[0]
+
+
+def site_id(db: sqlite3.Connection, *, name: str) -> int | None:
+    """The site's id, or None if it is not there yet (or app.db is not made yet)."""
+    try:
+        row = db.execute("SELECT id FROM sites WHERE name = ?", (name,)).fetchone()
+    except sqlite3.OperationalError:  # no tables yet: the jobs make them on their first start
+        return None
+    return row[0] if row else None
 
 
 def plug_mac(db: sqlite3.Connection, *, name: str) -> str | None:
@@ -391,30 +321,6 @@ def learned(db: sqlite3.Connection, *, mac: str) -> dict[str, tuple[float, str]]
     """A plug's learned policy values: name -> (value, why)."""
     sql = "SELECT name, value, why FROM thresholds WHERE plug_mac = ? ORDER BY name"
     return {name: (value, why) for name, value, why in db.execute(sql, (mac,))}
-
-
-def save_grid_factor(db: sqlite3.Connection, *, site_id: int, factor: Factor) -> None:
-    """Store a grid emission factor; an older one stays, for the months it applied to."""
-    with db:
-        db.execute(
-            "INSERT INTO factors (id, site_id, kind, value, unit, source, valid_from)"
-            " VALUES (?, ?, 'grid', ?, 'kgCO2e/kWh', ?, ?)",
-            (factor.id, site_id, str(factor.value), factor.source, factor.valid_from),
-        )
-
-
-def grid_factor(db: sqlite3.Connection, *, site_id: int, on: date) -> Factor | None:
-    """The grid factor in force on a date: the newest that had started by then."""
-    row = db.execute(
-        """SELECT id, value, source, valid_from FROM factors
-           WHERE site_id = ? AND kind = 'grid' AND valid_from <= ?
-           ORDER BY valid_from DESC LIMIT 1""",
-        (site_id, on.isoformat()),
-    ).fetchone()
-    if row is None:
-        return None
-    factor_id, value, source, valid_from = row
-    return Factor(factor_id, float(value), source, valid_from)
 
 
 def add_audit(
@@ -596,10 +502,16 @@ def end_habit(db: sqlite3.Connection, *, habit_id: int, now: datetime) -> None:
 def add_question(
     db: sqlite3.Connection, *, site_id: int, event_id: int, mac: str, decision: Decision,
     send_at: datetime, now: datetime,
-) -> int:  # fmt: skip
-    """Save an ask or a proposal for the owner; return its id."""
+) -> int | None:  # fmt: skip
+    """Save an ask or a proposal for the owner; return its id. Its event is marked done in
+    the same transaction, so a restart never asks about the same event twice. None: another
+    run handled the event first, so nothing is saved."""
     choices = json.dumps([c.__dict__ for c in decision.choices])
     with db:
+        taken = db.execute("UPDATE events SET status = 'done' WHERE id = ? AND status = 'new'",
+                           (event_id,)).rowcount  # fmt: skip
+        if taken == 0:
+            return None
         cur = db.execute(
             "INSERT INTO questions (site_id, event_id, plug_mac, action, text, choices, send_at,"
             " created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -636,11 +548,13 @@ def count_questions(
 
 def answer_question(
     db: sqlite3.Connection, *, question_id: int, answer: int, now: datetime
-) -> None:
+) -> bool:
+    """Record the answer if the question is still open. False if it was not (a second tap)."""
     with db:
-        db.execute("UPDATE questions SET status = 'answered', answer = ?, answered = ?"
-                   " WHERE id = ?",
-                   (answer, now.astimezone(UTC).isoformat(), question_id))  # fmt: skip
+        cur = db.execute("UPDATE questions SET status = 'answered', answer = ?, answered = ?"
+                         " WHERE id = ? AND status = 'open'",
+                         (answer, now.astimezone(UTC).isoformat(), question_id))  # fmt: skip
+    return cur.rowcount == 1
 
 
 def ask_again(db: sqlite3.Connection, *, question_id: int, at: datetime) -> None:

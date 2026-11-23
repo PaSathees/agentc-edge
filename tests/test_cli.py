@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import cli, config, jobs, notify, store, watcher, words
+from agentc import cli, config, jobs, notify, owner, store, watcher, words
 from agentc.devices import tasmota
 from agentc.owner import Decision
 from agentc.policy import Policy
@@ -198,7 +198,7 @@ def test_replay_lists_the_events_and_leaves_app_db_alone(cfg, capsys, tmp_path):
     code, out = run(cfg, capsys, "replay", "--days", "8")
     assert code == 0
     assert out.startswith("1. 3D printer: on at an unusual time from ")  # the device's name
-    assert out.endswith("Events in 8 days: 1\n")
+    assert out.endswith("Signals in 8 days: 1\n")
     assert store.load_events(store.connect(tmp_path / "app.db"), site_id=1) == []
 
 
@@ -276,10 +276,10 @@ def test_watch_sends_due_questions_to_the_phone(cfg, capsys, tmp_path, monkeypat
     app = store.connect(tmp_path / "app.db")
     left_on = Event("left_on", "AA:00:00:00:00:01", start, {"minutes": 40, "peak_w": 30.0})
     store.add_event(app, site_id=1, event=left_on, dedupe="d")
-    # by day the question is sent at once; at night it waits, so allow both
+    monkeypatch.setattr(owner, "send_at", lambda local, watts, **kw: local)  # day or night: now
     out = run(cfg, capsys, "watch", step=decides("ask"), publish=sent.append)[1]
     assert cli.NO_HUB not in out
-    assert ("Sent: Desk 2\n" in out) == (len(sent) == 1)
+    assert "Sent: Desk 2\n" in out and len(sent) == 1
 
 
 def test_watch_with_a_key_runs_the_housemate(cfg, capsys, tmp_path, monkeypatch):
@@ -392,7 +392,7 @@ def test_replay_uses_each_plugs_policy(cfg, capsys, tmp_path):
     run(cfg, capsys, "timers")
     spike_days(tmp_path)  # 8 days: touches 9 dates
     with_policy(cfg, "min_days = 10")  # so no profile, and no event
-    assert run(cfg, capsys, "replay", "--days", "8")[1] == "Events in 8 days: 0\n"
+    assert run(cfg, capsys, "replay", "--days", "8")[1] == "Signals in 8 days: 0\n"
 
 
 # learning (B3b)
@@ -507,8 +507,10 @@ def test_ping_sends_one_test_message(cfg, capsys, monkeypatch):
     monkeypatch.setenv("AGENTC_HUB", "http://192.0.2.50")
     sent = []
     code, out = run(cfg, capsys, "ping", publish=sent.append)
+    topic = notify.topic(config.Owner("http://192.0.2.50"), "s3cret")
+    assert topic.startswith("agentc-") and len(topic) == 19  # hard to guess, not "agentc"
     assert code == 0 and out.startswith(
-        "In the ntfy app: add server http://192.0.2.50:8090, subscribe to agentc\n"
+        f"In the ntfy app: add server http://192.0.2.50:8090, subscribe to {topic}\n"
         "Inbox: http://192.0.2.50:8765/\nSent at "
     )
     (m,) = sent
@@ -534,14 +536,32 @@ def test_ping_with_ntfy_out_of_reach(cfg, capsys, monkeypatch):
 # one-command setup (3d2): find, log, run
 
 
-def test_find_prints_the_plugs_lines_in_address_order(capsys, monkeypatch):
+def test_find_prints_the_plugs_lines_in_address_order(capsys, monkeypatch, tmp_path):
     info = tasmota.Info(mac="AA", hostname="tasmota-1")
     monkeypatch.setattr(tasmota, "find", lambda hosts: [("192.0.2.12", info), ("192.0.2.9", info)])
-    code = cli.main(["find", "192.0.2.0/24"])
+    monkeypatch.setattr(cli.logger, "read_plug", lambda *a, **kw: ("", "", None, None))  # metered
+    code = cli.main(["--config", str(tmp_path / "none.toml"), "find", "192.0.2.0/24"])
     out = capsys.readouterr().out
-    assert code == 0 and out.startswith("Asking 254 addresses in 192.0.2.0/24 ...\nFound 2.")
+    assert code == 0 and out.startswith("Asking 254 addresses in 192.0.2.0/24 ...\nFound 2 ")
     assert '"Plug-1" = "192.0.2.9"  # tasmota-1\n"Plug-2" = "192.0.2.12"  # tasmota-1\n' in out
     assert out.endswith(f"AGENTC_HUB=http://{tasmota.this_ip()}\n")
+
+
+def test_find_skips_known_plugs_and_devices_without_a_meter(cfg, plugs, capsys, monkeypatch):
+    extra = FakePlug(mac="AA:00:00:00:00:03")
+    extra.start()
+    bulb = tasmota.Info(mac="BB", hostname="bulb-4")
+    found = [(plugs["Plug-1"].ip, tasmota.Info("AA", "p1")), (extra.ip, tasmota.Info("AC", "p3")),
+             ("127.0.0.1:1", bulb)]  # fmt: skip
+    monkeypatch.setattr(tasmota, "find", lambda hosts: found)
+    try:
+        out = run(cfg, capsys, "find", "192.0.2.0/24")[1]
+    finally:
+        extra.stop()
+    assert "Found 3 Tasmota devices, 2 with an energy sensor." in out
+    assert f'"Plug-3" = "{extra.ip}"  # p3\n' in out
+    assert "Already in config.toml: Plug-1\n" in out
+    assert "No energy sensor, so of no use here: 127.0.0.1:1 (bulb-4)\n" in out
 
 
 def test_find_with_nothing_found(capsys, monkeypatch):
@@ -575,3 +595,20 @@ def test_the_jobs_loop_waits_for_the_logger_then_runs_each_minute(cfg, capsys, t
     out = capsys.readouterr().out
     assert store.last_run(db, site_id=1, job="watch") is not None and naps == [60, 60, 60]
     assert out.startswith("Running every 60 s.") and "Nothing new" not in out
+
+
+def test_a_failed_pass_is_printed_and_the_loop_goes_on(cfg, capsys, tmp_path, monkeypatch):
+    c = config.load(cfg)
+    db = store.connect(c.app_db)
+    store.add_site(db, name=c.site, tz=c.tz)
+    write_energy_db(tmp_path / "energy.db", "Plug-1", 1)
+
+    def locked(*a, **kw):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(cli, "show_watch", locked)
+    naps = []
+    cli.show_run(db, c, site_id=1, model=None, sender=None, rounds=2, sleep=naps.append)
+    out = capsys.readouterr().out
+    assert out.count("Pass failed, trying again in 60 s: OperationalError: database is locked") == 2
+    assert naps == [60, 60]

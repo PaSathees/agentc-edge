@@ -119,6 +119,7 @@ def test_remind_later_sends_it_again(app, tmp_path, phone):  # noqa: F811
     qid, noon = asked(app, "AA", due=MONDAY + timedelta(hours=12)), MONDAY + timedelta(hours=12)
     db = readings(tmp_path, {})
     send(app, db, phone, now=noon)
+    assert qid is not None
     store.ask_again(app, question_id=qid, at=noon + timedelta(hours=2))
     assert len(send(app, db, phone, now=noon + timedelta(hours=2))) == 1
 
@@ -218,3 +219,11 @@ def test_after_one_refusal_the_rest_wait_for_the_next_pass(app, tmp_path, phone)
     assert jobs.send_pass(app, readings(tmp_path, {}), CFG, jobs.Sender(flaky, HUB, KEY),
                           site_id=1, now=noon) == []  # fmt: skip
     assert len(calls) == 1  # no second try in the same pass
+
+
+def test_a_question_is_answered_once_in_the_database(app):  # noqa: F811 (two taps at once)
+    qid = asked(app, "AA")
+    assert qid is not None
+    assert store.answer_question(app, question_id=qid, answer=2, now=MORNING) is True
+    assert store.answer_question(app, question_id=qid, answer=1, now=MORNING) is False
+    assert store.questions(app, site_id=1)[0].answer == 2  # the first tap stands

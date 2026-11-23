@@ -33,8 +33,11 @@ class TasmotaPlug:
 
     def clock(self) -> Clock:
         tim = self._get("Status 7", "StatusTIM")
-        utc = datetime.fromisoformat(tim["UTC"]).replace(tzinfo=UTC)
-        return Clock(utc=utc, timezone=tim["Timezone"])
+        try:
+            utc = datetime.fromisoformat(tim["UTC"]).replace(tzinfo=UTC)
+            return Clock(utc=utc, timezone=tim["Timezone"])
+        except (KeyError, TypeError, ValueError) as err:
+            raise PlugError(f"{self.ip}: unreadable clock answer: {err!r}") from err
 
     def automations(self) -> Automations:
         """Auto-off (PulseTime1) and the 3 rules. Asking with no value only reads them."""

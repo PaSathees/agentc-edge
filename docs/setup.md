@@ -1,16 +1,16 @@
 # Setup
 
-Six steps, about 20 minutes. Everything runs in Docker on one always-on computer at home.
+Six steps, about 20 minutes. Everything runs in Docker on one always-on computer at home: the hub.
 
 ```
-smart plugs (Wi-Fi) ──► this box: docker compose ──► your phone (ntfy app)
+smart plugs (Wi-Fi) ──► the hub: docker compose ──► your phone (ntfy app)
                          logger · jobs · inbox · ntfy
 ```
 
 ## What you need
 
 - **Smart plugs running [Tasmota](https://tasmota.github.io/docs/) with an energy sensor**, on your home Wi-Fi. A plug fits if its web page shows watts. Give each one a fixed address in your router, so it does not move.
-- **An always-on computer on the same network, with Docker**: an old laptop, a Raspberry Pi 4 or 5, or a mini PC running Linux. Install Docker with your system's packages (Debian or Ubuntu: `sudo apt install docker.io docker-compose`), then add yourself to the `docker` group and log in again.
+- **An always-on computer on the same network (the hub), with Docker and Compose 2.24 or newer**: an old laptop, a Raspberry Pi 4 or 5, or a mini PC running Linux. Install them with [Docker's guide](https://docs.docker.com/engine/install/), or your system's packages if they are new enough (Debian 13: `sudo apt install docker.io docker-compose`). Check with `docker compose version`. Then add yourself to the `docker` group and log in again.
 - **The [ntfy](https://ntfy.sh/) app** on your phone (App Store, Google Play or F-Droid).
 - **Optional: an [Anthropic API key](https://console.anthropic.com/).** Without it you still get readings, signals and health notices; with it, the housemate looks into each signal and asks you short questions. It is capped at USD 3 a month by default; one home used about USD 0.001 a look.
 
@@ -38,14 +38,11 @@ It asks each address on your home network whether it is a Tasmota plug. It only 
 
 ## 4. Make your `.env`
 
-`find` also printed this box's address. Put it in a file called `.env`, with your API key if you have one:
-
 ```bash
-AGENTC_HUB=http://192.168.1.50
-ANTHROPIC_API_KEY=sk-ant-...
+cp .env.example .env
 ```
 
-If `id -u` does not print `1000`, add `AGENTC_UID=` and `AGENTC_GID=` with your own numbers, so the files in `./data` stay yours.
+Fill in `AGENTC_HUB` with the hub's address, which `find` printed (`AGENTC_HUB=http://192.168.1.50`), and your API key if you have one. If `id -u` does not print `1000`, also set `AGENTC_UID` and `AGENTC_GID` to your own numbers, so the files in `./data` stay yours.
 
 ## 5. Start
 
@@ -59,7 +56,7 @@ This starts four services:
 |---|---|
 | `logger` | Reads every plug once a minute into `data/energy.db` |
 | `jobs` | Every minute: signals, the housemate, messages. Learns each plug's usual week daily |
-| `web` | The inbox at `http://<this box>:8765` |
+| `web` | The inbox at `http://<the hub>:8765` |
 | `ntfy` | Sends messages to your phone |
 
 ## 6. Connect your phone
@@ -88,26 +85,31 @@ Nothing here switches a plug. This version only watches and asks (shadow mode).
 
 ## Away from home: Tailscale (optional)
 
-To get and answer messages outside your home Wi-Fi, use [Tailscale](https://tailscale.com/), a private network between your own devices. Install it on this box and on your phone, turn on HTTPS in the Tailscale admin page, then:
+To get and answer messages outside your home Wi-Fi, use [Tailscale](https://tailscale.com/), a private network between your own devices. Install it on the hub and on your phone, and sign in to both. Then put the hub's Tailscale address in `.env`:
 
 ```bash
-sudo tailscale serve --bg --https=443 http://127.0.0.1:8765
-sudo tailscale serve --bg --https=8443 http://127.0.0.1:8090
+AGENTC_HUB=http://100.x.y.z        # from `tailscale ip -4` on the hub
 ```
 
-Set `AGENTC_HUB=https://<this box's name>.<your tailnet>.ts.net` in `.env`, run `docker compose up -d`, then `agentc ping` again and add the new server in the ntfy app. No port is opened to the internet.
+Run `docker compose up -d`, then `agentc ping` again. In the ntfy app, subscribe on the new server it prints, and delete the old subscription and its messages: an old message's buttons still point at the old address.
+
+- **Keep Tailscale on, at home too.** The phone reaches the hub only through it now. At home Tailscale goes straight over your Wi-Fi, so nothing leaves the house. On iPhone, turn VPN On Demand off, or include your home Wi-Fi in it.
+- **No HTTPS or `tailscale serve` is needed.** Tailscale already encrypts the traffic between your devices, and no port is opened to the internet.
+- After the phone changes network (Wi-Fi to mobile data), the first page or tap can take a few seconds while Tailscale reconnects.
 
 ## Who can do what
 
-- Anyone on your home network (or your tailnet) can open the inbox page. Answers need a button's signed token, so a guessed address does nothing.
-- On iPhone, ntfy.sh only relays a message id to wake the app; the text comes from this box.
-- The housemate's prompts never contain IP or MAC addresses.
+- **The inbox and ntfy are open to your network.** Anyone on your home network, or your tailnet, can open the inbox page, answer from it, and read your messages in ntfy if they learn the topic. So keep the hub on a network you trust. The topic is made from the hub's secret, so it is hard to guess.
+- A button's address only works with its signed token: a guessed address does nothing.
+- On iPhone, ntfy.sh only relays a message id to wake the app; the text comes from the hub.
+- The housemate's prompts never contain IP or MAC addresses. ntfy never sees your API key.
+- Nothing switches a plug yet. Before Phase 4 does, the inbox and ntfy get a login.
 
 ## If something is wrong
 
 | Problem | Try |
 |---|---|
-| `find` finds nothing | The plugs and this box must be on the same network. On a Mac or Windows with Docker Desktop, turn on host networking, or give the network: `find 192.168.1.0/24` |
+| `find` finds nothing | The plugs and the hub must be on the same network. On a Mac or Windows with Docker Desktop, turn on host networking, or give the network: `find 192.168.1.0/24` |
 | No messages | `AGENTC_HUB` in `.env`, then `docker compose up -d`; `agentc ping` again |
 | No signals after a week | `docker compose logs logger`: every plug should be `ok` |
 | Anything else | `docker compose logs`, then open an issue with what it printed |

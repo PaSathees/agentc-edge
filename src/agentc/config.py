@@ -47,11 +47,13 @@ SLOTS = tuple(range(9, 17))  # timers the system may use; 1 to 8 stay the owner'
 
 @dataclass(frozen=True)
 class Owner:
-    """Where messages to the owner go (FR-31, Phase 3d), from .env: AGENTC_HUB is how the
-    phone reaches this box. http://192.168.1.50 at home; https://NAME.ts.net with Tailscale."""
+    """Where messages to the owner go (FR-31: questions on the phone), from .env.
+
+    AGENTC_HUB is how the phone reaches the hub: http://192.168.1.50 at home, http://100.x.y.z
+    with Tailscale, or https://NAME.ts.net behind Tailscale Serve."""
 
     hub: str  # no port, no trailing slash
-    topic: str = "agentc"  # the ntfy topic the phone subscribes to
+    topic: str = ""  # the ntfy topic; empty: made from the secret, so nobody can guess it
     ntfy_url: str = "http://127.0.0.1:8090"  # where this app publishes: ntfy in the same stack
 
     @property
@@ -69,7 +71,7 @@ def owner() -> Owner | None:
     """The phone's settings from the environment (.env). None: AGENTC_HUB not set."""
     if not (hub := os.environ.get("AGENTC_HUB", "").rstrip("/")):
         return None
-    return Owner(hub, os.environ.get("AGENTC_TOPIC", "agentc"),
+    return Owner(hub, os.environ.get("AGENTC_TOPIC", ""),
                  os.environ.get("AGENTC_NTFY_URL", "http://127.0.0.1:8090"))  # fmt: skip
 
 
@@ -139,7 +141,9 @@ def load(path: str | Path) -> Config:
         tariff=_tariff(tariff) if tariff else None,
         tariff_source=tariff["source"] if tariff else "",
         levy=tariff.get("levy", 0.0) if tariff else 0.0,
-        month_kwh=(tariff or {}).get("month_kwh", site.get("month_kwh", 0.0)),  # [site]: before 3d2
+        month_kwh=(tariff or {}).get(
+            "month_kwh", site.get("month_kwh", 0.0)
+        ),  # under [site] in older configs
         factor=Factor(carbon["id"], carbon["factor"], carbon["source"], carbon["valid_from"])
         if carbon
         else None,
@@ -160,10 +164,13 @@ def secret(cfg: Config) -> str:
     if s := os.environ.get("AGENTC_SECRET", ""):
         return s
     path = cfg.app_db.parent / "secret"
-    if not path.exists():
-        path.write_text(secrets.token_hex(32))
-        path.chmod(0o600)
-    return path.read_text().strip()
+    try:  # made in one step, readable by the owner only; a second process just reads it
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        return path.read_text().strip()
+    with os.fdopen(fd, "w") as f:
+        f.write(key := secrets.token_hex(32))
+    return key
 
 
 def _device(plug: str, d: dict[str, Any], site: Policy) -> Device:

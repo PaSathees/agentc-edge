@@ -30,15 +30,15 @@ from agentc import (
 from agentc.config import Config
 from agentc.devices import tasmota
 from agentc.devices.base import describe
+from agentc.owner import Outcome
 from agentc.policy import explain
 from agentc.watcher import Event
-from agentc.words import decision_words, event_words
+from agentc.words import decision_words, event_words, outcome_words, week_table
 
-DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 REPLAY_EVERY = timedelta(
     minutes=15
 )  # replay steps coarser than the 5-min pass: same events, faster
-NO_KEY = "No ANTHROPIC_API_KEY: the housemate did not run. Run with `uv run --env-file .env`."
+NO_KEY = "No ANTHROPIC_API_KEY in .env: the housemate did not look. Add it, then restart."
 
 
 def main(
@@ -50,7 +50,7 @@ def main(
     args = _parser().parse_args(argv)
 
     if args.command == "find":  # before config.toml exists: it helps write it
-        return show_find(args.network)
+        return show_find(args.network, args.config)
     if args.command == "eval":  # needs no config.toml: the evals bring their own
         model = _step(step) if args.live else None
         if args.live and model is None:
@@ -134,8 +134,12 @@ def _parser() -> argparse.ArgumentParser:
     profile = commands.add_parser("profile", help="build one plug's week of use and save it")
     profile.add_argument("plug", help="a name from config.toml, e.g. Plug-2")
     profile.add_argument("--days", type=int, default=28, help="how far back to look")
-    commands.add_parser("watch", help="run the checks that are due now and show new events")
-    replay = commands.add_parser("replay", help="play past days through the Watcher")
+    commands.add_parser(
+        "watch", help="run the due jobs once and show new signals (debugging; the service is `run`)"
+    )
+    replay = commands.add_parser(
+        "replay", help="play past days through the signals (and the housemate)"
+    )
     replay.add_argument("--days", type=int, default=14, help="how many days to play")
     replay.add_argument("--look", action="store_true", help="the housemate looks too (costs)")
     commands.add_parser("learn", help="learn each plug's levels from its readings, and show them")
@@ -278,20 +282,6 @@ def show_profile(db: Connection, cfg: Config, *, site_id: int, plug: str, days: 
     return 0
 
 
-def week_table(profile: list[calc.ProfileHour]) -> str:
-    """Usual watts (the median): one row per hour, one column per day."""
-    watts = {p.hour: p.median_w for p in profile}
-    lines = ["Hour " + "".join(f"{day:>7}" for day in DAYS)]
-    for hour in range(24):
-        cells = [watts.get(day * 24 + hour) for day in range(7)]
-        lines.append(f"{hour:02d}:00" + "".join(_cell(w) for w in cells))
-    return "\n".join(lines)
-
-
-def _cell(w: float | None) -> str:
-    return f"{'-':>7}" if w is None else f"{w:>7.1f}"  # "-" = no readings in that hour
-
-
 def _step(step: llm.StepSend | None) -> llm.StepSend | None:
     """The model to use: the stand-in, else the real one if a key is set, else None."""
     if step is None and os.environ.get("ANTHROPIC_API_KEY"):
@@ -314,11 +304,13 @@ def _sender(cfg: Config, publish: notify.Publish | None) -> jobs.Sender | None:
     """How messages reach the phone, or None: no AGENTC_HUB in .env."""
     if cfg.owner is None:
         return None
-    return jobs.Sender(publish or notify.ntfy(cfg.owner), cfg.owner.inbox_url, config.secret(cfg))
+    secret = config.secret(cfg)
+    return jobs.Sender(publish or notify.ntfy(cfg.owner, secret), cfg.owner.inbox_url, secret)
 
 
-def show_find(network: str | None) -> int:
-    """Ask every address on the home network if it is a Tasmota plug; print config lines."""
+def show_find(network: str | None, cfg_path: Path) -> int:
+    """Ask every address on the home network if it is a Tasmota plug; print config lines for
+    the new ones with an energy sensor. Reads only."""
     net = ipaddress.IPv4Network(network, strict=False) if network else tasmota.home_network()
     print(f"Asking {net.num_addresses - 2} addresses in {net} ...")
     found = sorted(tasmota.find(str(h) for h in net.hosts()),
@@ -326,9 +318,20 @@ def show_find(network: str | None) -> int:
     if not found:
         print("No Tasmota plugs found. Are they on this network, with Wi-Fi set up?")
         return 1
-    print(f"Found {len(found)}. Paste under [plugs] in config.toml, and rename as you like:")
-    for n, (ip, info) in enumerate(found, 1):
-        print(f'"Plug-{n}" = "{ip}"  # {info.hostname}')
+    known = (
+        {ip: name for name, ip in config.load(cfg_path).plugs.items()} if cfg_path.is_file() else {}
+    )
+    metered = [(ip, i) for ip, i in found if logger.read_plug("", ip, "", timeout_s=2)[-1] is None]
+    new = [(ip, i) for ip, i in metered if ip not in known]
+    print(f"Found {len(found)} Tasmota devices, {len(metered)} with an energy sensor.")
+    if new:
+        print("Paste the new ones under [plugs] in config.toml, and rename as you like:")
+        for n, (ip, info) in enumerate(new, len(known) + 1):
+            print(f'"Plug-{n}" = "{ip}"  # {info.hostname}')
+    if had := [known[ip] for ip, _ in metered if ip in known]:
+        print(f"Already in config.toml: {', '.join(had)}")
+    if bare := [f"{ip} ({i.hostname})" for ip, i in found if (ip, i) not in metered]:
+        print(f"No energy sensor, so of no use here: {', '.join(bare)}")
     print(f"\nFor the phone, put this box's address in .env: AGENTC_HUB=http://{tasmota.this_ip()}")
     return 0
 
@@ -338,11 +341,12 @@ def show_ping(cfg: Config, sender: jobs.Sender | None) -> int:
     if sender is None or cfg.owner is None:
         print(NO_HUB)
         return 1
-    print(f"In the ntfy app: add server {cfg.owner.phone_ntfy}, subscribe to {cfg.owner.topic}")
+    name = notify.topic(cfg.owner, sender.secret)
+    print(f"In the ntfy app: add server {cfg.owner.phone_ntfy}, subscribe to {name}")
     print(f"Inbox: {cfg.owner.inbox_url}/")
     at = datetime.now(ZoneInfo(cfg.tz)).strftime("%H:%M:%S")
     try:
-        sender.publish(notify.ping(hub=sender.hub, secret=sender.secret, at=at))
+        sender.publish(notify.ping(hub=sender.base_url, secret=sender.secret, at=at))
     except notify.NotSent as err:
         print(err)
         return 1
@@ -390,8 +394,11 @@ def show_run(
     print(f"Running every {RUN_EVERY} s. {'' if model else NO_KEY} {'' if sender else NO_HUB}")
     done = 0
     while rounds is None or done < rounds:
-        if cfg.energy_db.exists():  # on a first start the logger makes it within a minute
-            show_watch(db, cfg, site_id=site_id, model=model, sender=sender, quiet=True)
+        try:
+            if cfg.energy_db.exists():  # on a first start the logger makes it within a minute
+                show_watch(db, cfg, site_id=site_id, model=model, sender=sender, quiet=True)
+        except Exception as err:  # e.g. the database busy for too long: try again next minute
+            print(f"Pass failed, trying again in {RUN_EVERY} s: {type(err).__name__}: {err}")
         done += 1
         sleep(RUN_EVERY)
     return 0
@@ -404,7 +411,7 @@ def _names(db: Connection, cfg: Config, site_id: int) -> dict[str, str]:
 
 
 def show_questions(db: Connection, cfg: Config, *, site_id: int) -> int:
-    """The open questions, as the phone will show them (Phase 3d), with when each is due."""
+    """The open questions, as the phone shows them, with when each is due."""
     names, zone = _names(db, cfg, site_id), ZoneInfo(cfg.tz)
     open_ = store.questions(db, site_id=site_id, status="open")
     for q in open_:
@@ -461,7 +468,7 @@ def show_replay(
     jobs.learn_pass(copy, energy, cfg, site_id=site_id, now=end)  # in the copy only
     model = _llm(copy, cfg, site_id, step) if step else None  # its calls go in the copy too
     events: list[Event] = []
-    looked: list[jobs.Outcome] = []
+    looked: list[Outcome] = []
     at = start + REPLAY_EVERY
     while at <= end:
         events += jobs.watch_pass(copy, energy, cfg, site_id=site_id, now=at)
@@ -471,7 +478,7 @@ def show_replay(
     names = _names(copy, cfg, site_id)
     for n, e in enumerate(events, 1):
         print(f"{n}. {event_words(e, names, tz=cfg.tz)}")
-    print(f"Events in {days} days: {len(events)}")
+    print(f"Signals in {days} days: {len(events)}")
     if model:
         for o in looked:
             print(outcome_words(o))
@@ -480,13 +487,3 @@ def show_replay(
         print(f"Looked at {sum(o.looked for o in looked)}, questions {asked}."
               f" Model calls cost USD {usd:.4f}.")  # fmt: skip
     return 0
-
-
-def outcome_words(o: jobs.Outcome) -> str:
-    """What came of one signal, e.g. "Desk 2: ask: ...", then when it reaches the owner."""
-    if o.decision is None:
-        return f"{o.device}: {o.why}"
-    head = f"{o.device}: {decision_words(o.decision)}"
-    if o.question_id is not None:
-        return f"{head}\n  Question {o.question_id}, {o.why}"
-    return f"{head}\n  ({o.why})" if o.why else head

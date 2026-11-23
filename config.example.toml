@@ -19,23 +19,23 @@ factor = 0.4242
 source = "SLSEA Sri Lanka Energy Balance 2023, Table 9.1, average emission factor"
 valid_from = "2023-01-01"
 
-# Model calls (decision ADR-005). Optional: these are the defaults.
-# The API key goes in .env (ANTHROPIC_API_KEY), never here.
-[llm]
-month_usd = 3.0  # stop all model calls for the rest of the month at this spend
-run_usd = 0.05  # stop one agent run at this spend
-
-[llm.tiers.small]  # the housemate and chat
-model = "claude-haiku-5-5"
-usd_in = 0.10  # USD per million tokens, from the price page
-usd_out = 0.50
-effort = "low"
-
-[llm.tiers.mid]  # Planner
-model = "claude-sonnet-5-5"
-usd_in = 2.0
-usd_out = 10.0
-effort = "medium"
+# Model calls (decision ADR-005). Optional: these are the defaults, so leave them out
+# unless you change one. The API key goes in .env (ANTHROPIC_API_KEY), never here.
+# [llm]
+# month_usd = 3.0  # stop all model calls for the rest of the month at this spend
+# run_usd = 0.05  # stop one agent run at this spend
+#
+# [llm.tiers.small]  # the housemate (and chat, Phase 5)
+# model = "claude-haiku-5-5"
+# usd_in = 0.10  # USD per million tokens, from the price page
+# usd_out = 0.50
+# effort = "low"
+#
+# [llm.tiers.mid]  # the Planner (Phase 5)
+# model = "claude-sonnet-5-5"
+# usd_in = 2.0
+# usd_out = 10.0
+# effort = "medium"
 
 # What is plugged into each plug. Optional: a plug not listed keeps its own name,
 # access "advice" and timer slots 9 to 16. The name is the only one a model sees.
