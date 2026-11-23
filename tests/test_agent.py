@@ -1,10 +1,12 @@
 """The housemate agent's loop: look with tools, then decide; code checks the decision."""
 
+from dataclasses import replace
+
 import pytest
 
 from agentc import agent
 from agentc.agent import Choice, Decision, check_decision
-from agentc.config import Budget, Device
+from agentc.config import Budget, Device, Rule
 from agentc.house import Card
 from agentc.llm import Llm, OverBudget, Unreachable
 from tests.test_agent_tools import CFG, NOW, tools  # noqa: F401 (tools is a fixture)
@@ -35,14 +37,13 @@ class Script:
 
 
 def model(db, script, run_usd=0.05):
-    return Llm(db, 1, CFG.tz, CFG.tiers, Budget(3.0, run_usd), send=None, step_send=script,
-               clock=lambda: NOW)  # fmt: skip
+    return Llm(db, 1, CFG.tz, CFG.tiers, Budget(3.0, run_usd), script, clock=lambda: NOW)
 
 
 def look(tools, script, **kw):  # noqa: F811
     signal = "Desk 2: left on since Mon 02 Nov 01:37, 33 min so far, about 30 W"
     m = model(tools.app, script, **kw)
-    return agent.look(signal, "Desk 2", tools=tools, llm=m, run_id="event:1")
+    return agent.look(signal, "Plug-1", tools=tools, llm=m, run_id="event:1")
 
 
 def test_the_agent_looks_then_decides(tools):  # noqa: F811
@@ -137,6 +138,7 @@ def test_the_run_cap_stops_the_look(tools):  # noqa: F811
 
 
 DESK, CARD, FACTS = Device("Desk 2"), Card("computer"), "about 5 W since 01:51"
+LATE = Rule("latest_off", "02:00", hard=True, text="Desk 2 may run until 02:00")
 
 
 def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
@@ -162,8 +164,19 @@ def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
          "access: 3D printer is never changed, so only ignore or note"),
         (decision(), DESK, Card("fridge"), "must run: Desk 2 is never switched off"),
         (decision("ask", "It used 42 W. Off?"), DESK, CARD, "grounded: not in the facts: 42"),
+        (decision("ask", "About 5 W since 01:51. It is late. Off?"), DESK, CARD,
+         "format: 3 sentences; at most 2, for a phone"),
         (Decision("ignore", "Normal for this hour.", ()), Device("3D printer", access="none"),
          CARD, None),
+        (decision("ask", "About 5 W since 01:51. Off?", Choice("Off", "switch_off_now"),
+                  Choice("Off now", "switch_off_now")), DESK, CARD,
+         "format: two choices do the same"),
+        (decision("propose", "Timer off at 01:30?",
+                  Choice("Timer", "set_timer", "01:30", "07:00", "weekdays")),
+         Device("Desk 2", rules=(LATE,)), CARD, "rule: Desk 2 may run until 02:00"),
+        (decision("propose", "Timer off at 01:30?",
+                  Choice("Timer", "set_timer", "01:30", "07:00", "weekdays")),
+         Device("Desk 2", rules=(replace(LATE, hard=False),)), CARD, None),  # soft: card only
     ],
 )  # fmt: skip
 def test_check_decision(d, device, card, why):
@@ -220,3 +233,17 @@ def test_each_enum_holds_only_values_of_its_type():  # the API refuses a null mi
     for t in agent.TOOLS:
         for kind, values in _enums(t["input_schema"]):
             assert kind == "string" and all(isinstance(v, str) for v in values), t["name"]
+
+
+@pytest.mark.parametrize(
+    ("text", "n"),
+    [("About 5 W since 01:51. Off?", 2), ("It used 0.031 kWh and 2.5 W", 1), ("Normal.", 1),
+     ("Wait... ok", 2), ("", 0)],
+)  # fmt: skip
+def test_sentences_end_at_a_mark_before_a_space_not_in_a_number(text, n):
+    assert agent.sentences(text) == n
+
+
+def test_the_times_the_prompt_gives_are_known():  # "it will reach you at 07:00"
+    d = decision("ask", "About 5 W since 01:51. Off now, or ask me at 07:00?")
+    assert check_decision(d, device=DESK, card=CARD, facts=FACTS) is None

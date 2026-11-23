@@ -22,7 +22,7 @@ valid_from = "2023-01-01"
 month_usd = 3.0  # stop all model calls for the rest of the month at this spend
 run_usd = 0.05  # stop one agent run at this spend
 
-[llm.tiers.small]  # Responder and Assistant
+[llm.tiers.small]  # the housemate and chat
 model = "claude-haiku-5-5"
 usd_in = 0.10  # USD per million tokens, from the price page
 usd_out = 0.50
@@ -56,9 +56,9 @@ access = "none"  # it also powers the printer's controller
 
 # Thresholds (decisions about the home). Optional: `agentc policy` lists them all, with
 # why. Change one for the whole site here, or for one device under its own name, e.g.
-# [devices."Plug-1".policy] with max_off_h = 16 for a TV used only in the evenings.
+# [devices."Plug-8".policy] with night_wake_w = 0 to be woken for a heater at any size.
 # [policy]
-# max_off_h = 12
+# questions_a_day = 3
 
 # Example rates only. Copy yours from your bill or the regulator's published schedule.
 # kind = "block": the month's total picks a schedule (no up_to = no limit), then band by band.

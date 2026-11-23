@@ -1,62 +1,91 @@
-"""Agent evals (docs/evaluation.md): fixed cases in, code scorers on what comes out.
+"""Agent evals (docs/evaluation.md): real nights in, code scorers on what comes out.
 
-A live run asks the real model and records its answers in evals/recorded.json. Every
-commit replays those answers for free. If anything the model reads has changed since,
-the answers are stale and the replay stops: run the live evals again.
+A live run asks the real model and records every step's reply in evals/recorded.json.
+Every commit replays those replies for free. If the prompt, the tools or the brief have
+changed since, the replies are stale and the replay stops: run the live evals again.
 """
 
 import csv
 import gzip
 import hashlib
 import json
+import sqlite3
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from pydantic import ValidationError
-
-from agentc import calc, config, responder, store, watcher
-from agentc.config import Config, Device, Rule, Tier
-from agentc.llm import Llm, Schema, Send
-from agentc.options import Money, Proposal
+from agentc import agent, calc, config, store, watcher, words
+from agentc.agent_tools import Tools
+from agentc.config import Config, Device, Tier
+from agentc.house import Card
+from agentc.llm import Block, Llm, Message, Schema, StepSend
+from agentc.owner import Decision
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDED = ROOT / "evals" / "recorded.json"
 TZ = "Asia/Colombo"
-NOW = datetime(2026, 11, 15, 6, 0, tzinfo=ZoneInfo(TZ))  # desk2.csv.gz ends here
-LATE = Rule("latest_off", "02:00", hard=False, text="Desk 2 may run until 02:00 on work nights")
+DESK, PRINTER = ("Plug-1", "AA:00:00:00:00:01"), ("Plug-2", "AA:00:00:00:00:02")
+TV, BOX = ("Plug-3", "AA:00:00:00:00:03"), ("Plug-4", "AA:00:00:00:00:04")
+CARDS = {
+    DESK[0]: Card("computer", "desk 2", "monitor and speakers",
+                  "An iPhone sleep shortcut switches it off at night"),
+    PRINTER[0]: Card("printer", "workshop", "3D printer and its Raspberry Pi"),
+    TV[0]: Card("media", "living room", "LG TV"),
+    BOX[0]: Card("media", "living room", "PeoTV box (IPTV)"),
+}  # fmt: skip
 
 
 class Stale(Exception):
-    """What the model reads changed after its answers were recorded."""
+    """What the model reads changed after its replies were recorded."""
 
 
 @dataclass(frozen=True)
 class Eval:
     id: str
-    device: Device
-    right: Callable[[Proposal | None, str], bool]  # given the proposal (or None) and the reason
+    plug: tuple[str, str]  # (plug name, MAC)
+    kind: str  # the signal: left_on or unusual_use
+    start: datetime  # when the signal's run started (local)
+    at: datetime  # when the agent looks (local)
+    right: Callable[[Decision | None], bool]
 
 
+def _stops(d: Decision | None) -> bool:
+    """Asks or proposes, and offers to switch it off: it is still drawing power."""
+    return d is not None and d.action in ("ask", "propose") and any(
+        c.does == "switch_off_now" for c in d.choices)  # fmt: skip
+
+
+def _quiet(d: Decision | None) -> bool:
+    """Ignore or note: no question."""
+    return d is not None and d.action in ("ignore", "note")
+
+
+MONDAY = datetime(2026, 11, 2, tzinfo=ZoneInfo(TZ))
+THURSDAY = MONDAY + timedelta(days=10)  # 12 Nov
 LIVE = (
-    Eval("EV-01", Device("Desk 2"), lambda p, _: p is not None and [
-        (c.action, c.time) for c in p.changes] == [("off", "01:30"), ("on", "07:00")]),
-    Eval("EV-03", Device("Desk 2", rules=(LATE,)), lambda p, why: p is None and "02:00" in why),
+    # Desk 2 left on at about 5 W after a late session; the real 1 to 2 Nov night
+    Eval("EV-01", DESK, "left_on", MONDAY.replace(hour=1, minute=37),
+         MONDAY.replace(hour=2, minute=10), _stops),
+    # the 3D printer's Pi on at night: access none, so only ignore or note
+    Eval("EV-05", PRINTER, "left_on", MONDAY.replace(hour=1), MONDAY.replace(hour=2, minute=10),
+         _quiet),
+    # the LG TV on at midday with the PeoTV box: someone is watching (FM-05)
+    Eval("EV-22", TV, "unusual_use", THURSDAY.replace(hour=11, minute=46),
+         THURSDAY.replace(hour=12, minute=30), _quiet),
 )  # fmt: skip
 
 
 @dataclass(frozen=True)
 class Sample:
-    """One go at a case: what the model said, and how the code scored it."""
+    """One go at a case: every step the model sent, and how the code scored it."""
 
-    answers: list[str]  # the first answer, and the retry's if there was one
-    right: bool  # the expected choice
-    checked: bool  # the final answer passed every check, every number grounded among them
-    parsed: bool  # every answer was the JSON asked for
-    option: str  # the option picked in the end; "?" if it was not JSON
+    steps: list[list[Block]]
+    action: str  # the final decision's action; "none" if no decision passed the checks
+    right: bool
+    tools: list[str]
     usd: float
 
 
@@ -67,37 +96,37 @@ class Score:
 
     @property
     def passed(self) -> bool:
-        """At least 90% right, and 100% checked and parsed (thresholds in testing.md)."""
+        """At least 80% right, and every sample decided (so passed every check)."""
         s = self.samples
-        return sum(x.right for x in s) >= 0.9 * len(s) and all(x.checked and x.parsed for x in s)
+        return sum(x.right for x in s) >= 0.8 * len(s) and all(x.action != "none" for x in s)
 
     def line(self) -> str:
-        """One line a case, e.g. "EV-01: right 9/10, checks 10/10, ..., USD 0.0013: PASS"."""
+        """One line a case, e.g. "EV-01: right 5/5, actions ask 5, ..., USD 0.0050: PASS"."""
         s, n = self.samples, len(self.samples)
-        right, checked, parsed = (sum(x.right for x in s), sum(x.checked for x in s),
-                                  sum(x.parsed for x in s))  # fmt: skip
-        picked = ", ".join(f"{k} {v}" for k, v in sorted(Counter(x.option for x in s).items()))
-        return (f"{self.id}: right {right}/{n}, checks {checked}/{n}, format {parsed}/{n},"
-                f" picked {picked}, USD {sum(x.usd for x in s):.4f}:"
+        actions = ", ".join(f"{k} {v}" for k, v in sorted(Counter(x.action for x in s).items()))
+        steps = sum(len(x.steps) for x in s) / n
+        return (f"{self.id}: right {sum(x.right for x in s)}/{n}, actions {actions},"
+                f" {steps:.1f} steps each, USD {sum(x.usd for x in s):.4f}:"
                 f" {'PASS' if self.passed else 'FAIL'}")  # fmt: skip
 
 
-def run(send: Send | None, *, samples: int = 10, path: Path | None = None) -> list[Score]:
-    """Live with `send`, saving the answers to `path`; with None, replay what `path` holds."""
+def run(send: StepSend | None, *, samples: int = 5, path: Path | None = None) -> list[Score]:
+    """Live with `send`, saving the replies to `path`; with None, replay what `path` holds."""
     path = path or RECORDED
     cfg = settings()
     saved = {} if send else json.loads(path.read_text())
     scores = []
     for ev in LIVE:
-        c = case(ev.device)
+        signal, tools = case(ev, cfg)
+        k = key(signal, ev, tools)
         if send:
-            got = [_sample(c, ev, send, cfg) for _ in range(samples)]
-            saved[ev.id] = {"key": key(c), "model": cfg.tiers["small"].model,
-                            "answers": [x.answers for x in got]}  # fmt: skip
-        elif saved[ev.id]["key"] != key(c):
+            got = [_sample(ev, signal, send, cfg) for _ in range(samples)]
+            saved[ev.id] = {"key": k, "model": cfg.tiers["small"].model,
+                            "samples": [x.steps for x in got]}  # fmt: skip
+        elif saved[ev.id]["key"] != k:
             raise Stale(f"{ev.id}: the prompt changed. Run `agentc eval --live` again.")
         else:
-            got = [_sample(c, ev, _replay(a), cfg) for a in saved[ev.id]["answers"]]
+            got = [_sample(ev, signal, _replay(steps), cfg) for steps in saved[ev.id]["samples"]]
         scores.append(Score(ev.id, got))
     if send:
         path.write_text(json.dumps(saved, indent=1) + "\n")
@@ -105,68 +134,88 @@ def run(send: Send | None, *, samples: int = 10, path: Path | None = None) -> li
 
 
 def settings() -> Config:
-    """The example config: the evals must give the same facts on every machine."""
-    return config.load(ROOT / "config.example.toml")
+    """The example config, plus the TV and the PeoTV box: the same facts on every machine."""
+    cfg = config.load(ROOT / "config.example.toml")
+    devices = {TV[0]: Device("LG TV"), BOX[0]: Device("PeoTV box")}
+    return replace(cfg, plugs={**cfg.plugs, TV[0]: "192.0.2.13", BOX[0]: "192.0.2.14"},
+                   devices={**cfg.devices, **devices})  # fmt: skip
 
 
-def readings() -> list[tuple[datetime, float]]:
-    """Desk 2's real readings, 1 to 15 Nov 2026: times and watts only (NFR-14 privacy)."""
-    with gzip.open(ROOT / "evals" / "desk2.csv.gz", "rt") as f:
+def readings(name: str = "desk2") -> list[tuple[datetime, float]]:
+    """Real readings of one plug, 1 to 15 Nov 2026: times and watts only (NFR-14 privacy).
+
+    desk2: Desk 2. tv: the LG TV. box: the PeoTV box.
+    """
+    with gzip.open(ROOT / "evals" / f"{name}.csv.gz", "rt") as f:
         return [(datetime.fromisoformat(r["ts_utc"]), float(r["watts"])) for r in csv.DictReader(f)]
 
 
-def case(device: Device) -> responder.Case:
-    """The first night in the readings that the Responder can offer a fix for (2 Nov)."""
-    cfg, rs = settings(), readings()
-    usual = watcher.usual_week(calc.build_profile(rs, tz=cfg.tz) or [])
-    money = Money(cfg.tariff, cfg.month_kwh, cfg.levy, cfg.factor)
-    cases = (
-        responder.gather(run, mac="desk2", device=device, readings=rs, usual=usual, timers=[],
-                         money=money, rejected=[], tz=cfg.tz, days=(NOW - rs[0][0]).days)
-        for run in watcher.unusual_runs(rs, usual, tz=cfg.tz)
-    )  # fmt: skip
-    return next(c for c in cases if c)
+def printer(desk: list[tuple[datetime, float]]) -> list[tuple[datetime, float]]:
+    """The 3D printer plug: 0 W, but its Pi draws 5 W from 01:00 on 2 Nov (made up)."""
+    on = MONDAY.replace(hour=1)
+    return [(at, 5.0 if at >= on else 0.0) for at, _ in desk]
 
 
-def key(c: responder.Case) -> str:
-    """Changes when anything the model reads changes: the system prompt, facts or schema."""
-    text = responder.SYSTEM + responder.describe(c, tz=TZ)
-    text += json.dumps(responder.schema(c), sort_keys=True)
+def case(ev: Eval, cfg: Config) -> tuple[str, Tools]:
+    """The house as it was when the agent looks, and the signal it gets.
+
+    Profiles come from all 14 days, so they know a little more than the house did then.
+    """
+    desk = readings()
+    rows = {DESK[0]: desk, PRINTER[0]: printer(desk), TV[0]: readings("tv"),
+            BOX[0]: readings("box")}  # fmt: skip
+    app = store.connect(":memory:")
+    store.add_site(app, name="eval", tz=cfg.tz)
+    energy = sqlite3.connect(":memory:")
+    energy.execute("CREATE TABLE readings (ts_utc TEXT, plug TEXT, power_w REAL, error TEXT)")
+    for plug, mac in (DESK, PRINTER, TV, BOX):
+        store.plug_seen(app, site_id=1, mac=mac, name=plug, ip=cfg.plugs[plug], timers_on=True,
+                        now=ev.at)  # fmt: skip
+        store.save_card(app, site_id=1, mac=mac, card=CARDS[plug], now=ev.at)
+        profile = calc.build_profile(rows[plug], tz=cfg.tz) or []
+        store.save_profile(app, site_id=1, mac=mac, profile=profile)
+        rs = [(at.astimezone(UTC).isoformat(), plug, w) for at, w in rows[plug]]
+        energy.executemany("INSERT INTO readings VALUES (?, ?, ?, NULL)", rs)
+    seen = [(at, w) for at, w in rows[ev.plug[0]] if at < ev.at]
+    peak = max(w for at, w in seen if at >= ev.start)
+    minutes = round((ev.at - ev.start) / timedelta(minutes=1))
+    e = watcher.Event(ev.kind, ev.plug[1], ev.start, {"peak_w": peak, "minutes": minutes})
+    name = config.device(cfg, ev.plug[0]).name
+    signal = words.event_words(e, {ev.plug[1]: name}, tz=cfg.tz)
+    return signal, Tools(app, energy, cfg, site_id=1, now=ev.at)
+
+
+def key(signal: str, ev: Eval, tools: Tools) -> str:
+    """Changes when anything the model reads first changes: the prompt, tools or brief."""
+    text = agent.VERSION + agent.SYSTEM + json.dumps(agent.TOOLS, sort_keys=True)
+    text += agent.brief(signal, ev.plug[0], tools)
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
-def _sample(c: responder.Case, ev: Eval, send: Send, cfg: Config) -> Sample:
-    db = store.connect(":memory:")
-    store.add_site(db, name="eval", tz=cfg.tz)
-    said: list[str] = []
+def _sample(ev: Eval, signal: str, send: StepSend, cfg: Config) -> Sample:
+    _, tools = case(ev, cfg)  # a fresh house each time: nothing carries over
+    steps: list[list[Block]] = []
 
-    def listen(*, tier: Tier, system: str, prompt: str, schema: Schema) -> tuple[str, int, int]:
-        text, tokens_in, tokens_out = send(tier=tier, system=system, prompt=prompt, schema=schema)
-        said.append(text)
-        return text, tokens_in, tokens_out
+    def listen(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema]
+               ) -> tuple[list[Block], str, int, int]:  # fmt: skip
+        blocks, stop, tokens_in, tokens_out = send(tier=tier, system=system, messages=messages,
+                                                   tools=tools)  # fmt: skip
+        steps.append(blocks)
+        return blocks, stop, tokens_in, tokens_out
 
-    llm = Llm(db, 1, cfg.tz, cfg.tiers, cfg.budget, listen, clock=lambda: NOW)
-    p = responder.respond(c, llm=llm, db=db, site_id=1, event_id=None, run_id=ev.id, tz=cfg.tz,
-                          now=NOW)  # fmt: skip
-    ((action, detail),) = db.execute("SELECT action, detail FROM audit").fetchall()
-    why = p.reason if p else json.loads(detail).get("reason", "")
-    options = [_option(t) for t in said]
-    return Sample(said, ev.right(p, why), action != "draft_dropped", "?" not in options,
-                  options[-1], store.llm_usd(db, site_id=1))  # fmt: skip
+    llm = Llm(tools.app, 1, cfg.tz, cfg.tiers, cfg.budget, listen, clock=lambda: ev.at)
+    look = agent.look(signal, ev.plug[0], tools=tools, llm=llm, run_id=ev.id)
+    d = look.decision
+    return Sample(steps, d.action if d else "none", ev.right(d), look.tools,
+                  store.llm_usd(tools.app, site_id=1))  # fmt: skip
 
 
-def _option(text: str) -> str:
-    try:
-        return responder.Answer.model_validate_json(text).option
-    except ValidationError:
-        return "?"
+def _replay(steps: list[list[Block]]) -> StepSend:
+    """A stand-in model that sends the recorded steps in turn, at no cost."""
+    left = list(steps)
 
-
-def _replay(answers: list[str]) -> Send:
-    """A stand-in model that gives the recorded answers in turn, at no cost."""
-    left = list(answers)
-
-    def send(*, tier: Tier, system: str, prompt: str, schema: Schema) -> tuple[str, int, int]:
-        return left.pop(0), 0, 0
+    def send(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema]
+             ) -> tuple[list[Block], str, int, int]:  # fmt: skip
+        return left.pop(0), "tool_use", 0, 0
 
     return send

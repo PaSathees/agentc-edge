@@ -13,7 +13,7 @@ Code is tested like any software, with fixed inputs and exact answers. Agents ar
 |---|---|---|---|---|
 | 1. Unit | `calc`, `watcher`, `checks`, `solver`, `store`, `forecast` | pytest on fixtures | Every commit | All green; core modules ≥ 80% lines (NFR-17) |
 | 2. Integration | API, Actuator, jobs | A fake Tasmota plug (small HTTP server in tests) that can go offline or return a different timer | Every commit | Read-back mismatch, offline plug, restart and shadow mode behave as in [design](../design.md) and [guardrails](guardrails.md) |
-| 3. Agent evals | Responder, Planner, Assistant | EV cases: fixed facts in, scorers on the output | Recorded: every commit. Live: when a prompt, model or tool changes | Thresholds below |
+| 3. Agent evals | Housemate, Planner, chat | EV cases: a real night in, scorers on the decision | Recorded: every commit. Live: when a prompt, model or tool changes | Thresholds below |
 | 4. Replay | The whole loop | Recorded weeks of readings played through Watcher and agents on a fast clock | Before shadow mode; after big changes | Events a week, event precision, projected monthly cost |
 | 5. Load | Scale | 100 simulated plugs for a simulated month | Once before v1, then on storage changes | NFR-15 scale |
 | 6. Shadow mode | Real use | 2 weeks on the hub, nothing written | Once, then on major versions | SM-02, SM-03 |

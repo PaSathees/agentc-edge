@@ -105,6 +105,8 @@ Health signals go straight to you as a notice. They need no AI, and they must wo
 
 One signal at a time, and at most one question per signal. It reads a short brief (the signal and the device card), then calls read-only tools until it can decide. Code does every sum inside the tools, so the agent never adds numbers itself.
 
+Code skips what needs no look, so no model is called: a habit that covers the signal, or a timer's drift that is not a pattern yet. A timer is looked at once it drifted on 3 of the last 7 days (`drift_days`), and then once a week. Health signals (offline, logger stopped) never reach the agent.
+
 ```mermaid
 flowchart LR
   S["Signal + device card"] --> T["Agent<br/>calls tools, up to 6"]
@@ -233,7 +235,7 @@ Replay cases come from real nights (like Desk 2 on 1 to 2 November) with a scrip
 |---|---|
 | **Keep** | The logger · the plug adapter · the maths for kWh, tariff and carbon · usual-week profiles · the database module · `llm()` · the checks · the fake plug used in tests · CI |
 | **Change** | The Watcher becomes Signals: new kinds, every 5 minutes, a heartbeat · the Responder becomes the housemate agent with tools · the list of thresholds shrinks to a few settings · scheduled jobs catch AI errors so other jobs keep running |
-| **Remove** | The code that built fix options A and B · most learned thresholds (only each plug's standby level stays, for "left on") |
+| **Remove** | The code that built fix options A and B (done in 3c2, with the Responder and its evals) · most learned thresholds (only each plug's standby level stays, for "left on") |
 
 New tables: `device` card fields (description, kind, must run), `habits`, `questions`, and a "why" column on `timers`.
 

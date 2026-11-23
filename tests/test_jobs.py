@@ -7,16 +7,12 @@ import pytest
 
 from agentc import config, jobs, learn, store
 from agentc.calc import ProfileHour
-from agentc.config import Budget
 from agentc.devices.base import Timer
 from agentc.house import Card
-from agentc.llm import Llm, Unreachable
-from agentc.policy import Policy
 from agentc.watcher import Event
-from tests.fake_model import FakeModel
+from tests.desk import START, desk
 from tests.fake_tasmota import FakePlug
 from tests.test_cli import EXAMPLE
-from tests.test_options import START, desk, night
 
 COLOMBO = ZoneInfo("Asia/Colombo")
 MONDAY = datetime(2026, 11, 2, tzinfo=COLOMBO)  # Monday 00:00 local
@@ -281,7 +277,7 @@ END = START + timedelta(days=14)  # just after the last of the 14 days in desk()
 
 
 def desk_energy(tmp_path, waste=(0, 1)):
-    """energy.db with 14 days of Desk 2 on Plug-6 and on Plug-2 (EV-01's pattern)."""
+    """energy.db with 14 days of Desk 2 on Plug-6 and on Plug-2."""
     rows = [
         (at.isoformat(), plug, w, None) for at, w in desk(waste) for plug in ("Plug-6", "Plug-2")
     ]
@@ -291,157 +287,6 @@ def desk_energy(tmp_path, waste=(0, 1)):
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
     return store.open_readings(path)
-
-
-def left_on(app, day, mac="AA", late=timedelta(0), kind="unusual_use"):
-    """The night of `day` saved as an event. late: the event starts that long after the run."""
-    event = Event(kind, mac, night(day).start + late, {})
-    store.add_event(app, site_id=1, event=event, dedupe=f"{mac}|{day}")
-
-
-def answer(app, energy, model, now=END, month_usd=3.0, cfg=CFG):
-    llm = Llm(app, 1, cfg.tz, cfg.tiers, Budget(month_usd, 0.05), model, clock=lambda: now)
-    return jobs.respond_pass(app, energy, cfg, llm, site_id=1, now=now)
-
-
-def statuses(app):
-    return [s for (s,) in app.execute("SELECT status FROM events ORDER BY id")]
-
-
-def test_a_finished_run_gets_one_proposal(app, tmp_path):
-    model, energy = FakeModel(), desk_energy(tmp_path)
-    left_on(app, 1)
-    (p,) = answer(app, energy, model)
-    assert [(c.action, c.time, c.days) for c in p.changes] == [
-        ("off", "01:30", "1111111"), ("on", "07:00", "1111111")
-    ]  # fmt: skip
-    assert statuses(app) == ["done"]
-    assert answer(app, energy, model) == []  # answered once only
-    assert model.calls == 1
-
-
-def test_a_left_on_event_is_answered_too(app, tmp_path):
-    left_on(app, 1, kind="left_on")
-    assert len(answer(app, desk_energy(tmp_path), FakeModel())) == 1
-
-
-def test_a_run_still_going_waits_for_its_end(app, tmp_path):
-    model, energy = FakeModel(), desk_energy(tmp_path, waste=(13,))
-    left_on(app, 13)
-    assert answer(app, energy, model, now=END - timedelta(minutes=90)) == []  # 04:30: on
-    assert (statuses(app), model.calls) == (["new"], 0)
-    assert len(answer(app, energy, model, now=END + timedelta(minutes=6))) == 1  # off at 06:00
-
-
-def test_a_run_that_just_ended_is_answered_at_once(app, tmp_path):
-    left_on(app, 12)
-    just_after = START + timedelta(days=13, minutes=2)  # 06:02: two readings at 0 W since
-    assert len(answer(app, desk_energy(tmp_path, waste=(12,)), FakeModel(), now=just_after)) == 1
-
-
-def test_an_event_inside_a_longer_run_gets_the_whole_run(app, tmp_path):
-    left_on(app, 1, late=timedelta(hours=1))  # a pass that saw only the run's last hours
-    assert len(answer(app, desk_energy(tmp_path), FakeModel())) == 1
-
-
-def test_a_fix_the_owner_rejected_is_not_offered_again(app, tmp_path):  # EV-02
-    model, energy = FakeModel(), desk_energy(tmp_path)
-    left_on(app, 1)
-    (p,) = answer(app, energy, model)
-    store.add_proposal(app, site_id=1, event_id=1, proposal=p, status="rejected", now=END)
-    left_on(app, 0)  # the same waste, another night
-    assert answer(app, energy, model) == []
-    assert model.calls == 1
-
-
-def test_a_run_no_longer_in_the_readings_is_done_without_a_call(app, tmp_path):
-    model = FakeModel()
-    left_on(app, 1)
-    assert answer(app, desk_energy(tmp_path, waste=()), model) == []
-    assert (statuses(app), model.calls) == (["done"], 0)
-    assert app.execute("SELECT action, ref, detail FROM audit").fetchall() == [
-        ("no_case", "event:1", '{"why": "no run in the readings"}')
-    ]  # fmt: skip
-
-
-def test_under_a_week_of_readings_is_done_without_a_call(app, tmp_path):
-    model = FakeModel()
-    left_on(app, 1)
-    assert answer(app, desk_energy(tmp_path), model, now=START + timedelta(days=6, hours=23)) == []
-    assert (statuses(app), model.calls) == (["done"], 0)
-    assert app.execute("SELECT detail FROM audit").fetchone() == (
-        '{"why": "under 7 days of readings"}',
-    )
-
-
-def test_the_policy_sets_the_days_needed(app, tmp_path):
-    left_on(app, 1)
-    sooner = replace(CFG, policy=Policy(min_days=3))
-    assert len(answer(app, desk_energy(tmp_path), FakeModel(), now=START + timedelta(days=4),
-                      cfg=sooner)) == 1  # fmt: skip
-
-
-def test_nothing_to_offer_is_said_too(app, tmp_path):
-    left_on(app, 1)
-    strict = replace(CFG, policy=Policy(max_off_h=5))  # the 01:30 to 07:00 fix is 5.5 h
-    assert answer(app, desk_energy(tmp_path), FakeModel(), cfg=strict) == []
-    assert app.execute("SELECT detail FROM audit").fetchone() == ('{"why": "nothing to offer"}',)
-
-
-def test_the_site_policy_sets_what_the_pass_finds(app, tmp_path):
-    db = energy(tmp_path, lambda t: 30.0 if 1 <= t.hour < 3 else 1.0)
-    calm = replace(CFG, policy=Policy(more_w=40, small_w=40))
-    assert jobs.watch_pass(app, db, calm, site_id=1, now=NOW) == []
-
-
-def test_the_model_is_told_how_many_days_the_readings_cover(app, tmp_path):
-    left_on(app, 1)
-    answer(app, desk_energy(tmp_path), FakeModel(), now=START + timedelta(days=7))
-    (prompt,) = app.execute("SELECT prompt FROM llm_calls").fetchone()
-    assert "Over the last 7 days it was never in use" in prompt
-
-
-def test_a_plug_with_access_none_is_never_asked_about(app, tmp_path):  # EV-05
-    model = FakeModel()
-    left_on(app, 1, mac="BB")  # Plug-2: the 3D printer
-    assert answer(app, desk_energy(tmp_path), model) == []
-    assert (statuses(app), model.calls) == (["done"], 0)
-
-
-def test_at_the_budget_cap_events_wait(app, tmp_path):
-    model = FakeModel()
-    left_on(app, 0)
-    left_on(app, 1)
-    assert answer(app, desk_energy(tmp_path), model, month_usd=0.0) == []
-    assert (statuses(app), model.calls) == (["new", "new"], 0)
-
-
-def test_only_unusual_runs_go_to_the_responder(app, tmp_path):
-    reported_at(app, "offline", "AA", night(1).start)
-    assert answer(app, desk_energy(tmp_path), FakeModel()) == []
-    assert statuses(app) == ["new"]  # kept for the owner's inbox (B4)
-
-
-def test_the_watch_pass_answers_when_asked(app, tmp_path):
-    left_on(app, 1)
-    llm = Llm(app, 1, CFG.tz, CFG.tiers, CFG.budget, FakeModel(), clock=lambda: END)
-    _, made = jobs.run_due(app, desk_energy(tmp_path), replace(CFG, plugs={}), site_id=1, now=END,
-                           llm=llm)  # fmt: skip
-    assert len(made) == 1
-
-
-@pytest.mark.parametrize(
-    "policy",
-    [
-        Policy(history_days=8),  # night 1 is 13 days back: out of the readings
-        Policy(more_w=40, small_w=40),  # the readings no longer show it as unusual
-    ],
-)
-def test_the_device_policy_sets_which_readings_and_runs_the_answer_sees(app, tmp_path, policy):
-    left_on(app, 1)
-    assert answer(app, desk_energy(tmp_path), FakeModel(), cfg=replace(CFG, policy=policy)) == []
-    (why,) = app.execute("SELECT detail FROM audit").fetchone()
-    assert why == '{"why": "no run in the readings"}'
 
 
 # learning each plug's levels (B3b)
@@ -470,14 +315,6 @@ def test_learned_values_reach_the_watch_pass(app, tmp_path):
     assert kinds(jobs.watch_pass(app, db, CFG, site_id=1, now=NOW)) == [("left_on", "AA")]
 
 
-def test_learned_values_reach_the_respond_step(app, tmp_path):
-    left_on(app, 1)
-    store.save_learned(app, site_id=1, mac="AA", values={"use_w": (40.0, "learned")}, at=END)
-    assert answer(app, desk_energy(tmp_path), FakeModel()) == []  # 30 W at the desk: not use
-    (why,) = app.execute("SELECT detail FROM audit").fetchone()
-    assert why == '{"why": "nothing to offer"}'
-
-
 def test_a_plug_down_to_one_level_forgets_what_it_learned(app, tmp_path):
     store.save_learned(app, site_id=1, mac="AA", values={"use_w": (9.0, "old")}, at=END)
     jobs.learn_pass(app, desk_energy(tmp_path, waste=()), CFG, site_id=1, now=END)  # 30 W only
@@ -489,73 +326,3 @@ def test_learning_runs_once_a_day(app, plugs, tmp_path):
     jobs.run_due(app, desk_energy(tmp_path), replace(CFG, plugs=ips), site_id=1, now=END)
     assert store.last_run(app, site_id=1, job="learn") == END
     assert store.learned(app, mac="AA") != {}
-
-
-# when the model fails: other events and other jobs go on (blast radius)
-
-
-class Failing(FakeModel):
-    """Raises `error` on the calls listed in `on` (1 = the first call); else answers."""
-
-    def __init__(self, error, on=None):
-        super().__init__()
-        self.error, self.on = error, on
-
-    def __call__(self, **kwargs):
-        if self.on is None or self.calls + 1 in self.on:
-            self.calls += 1
-            raise self.error
-        return super().__call__(**kwargs)
-
-
-def tries(app):
-    return [t for (t,) in app.execute("SELECT tries FROM events ORDER BY id")]
-
-
-def test_an_unreachable_model_leaves_every_event_waiting(app, tmp_path):
-    model = Failing(Unreachable("no internet"))
-    left_on(app, 0)
-    left_on(app, 1)
-    assert answer(app, desk_energy(tmp_path), model) == []
-    assert (statuses(app), tries(app), model.calls) == (["new", "new"], [0, 0], 1)  # stops at once
-
-
-def test_a_failing_event_is_tried_again_on_the_next_pass(app, tmp_path):
-    model = Failing(ValueError("bad answer"))
-    left_on(app, 1)
-    answer(app, desk_energy(tmp_path), model)
-    assert (statuses(app), tries(app)) == (["new"], [1])
-
-
-def test_one_bad_event_does_not_block_the_next(app, tmp_path):
-    model = Failing(ValueError("bad answer"), on={1})
-    left_on(app, 0)
-    left_on(app, 1)
-    made = answer(app, desk_energy(tmp_path), model)
-    assert (len(made), statuses(app), tries(app)) == (1, ["new", "done"], [1, 0])
-
-
-def test_after_3_failed_tries_an_event_is_parked_and_left_alone(app, tmp_path):
-    model, energy = Failing(ValueError("bad answer")), desk_energy(tmp_path)
-    left_on(app, 1)
-    for _ in range(3):
-        answer(app, energy, model)
-    assert (statuses(app), tries(app)) == (["parked"], [3])
-    answer(app, energy, model)
-    assert model.calls == 3  # a parked event is not tried again
-    actions = [a for (a,) in app.execute("SELECT action FROM audit ORDER BY id")]
-    assert actions == ["respond_failed"] * 3 + ["event_parked"]
-
-
-def test_other_jobs_still_run_when_the_respond_step_breaks(app, plugs, quiet, monkeypatch):
-    def broken(*args, **kwargs):
-        raise RuntimeError("a bug")
-
-    monkeypatch.setattr(jobs, "respond_pass", broken)
-    ips = {name: p.ip for name, p in plugs.items()}
-    model = Llm(app, 1, CFG.tz, CFG.tiers, Budget(3.0, 0.05), FakeModel(), clock=lambda: NOW)
-    jobs.run_due(app, quiet, replace(CFG, plugs=ips), site_id=1, now=NOW, llm=model)
-    ran = {job: store.last_run(app, site_id=1, job=job) for job in ("watch", "timers", "learn")}
-    assert ran == {"watch": NOW, "timers": NOW, "learn": NOW}
-    (action,) = app.execute("SELECT action FROM audit").fetchone()
-    assert action == "respond_pass_failed"

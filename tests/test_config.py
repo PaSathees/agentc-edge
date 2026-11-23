@@ -147,17 +147,17 @@ def test_without_a_policy_section_the_defaults_apply(tmp_path):
 
 
 def test_the_site_policy_reaches_every_device(tmp_path):
-    text = TOU + '\n[policy]\nmax_off_h = 16\n[devices."Plug-1"]\nname = "TV"\n'
+    text = TOU + '\n[policy]\nnight_wake_w = 16\n[devices."Plug-1"]\nname = "TV"\n'
     c = config.load(write(tmp_path, text))
-    assert config.device(c, "Plug-1").policy.max_off_h == 16  # listed
-    assert config.device(c, "Plug-2").policy.max_off_h == 16  # not listed
+    assert config.device(c, "Plug-1").policy.night_wake_w == 16  # listed
+    assert config.device(c, "Plug-2").policy.night_wake_w == 16  # not listed
 
 
 def test_a_device_policy_sits_on_top_of_the_site_one(tmp_path):
-    text = TOU + '\n[policy]\nmax_off_h = 16\n[devices."Plug-1"]\nname = "TV"\n'
+    text = TOU + '\n[policy]\nnight_wake_w = 16\n[devices."Plug-1"]\nname = "TV"\n'
     text += '[devices."Plug-1".policy]\nmore_w = 20\n'
     p = config.device(config.load(write(tmp_path, text)), "Plug-1").policy
-    assert (p.max_off_h, p.more_w) == (16, 20)
+    assert (p.night_wake_w, p.more_w) == (16, 20)
 
 
 def test_a_policy_typo_fails_on_load_and_says_where(tmp_path):
@@ -168,19 +168,19 @@ def test_a_policy_typo_fails_on_load_and_says_where(tmp_path):
 
 # learned values fill in only what the owner did not set (B3b)
 
-LEARNED = {"use_w": (12.0, "learned: half way"), "max_off_h": (20.0, "learned: x")}
+LEARNED = {"use_w": (12.0, "learned: half way"), "night_wake_w": (20.0, "learned: x")}
 
 
 def test_learned_values_fill_in_and_say_why(tmp_path):
     d = config.device(config.load(write(tmp_path, TOU)), "Plug-2", LEARNED)
-    assert (d.policy.use_w, d.policy.max_off_h) == (12.0, 20.0)
-    assert d.learned == {"use_w": "learned: half way", "max_off_h": "learned: x"}
+    assert (d.policy.use_w, d.policy.night_wake_w) == (12.0, 20.0)
+    assert d.learned == {"use_w": "learned: half way", "night_wake_w": "learned: x"}
 
 
 def test_the_owner_beats_what_was_learned(tmp_path):
-    text = TOU + '\n[policy]\nmax_off_h = 16\n[devices."Plug-1"]\nname = "TV"\n'
+    text = TOU + '\n[policy]\nnight_wake_w = 16\n[devices."Plug-1"]\nname = "TV"\n'
     text += '[devices."Plug-1".policy]\nuse_w = 5\n'
     c = config.load(write(tmp_path, text))
     d = config.device(c, "Plug-1", LEARNED)
-    assert (d.policy.use_w, d.policy.max_off_h, d.learned) == (5, 16, {})
-    assert config.device(c, "Plug-2", LEARNED).policy.max_off_h == 16  # site beats learned too
+    assert (d.policy.use_w, d.policy.night_wake_w, d.learned) == (5, 16, {})
+    assert config.device(c, "Plug-2", LEARNED).policy.night_wake_w == 16  # site beats learned too

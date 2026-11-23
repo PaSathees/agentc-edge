@@ -1,18 +1,20 @@
-"""Jobs: the work that runs on a timetable. The Watcher pass runs every 15 minutes.
+"""Jobs: the work that runs on a timetable. The watch pass runs every 5 minutes.
 
 A job that breaks never stops the jobs after it (FR-37): an AI outage must not stop the
 timer check, learning or the heartbeat.
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from sqlite3 import Connection
+from zoneinfo import ZoneInfo
 
-from agentc import config, house, learn, responder, store, timers, watcher
+from agentc import agent, agent_tools, config, house, learn, owner, store, timers, watcher, words
 from agentc.config import Config
 from agentc.llm import Llm, OverBudget, Unreachable
-from agentc.options import Money, Proposal
+from agentc.owner import Decision
 from agentc.policy import Policy
-from agentc.watcher import MAX_GAP, Event, Run, Usual
+from agentc.watcher import Event
 
 LOOKBACK = timedelta(hours=24)  # how far back each pass looks for unusual runs
 WATCH_EVERY = timedelta(minutes=5)  # signals should come while it happens
@@ -20,26 +22,43 @@ TIMERS_EVERY = timedelta(days=1)
 LEARN_EVERY = timedelta(days=1)  # learning and the change check
 RECENT = timedelta(days=2)  # a change point compares these last days with the ones before
 MAX_TRIES = 3  # failed tries before an event is parked
+LOOKED = ("left_on", "unusual_use", "automation_drift", "override", "change_point")  # the rest
+# (offline, lost contact, logger stopped, timers changed) are notices: no AI needed
+PATTERN = timedelta(days=7)  # a timer's drift is asked about once a week, if it repeats
+QUESTION_LIFE = timedelta(hours=12)  # an unanswered question expires this long after it is due
+REMIND = timedelta(hours=2)  # "remind me later"
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What came of one signal."""
+
+    event_id: int
+    device: str
+    decision: Decision | None  # None: skipped by code, or no decision passed the checks
+    why: str  # skipped or dropped: why; asked: when it reaches the owner; else ""
+    looked: bool = True  # False: code skipped it, no model call
+    question_id: int | None = None
 
 
 def run_due(
     app: Connection, energy: Connection, cfg: Config, *, site_id: int, now: datetime,
     llm: Llm | None = None,
-) -> tuple[list[Event], list[Proposal]]:  # fmt: skip
+) -> tuple[list[Event], list[Outcome]]:  # fmt: skip
     """Run each job whose time has come. Passes missed while the app was down run once.
 
-    llm: None when there is no API key. The Responder is then skipped and events wait.
+    llm: None when there is no API key. The housemate is then skipped and signals wait.
     """
     events: list[Event] = []
-    made: list[Proposal] = []
+    looked: list[Outcome] = []
     if _due(app, site_id, "watch", WATCH_EVERY, now):
         events += watch_pass(app, energy, cfg, site_id=site_id, now=now)
         if llm:
             try:
-                made = respond_pass(app, energy, cfg, llm, site_id=site_id, now=now)
-            except Exception as err:  # a bug in the respond step: log it, run the other jobs
+                looked = look_pass(app, energy, cfg, llm, site_id=site_id, now=now)
+            except Exception as err:  # a bug in the look step: log it, run the other jobs
                 store.add_audit(app, site_id=site_id, at=now, actor="code",
-                                action="respond_pass_failed", ref="job:watch",
+                                action="look_pass_failed", ref="job:watch",
                                 detail={"error": f"{type(err).__name__}: {err}"})  # fmt: skip
         store.set_last_run(app, site_id=site_id, job="watch", at=now)
     if _due(app, site_id, "timers", TIMERS_EVERY, now):
@@ -49,7 +68,7 @@ def run_due(
         learn_pass(app, energy, cfg, site_id=site_id, now=now)
         events += change_check(app, energy, cfg, site_id=site_id, now=now)
         store.set_last_run(app, site_id=site_id, job="learn", at=now)
-    return events, made
+    return events, looked
 
 
 def _due(app: Connection, site_id: int, job: str, every: timedelta, now: datetime) -> bool:
@@ -83,78 +102,151 @@ def watch_pass(
     ]  # fmt: skip
 
 
-def respond_pass(
+def look_pass(
     app: Connection, energy: Connection, cfg: Config, llm: Llm, *, site_id: int, now: datetime
-) -> list[Proposal]:
-    """Answer each finished unusual run once, oldest first. Returns the new proposals.
+) -> list[Outcome]:
+    """The housemate looks at each new signal once, oldest first (FR-15 v2).
 
-    A run still going waits for a later pass, so the Responder sees its full length.
-    At a budget cap, or with the model out of reach, the pass stops and the events left
-    wait for the next one. Any other error counts a try for that event only, so one bad
-    event never blocks the rest; after MAX_TRIES it is parked (FR-37).
+    Code skips what needs no look first: a habit covers it, or a timer's drift is not a
+    pattern yet. At a budget cap, or with the model out of reach, the pass stops and the
+    rest wait. Any other error counts a try for that event only; after MAX_TRIES it is
+    parked (FR-37).
     """
-    names = {mac: name for name, mac in store.plug_macs(app, site_id=site_id).items()}
-    money = Money(cfg.tariff, cfg.month_kwh, cfg.levy, cfg.factor)
-    made: list[Proposal] = []
-    waiting = [*store.new_events(app, site_id=site_id, kind="unusual_use"),
-               *store.new_events(app, site_id=site_id, kind="left_on")]  # fmt: skip
-    for eid, e in sorted(waiting, key=lambda pair: pair[0]):
+    store.expire_questions(app, site_id=site_id, before=now - QUESTION_LIFE)
+    plugs = {mac: name for name, mac in store.plug_macs(app, site_id=site_id).items()}
+    waiting = sorted((pair for kind in LOOKED for pair in store.new_events(app, site_id=site_id,
+                                                                          kind=kind)),
+                     key=lambda pair: pair[0])  # fmt: skip
+    found: list[Outcome] = []
+    for eid, e in waiting:
         try:
-            finished, p = _answer(app, energy, cfg, llm, eid, e, names, money, site_id, now)
+            out = _look(app, energy, cfg, llm, eid, e, plugs[e.plug_mac or ""], site_id, now)
         except (OverBudget, Unreachable):
             break
         except Exception as err:  # one bad event must not stop the others
             _failed(app, site_id, eid, err, now)
             continue
-        if finished:
-            made += [p] if p else []
-            store.event_done(app, event_id=eid)
-    return made
+        store.event_done(app, event_id=eid, status="done" if out.looked else "skipped")
+        found.append(out)
+    return found
 
 
-def _answer(
-    app: Connection, energy: Connection, cfg: Config, llm: Llm, eid: int, e: Event,
-    names: dict[str, str], money: Money, site_id: int, now: datetime,
-) -> tuple[bool, Proposal | None]:  # fmt: skip
-    """One event: (finished, proposal). Not finished while its run is still going.
+def _look(
+    app: Connection, energy: Connection, cfg: Config, llm: Llm, eid: int, e: Event, plug: str,
+    site_id: int, now: datetime,
+) -> Outcome:  # fmt: skip
+    mac, zone, ref = e.plug_mac or "", ZoneInfo(cfg.tz), f"event:{eid}"
+    device = config.device(cfg, plug, store.learned(app, mac=mac))
+    skip, signal = _skip(app, site_id, mac, e, device.policy, zone)
+    if skip:
+        store.add_audit(app, site_id=site_id, at=now, actor="code", action="skipped", ref=ref,
+                        detail={"why": skip})  # fmt: skip
+        return Outcome(eid, device.name, None, skip, looked=False)
+    signal = words.event_words(e, {mac: device.name}, tz=cfg.tz) + signal
+    tools = agent_tools.Tools(app, energy, cfg, site_id, now)
+    look = agent.look(signal, plug, tools=tools, llm=llm, run_id=ref)
+    if (d := look.decision) is None:
+        why = f"no decision: {look.blocked}"
+        store.add_audit(app, site_id=site_id, at=now, actor="agent", action="dropped", ref=ref,
+                        detail={"why": why, "tools": ", ".join(look.tools)})  # fmt: skip
+        return Outcome(eid, device.name, None, why)
+    why, qid = "", None
+    if d.action in ("ask", "propose"):
+        local = now.astimezone(zone)
+        due = owner.send_at(
+            local, _watts(energy, plug, e, now), night_wake_w=device.policy.night_wake_w
+        )
+        if held := _held(app, site_id, mac, device.name, due, cfg.policy):
+            d, why = Decision("note", d.text), held  # nothing is lost: it is in the summary
+        else:
+            qid = store.add_question(app, site_id=site_id, event_id=eid, mac=mac, decision=d,
+                                     send_at=due, now=now)  # fmt: skip
+            why = "reaches you now" if due == local else f"reaches you at {due:%a %H:%M}"
+    detail = {"text": d.text, "why": why, "tools": ", ".join(look.tools)}
+    store.add_audit(app, site_id=site_id, at=now, actor="agent", action=d.action, ref=ref,
+                    detail=detail)  # fmt: skip
+    return Outcome(eid, device.name, d, why, question_id=qid)
 
-    With under min_days of readings there is no answer: the usual hours of use are not
-    known yet.
+
+def _skip(
+    app: Connection, site_id: int, mac: str, e: Event, policy: Policy, zone: ZoneInfo
+) -> tuple[str, str]:  # fmt: skip
+    """(why code skips this signal, or "", and what to add to its words for the agent)."""
+    if e.kind in ("left_on", "unusual_use"):
+        local = e.start.astimezone(zone)
+        if h := next((h for _, h in store.habits(app, mac=mac) if house.covers(h, local)), None):
+            return f"habit: {h.text}", ""
+    if e.kind != "automation_drift":
+        return "", ""
+    recent = store.recent_events(app, site_id=site_id, mac=mac, kind=e.kind,
+                                 since=e.start - PATTERN)  # fmt: skip
+    same = [
+        (s, x) for _, s, x in recent if x.facts["slot"] == e.facts["slot"] and x.start <= e.start
+    ]
+    days = len({x.start.astimezone(zone).date() for _, x in same})
+    if any(s == "done" for s, _ in same):
+        return f"grouped: timer {e.facts['slot']} was looked at in the last 7 days", ""
+    if days < policy.drift_days:
+        return f"waiting: timer {e.facts['slot']} drifted on {days} of the last 7 days", ""
+    return "", f". The same timer did this on {days} of the last 7 days"
+
+
+def _watts(energy: Connection, plug: str, e: Event, now: datetime) -> float:
+    """What the device draws now: its last reading in the last 5 minutes, else the signal's."""
+    recent = store.readings(energy, plug=plug, start=now - agent_tools.NOW_WINDOW, end=now)
+    return recent[-1][1] if recent else float(e.facts.get("peak_w", 0.0))
+
+
+def _held(
+    app: Connection, site_id: int, mac: str, device: str, due: datetime, site: Policy
+) -> str:  # fmt: skip
+    """Why a question must wait for the summary instead: the day's limits. "" if none."""
+    day = due.replace(hour=0, minute=0, second=0, microsecond=0)
+    bounds = {"site_id": site_id, "start": day, "end": day + timedelta(days=1)}
+    if store.count_questions(app, mac=mac, **bounds):
+        return f"held: {device} has a question that day already"
+    if (n := store.count_questions(app, **bounds)) >= site.questions_a_day:
+        return f"held: {n} questions that day already"
+    return ""
+
+
+def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choice: int,
+           now: datetime) -> str:  # fmt: skip
+    """The owner's tap on a question: do what the choice does, and say what was done.
+
+    Shadow mode (Phase 3): a switch off or a timer is recorded, never written.
     """
-    mac = e.plug_mac or ""  # an unusual run always has a plug
-    device = config.device(cfg, names[mac], store.learned(app, mac=mac))
-    policy = device.policy
-    since = now - timedelta(days=policy.history_days)
-    readings = store.readings(energy, plug=names[mac], start=since, end=now)
-    usual = watcher.usual_week(store.load_profile(app, mac=mac))
-    run = _run(readings, usual, e.start, tz=cfg.tz, policy=policy)
-    if run and readings[-1][0] == run.end and now - run.end <= MAX_GAP:
-        return False, None  # still going
-    days = (now - readings[0][0]).days if readings else 0
-    if run is None:
-        why = "no run in the readings"
-    elif days < policy.min_days:
-        why = f"under {policy.min_days} days of readings"
-    else:
-        why = ""  # code may still find nothing to offer
-    case = None if run is None or why else responder.gather(
-        run, mac=mac, device=device, readings=readings, usual=usual,
-        timers=store.load_timers(app, mac=mac), money=money,
-        rejected=store.rejected(app, site_id=site_id, mac=mac, since=since), tz=cfg.tz,
-        days=days,
-    )  # fmt: skip
-    if case is None:
-        store.add_audit(app, site_id=site_id, at=now, actor="code", action="no_case",
-                        ref=f"event:{eid}", detail={"why": why or "nothing to offer"})  # fmt: skip
-        return True, None
-    return True, responder.respond(case, llm=llm, db=app, site_id=site_id, event_id=eid,
-                                   run_id=f"event:{eid}", tz=cfg.tz, now=now)  # fmt: skip
+    q = store.get_question(app, question_id=question_id)
+    if q is None or q.status != "open":
+        raise LookupError(f"No open question {question_id}.")
+    if not 1 <= choice <= len(q.decision.choices):
+        raise LookupError(f"Question {question_id} has choices 1 to {len(q.decision.choices)}.")
+    c, ref = q.decision.choices[choice - 1], f"question:{question_id}"
+    store.answer_question(app, question_id=question_id, answer=choice, now=now)
+    store.add_audit(app, site_id=site_id, at=now, actor="owner", action="answer", ref=ref,
+                    detail={"choice": c.label, "does": c.does})  # fmt: skip
+    plug = next(p for p, m in store.plug_macs(app, site_id=site_id).items() if m == q.plug_mac)
+    name, zone = config.device(cfg, plug).name, ZoneInfo(cfg.tz)
+    if c.does == "save_habit":
+        e = store.get_event(app, event_id=q.event_id)
+        h = owner.habit(name, (e.start if e else now).astimezone(zone))
+        store.add_habit(app, site_id=site_id, mac=q.plug_mac, habit=h, now=now)
+        return f"Saved: {h.text}."
+    if c.does == "remind_later":
+        store.ask_again(app, question_id=question_id, at=now + REMIND)
+        return f"I'll ask again at {(now + REMIND).astimezone(zone):%H:%M}."
+    if c.does in ("switch_off_now", "set_timer"):
+        store.add_audit(app, site_id=site_id, at=now, actor="code", action="shadow_action",
+                        ref=ref, detail={"does": c.does, "off": c.off or "", "on": c.on or "",
+                                         "days": c.days or ""})  # fmt: skip
+        return f"Recorded: {c.label}. Shadow mode: nothing was sent to the plug."
+    return "Noted."
 
 
 def _failed(app: Connection, site_id: int, eid: int, err: Exception, now: datetime) -> None:
     """Record a failed try; park the event at MAX_TRIES so it stops coming back."""
     ref, error = f"event:{eid}", {"error": f"{type(err).__name__}: {err}"}
-    store.add_audit(app, site_id=site_id, at=now, actor="code", action="respond_failed",
+    store.add_audit(app, site_id=site_id, at=now, actor="code", action="look_failed",
                     ref=ref, detail=error)  # fmt: skip
     if store.event_failed(app, event_id=eid, limit=MAX_TRIES):
         store.add_audit(app, site_id=site_id, at=now, actor="code", action="event_parked",
@@ -203,15 +295,6 @@ def learn_pass(
         store.save_learned(app, site_id=site_id, mac=mac, at=now,
                            values=learn.values(lv) if lv else {})  # fmt: skip
     return found
-
-
-def _run(
-    readings: list[tuple[datetime, float]], usual: dict[int, Usual], start: datetime, *, tz: str,
-    policy: Policy,
-) -> Run | None:  # fmt: skip
-    """The run that holds this start, as long as it is now. None if the readings have none."""
-    return next((r for r in watcher.unusual_runs(readings, usual, tz=tz, policy=policy)
-                 if r.start <= start <= r.end), None)  # fmt: skip
 
 
 def _reported(app: Connection, energy: Connection, site_id: int, e: Event) -> bool:

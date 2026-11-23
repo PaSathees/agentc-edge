@@ -28,12 +28,16 @@ flowchart LR
 |---|---|
 | `agentc timers` | Reads every plug and shows its timers in plain words. Also reads what each plug does on its own (auto-off, rules) for the house model. Problems come last |
 | `agentc profile Plug-6` | Shows a plug's usual week, hour by hour, and the kWh it used |
-| `agentc watch` | Runs the checks that are due now and shows new events |
-| `agentc replay --days 14` | Plays past days through the Watcher. Your real data is not changed |
+| `agentc watch` | Runs the checks that are due now and shows new signals. With an API key, the housemate looks at each one and decides: ignore, note, ask or propose |
+| `agentc questions` | The housemate's open questions, numbered, with when each one reaches you (07:00 for a small load at night) |
+| `agentc answer 3 2` | Answers question 3 with choice 2, as a tap would. "That's normal" saves a habit; a switch off is only recorded (shadow mode) |
+| `agentc look 12 --at "2026-11-02 02:10"` | Runs the housemate on one saved signal and shows the tools it used and its decision |
+| `agentc replay --days 14 [--look]` | Plays past days through the watch pass, and the housemate with `--look`. Your real data is not changed |
+| `agentc eval [--live]` | Scores the housemate on real nights: replays recorded steps free, or asks the model again |
 | `agentc house` | Shows what the system knows about each device: its card, timers and habits, as the agent will read it |
 | `agentc house Plug-6 kind=computer room=study` | Changes a device's card. Keys: kind, room (where it is), what, notes, must_run, why.N (why timer N is set) |
 
-None of these change a plug. They only read.
+None of these change a plug. They only read the plugs; answers and cards are saved in app.db.
 
 ## Quickstart
 
@@ -66,7 +70,7 @@ Built in six phases. Each ends with tests, checks and a merged pull request.
 |---|---|---|
 | 1. Design v2 | The housemate design, after a review of the first version | done |
 | 2. Foundation fixes | Logger heartbeat, honest "lost contact" alerts, AI errors that never stop other jobs | done |
-| 3. Housemate v1 | Device cards from a setup chat, new signals, the agent with tools, one-tap questions; shadow mode | next |
+| 3. Housemate v1 | Device cards from a setup chat, new signals, the agent with tools, one-tap questions; shadow mode | in progress: cards, signals and the agent done; phone and setup chat next |
 | 4. Actions | Switch off now, safe timer writes, approval inbox | |
 | 5. Chat and Planner | Separate agents on the same house model | |
 | 6. Review and full demo | A walkthrough of the whole system, then the demo on a real home | |
