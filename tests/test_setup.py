@@ -55,6 +55,33 @@ def test_it_looks_at_the_power_then_drafts_a_card(tools):  # noqa: F811
     assert events == [("step", "looking at its power")]
 
 
+def test_reading_the_same_thing_twice_costs_no_new_read(tools):  # noqa: F811
+    look = {"device": "Desk 2", "hours": 24}
+    script = Script([use("power", look)], [use("power", look, 2), use("usual", {
+        "device": "Desk 2", "day": "Monday", "start": "00:00", "end": "06:00"}, 3)],
+        [use("propose_card", CARD, 4)])  # fmt: skip
+    r = chat(tools, script)
+    assert r.tools == ("power", "usual")  # the second power read was not run
+    again = script.seen[2]["messages"][-1]["content"][0]
+    assert again["content"] == "You read this already in this chat. Use that result."
+    assert [a for a, _ in r.reads] == [  # power is not kept: it changes each minute
+        'usual {"day": "Monday", "device": "Desk 2", "end": "06:00", "start": "00:00"}',
+    ]
+
+
+def test_what_it_read_before_is_in_the_brief_and_not_read_again(tools):  # noqa: F811
+    asked = 'power {"device": "Desk 2", "hours": 24}'
+    script = Script([use("power", {"device": "Desk 2", "hours": 24})],
+                    [use("propose_card", CARD, 2)])  # fmt: skip
+    m = Llm(tools.app, 1, CFG.tz, CFG.tiers, Budget(3.0, 0.05), script, clock=lambda: NOW)
+    before = [(asked, "Mon 01:37 to 01:50: about 30 W")]
+    r = setup.reply([GREETING, ("owner", "my desk")], "Plug-1", tools=tools, llm=m,
+                    run_id="setup:1", earlier=before)  # fmt: skip
+    brief = script.seen[0]["messages"][0]["content"]
+    assert f"What you read earlier in this chat (still true):\n{asked}:\nMon 01:37" in brief
+    assert (r.tools, r.reads) == ((), ())  # nothing new was read
+
+
 def test_a_question_is_plain_text_and_streams(tools):  # noqa: F811
     events = []
     r = chat(tools, Script([{"type": "text", "text": "Which room is it in?"}]), events=events)
@@ -67,7 +94,8 @@ def test_the_brief_holds_the_card_the_greeting_and_the_owners_words(tools):  # n
     chat(tools, script, talk=[GREETING, ("owner", "my desk"), ("agent", "Which room?"),
                               ("owner", "the study")])  # fmt: skip
     first, second, third = script.seen[0]["messages"]
-    assert first["role"] == "user" and "Plug: Plug-1. Device name: Desk 2." in first["content"]
+    assert first["role"] == "user" and first["content"].startswith("Device: Desk 2.\n")
+    assert "Plug-1" not in first["content"].split("What the housemate knows")[0]
     assert "You opened the chat with: Let's set up Desk 2." in first["content"]
     assert first["content"].endswith("The owner says: my desk")
     assert (second["role"], third["content"]) == ("assistant", "the study")
@@ -94,7 +122,10 @@ def test_the_last_step_may_only_draft(tools):  # noqa: F811
 @pytest.mark.parametrize(
     ("change", "why"),
     [({"kind": "toaster"}, "kind and must_run"), ({"what": " "}, "what is plugged in"),
-     ({"habits": [{**CARD["habits"][0], "days": "sometimes"}]}, "days from the list")],
+     ({"habits": [{**CARD["habits"][0], "days": "sometimes"}]}, "days from the list"),
+     ({"notes": "Plug-3, access: advice"}, "owner's words only"),
+     ({"what": "monitor. Access: advice."}, "owner's words only"),
+     ({"habits": [{**CARD["habits"][0], "text": "timer 9 turns it off"}]}, "owner's words only")],
 )  # fmt: skip
 def test_parse_refuses_a_bad_draft(change, why):
     with pytest.raises(ValueError, match=why):

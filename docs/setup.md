@@ -42,7 +42,7 @@ It asks each address on your home network whether it is a Tasmota plug. It only 
 cp .env.example .env
 ```
 
-Fill in `AGENTC_HUB` with the hub's address, which `find` printed (`AGENTC_HUB=http://192.168.1.50`), and your API key if you have one. If `id -u` does not print `1000`, also set `AGENTC_UID` and `AGENTC_GID` to your own numbers, so the files in `./data` stay yours.
+Fill in `AGENTC_HUB` with the hub's address, which `find` printed (`AGENTC_HUB=http://192.168.1.50`), and your API key if you have one. Set a password in `AGENTC_PASSWORD` (`openssl rand -base64 18` makes one), so only you can open the pages. If `id -u` does not print `1000`, also set `AGENTC_UID` and `AGENTC_GID` to your own numbers, so the files in `./data` stay yours.
 
 ## 5. Start
 
@@ -73,6 +73,16 @@ Done. After about 7 days of readings, each plug has a usual week, and signals be
 
 Open `http://<the hub>:8765/setup` (Devices, at the top of every page). For each plug, press **Set up** and tell it what is plugged in, in your own words. It looks at the plug's readings, asks a few short questions, and shows a card. Nothing is saved until you press **Save**. Each chat costs about USD 0.002 on Claude Haiku (the default small model); without one, set cards by hand: `docker compose exec jobs agentc house Plug-1 kind=computer room=study`.
 
+## 8. Let it switch a device (optional)
+
+At first AgentC only asks and records your answers (shadow mode). To let a tap on "Switch off" or on a timer really change a device:
+
+1. In `config.toml`, set that device's `access = "write"`. Start with one that is safe to switch off, like a TV box.
+2. Set a login in `.env` (`AGENTC_PASSWORD`, or `AGENTC_TAILSCALE_USER`), then `docker compose up -d`.
+3. On the Devices page, tap **Turn shadow mode off**.
+
+Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A timer goes in two free slots of 9 to 16 (slots 1 to 8 stay yours; a disabled timer in 9 to 16 may be reused), the "on" timer first, each read back; if any step fails, the old timers are put back. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
+
 ## Every day
 
 | To | Run |
@@ -85,7 +95,7 @@ Open `http://<the hub>:8765/setup` (Devices, at the top of every page). For each
 
 Back up the `data` folder: it holds every reading (`energy.db`), the house model and your answers (`app.db`), and the key that signs the phone's buttons (`secret`).
 
-Nothing here switches a plug. This version only watches and asks (shadow mode).
+Nothing here switches a plug until you allow it (step 8).
 
 ## Away from home: Tailscale (optional)
 
@@ -100,15 +110,18 @@ Run `docker compose up -d`, then `agentc ping` again. In the ntfy app, subscribe
 - **Keep Tailscale on, at home too.** The phone reaches the hub only through it now. At home Tailscale goes straight over your Wi-Fi, so nothing leaves the house. On iPhone, turn VPN On Demand off, or include your home Wi-Fi in it.
 - **No HTTPS or `tailscale serve` is needed for messages.** Tailscale already encrypts the traffic between your devices, and no port is opened to the internet.
 - **To talk instead of type** in the setup chat, browsers need https. Turn on HTTPS in the Tailscale admin page (DNS tab), run `sudo tailscale serve --bg --https=443 http://127.0.0.1:8765` and `sudo tailscale serve --bg --https=8443 http://127.0.0.1:8090` on the hub, and set `AGENTC_HUB=https://<the hub>.<your tailnet>.ts.net`. Then `agentc ping` again and add the new ntfy server.
+- **Sign in with Tailscale, no password.** Set `AGENTC_TAILSCALE_USER` in `.env` to your Tailscale login (`tailscale status --json | grep LoginName` on the hub). Pages opened through `tailscale serve` then know it is you.
 - After the phone changes network (Wi-Fi to mobile data), the first page or tap can take a few seconds while Tailscale reconnects.
 
 ## Who can do what
 
-- **The inbox and ntfy are open to your network.** Anyone on your home network, or your tailnet, can open the inbox page, answer from it, and read your messages in ntfy if they learn the topic. So keep the hub on a network you trust. The topic is made from the hub's secret, so it is hard to guess.
+- **The pages need your login**: your Tailscale login or your password. With neither set in `.env`, they are open to your network, and nothing can be written to a plug.
+- **ntfy is open to your network.** Anyone on it can read your messages if they learn the topic, which is made from the hub's secret, so it is hard to guess.
 - A button's address only works with its signed token: a guessed address does nothing.
 - On iPhone, ntfy.sh only relays a message id to wake the app; the text comes from the hub.
 - The housemate's prompts never contain IP or MAC addresses. ntfy never sees your API key.
-- Nothing switches a plug yet. Before Phase 4 does, the inbox and ntfy get a login.
+- A plug changes only after your tap, only for a device set to `write`, with shadow mode off and a login set (step 8).
+- Tailscale Serve tells the app who you are, and the app trusts that only from the hub itself. Never put another proxy in front of the app on the hub: it would be trusted too.
 
 ## If something is wrong
 

@@ -1,6 +1,25 @@
 {% extends "base.html" %}
 {% block main %}
 <h1>Devices</h1>
+<section class="card">
+  {% if shadow %}
+  <b>Shadow mode is on</b>
+  <p>I ask and record your answers. Nothing is sent to a plug.</p>
+  {% else %}
+  <b>Shadow mode is off</b>
+  <p>A tap on "Switch off" switches {% if writable %}{{ writable | join(", ") }}{% else %}no device yet{% endif %}. Others stay advice only.</p>
+  {% endif %}
+  {% if not writable %}<p class="muted">To let a tap switch a device, set its access to write in config.toml.</p>{% endif %}
+  {% if shadow and not login %}
+  <p class="muted">To turn it off, set a login in .env first: AGENTC_PASSWORD or AGENTC_TAILSCALE_USER.</p>
+  {% else %}
+  <form method="post" action="/shadow">
+    <input type="hidden" name="tok" value="{{ tok }}">
+    <input type="hidden" name="on" value="{{ 'off' if shadow else 'on' }}">
+    <button{% if shadow %} class="primary"{% endif %}>{{ "Turn shadow mode off" if shadow else "Turn shadow mode back on" }}</button>
+  </form>
+  {% endif %}
+</section>
 <p class="muted">What the housemate knows about each plug. Set one up by chatting.</p>
 <ul class="plain">
   {% for d in devices %}

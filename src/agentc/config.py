@@ -67,6 +67,14 @@ class Owner:
         return f"{self.hub}:8443" if self.hub.startswith("https://") else f"{self.hub}:8090"
 
 
+def logins() -> tuple[str, frozenset[str]]:
+    """Who may open the web pages, from .env: the password, and the Tailscale logins.
+    With neither, the pages are open, so nothing is ever written to a plug."""
+    users = os.environ.get("AGENTC_TAILSCALE_USER", "")
+    return (os.environ.get("AGENTC_PASSWORD", ""),
+            frozenset(u.strip().lower() for u in users.split(",") if u.strip()))  # fmt: skip
+
+
 def owner() -> Owner | None:
     """The phone's settings from the environment (.env). None: AGENTC_HUB not set."""
     if not (hub := os.environ.get("AGENTC_HUB", "").rstrip("/")):
@@ -176,10 +184,13 @@ def secret(cfg: Config) -> str:
 def _device(plug: str, d: dict[str, Any], site: Policy) -> Device:
     if (access := d.get("access", "advice")) not in ACCESS:
         raise ValueError(f"access must be one of {', '.join(ACCESS)}, not {access!r}")
+    slots = tuple(d.get("slots", SLOTS))
+    if len(set(slots)) != len(slots) or not all(isinstance(s, int) and 1 <= s <= 16 for s in slots):
+        raise ValueError(f'[devices."{plug}"] slots must be different numbers from 1 to 16')
     rules = tuple(Rule(**r) for r in d.get("rules", []))
     own = d.get("policy", {})
     policy = override(site, own, where=f'[devices."{plug}".policy]')
-    return Device(d["name"], access, tuple(d.get("slots", SLOTS)), rules, policy, frozenset(own))
+    return Device(d["name"], access, slots, rules, policy, frozenset(own))
 
 
 def device(

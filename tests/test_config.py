@@ -132,6 +132,13 @@ def test_a_device_can_use_other_slots(tmp_path):
     assert config.device(config.load(write(tmp_path, text)), "Plug-2").slots == (15, 16)
 
 
+@pytest.mark.parametrize("slots", ["[9, 9]", "[0, 9]", "[9, 17]", '["9"]'])
+def test_slots_must_be_different_and_1_to_16(tmp_path, slots):
+    text = TOU + f'\n[devices."Plug-2"]\nname = "TV"\nslots = {slots}\n'
+    with pytest.raises(ValueError, match="slots must be different numbers from 1 to 16"):
+        config.load(write(tmp_path, text))
+
+
 def test_an_unknown_access_fails_on_load(tmp_path):
     text = TOU + '\n[devices."Plug-2"]\nname = "TV"\naccess = "full"\n'
     with pytest.raises(ValueError, match="access must be one of none, advice, write"):

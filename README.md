@@ -4,7 +4,7 @@
 
 Helps a small site meet a monthly carbon goal, starting with a home. The site's carbon comes from the electricity it uses, so plain code watches every smart plug all the time. When something looks off, an AI agent takes a look with what it knows about the home's devices and habits, and asks the owner a short question while it is happening. A person approves every change before it reaches a device.
 
-> Status: in development, running in shadow mode in one home: it watches and asks, and never switches a plug. Built in the open, step by step (`docs/`). Words and codes are explained in the [glossary](docs/glossary.md).
+> Status: in development, running in one home. It watches and asks; it switches a plug only after the owner's tap, and only a device the owner set to `write` (shadow mode, on by default, records instead). Built in the open, step by step (`docs/`). Words and codes are explained in the [glossary](docs/glossary.md).
 
 ## How it works
 
@@ -33,7 +33,7 @@ flowchart LR
 | `agentc profile Plug-6` | Shows a plug's usual week, hour by hour, and the kWh it used |
 | `agentc watch` | Runs the checks that are due now and shows new signals. With an API key, the housemate looks at each one and decides: ignore, note, ask or propose. With `AGENTC_HUB` in `.env`, due questions go to your phone through ntfy: the night's as one message at 07:00, the day's notes at 21:00 |
 | `agentc questions` | The housemate's open questions, numbered, with when each one reaches you (07:00 for a small load at night) |
-| `agentc answer 3 2` | Answers question 3 with choice 2, as a tap would. "That's normal" saves a habit; a switch off is only recorded (shadow mode) |
+| `agentc answer 3 2` | Answers question 3 with choice 2, as a tap would. "That's normal" saves a habit; a switch off or a timer goes through the same checks as a tap |
 | `agentc look 12 --at "2026-11-02 02:10"` | Runs the housemate on one saved signal and shows the tools it used and its decision |
 | `agentc replay --days 14 [--look]` | Plays past days through the watch pass, and the housemate with `--look`. Your real data is not changed |
 | `agentc eval [--live]` | Scores the housemate on real nights: replays recorded steps free, or asks the model again. From the repo with `uv run` (see Develop), not in Docker |
@@ -82,8 +82,8 @@ Built in six phases. Each ends with tests, checks and a merged pull request.
 |---|---|---|
 | 1. Design v2 | The housemate design, after a review of the first version | done |
 | 2. Foundation fixes | Logger heartbeat, honest "lost contact" alerts, AI errors that never stop other jobs | done |
-| 3. Housemate v1 | Device cards from a setup chat, new signals, the agent with tools, one-tap questions; shadow mode | in progress: cards, signals, the agent, the phone and one-command setup done; setup chat next |
-| 4. Actions | Switch off now, safe timer writes, approval inbox | |
+| 3. Housemate v1 | Device cards from a setup chat, new signals, the agent with tools, one-tap questions; shadow mode | done; shadow mode counts run to December |
+| 4. Actions | A login, switch off now with undo, timer writes all or nothing | in review |
 | 5. Chat and Planner | Separate agents on the same house model | |
 | 6. Review and full demo | A walkthrough of the whole system, then the demo on a real home | |
 

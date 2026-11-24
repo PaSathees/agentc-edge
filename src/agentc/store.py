@@ -6,6 +6,7 @@ JSON columns hold text written with json.dumps.
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,11 +16,12 @@ from agentc.calc import ProfileHour
 from agentc.devices.base import Automations, PlugRule, Timer
 from agentc.house import SOURCES, Card, Habit
 from agentc.owner import Choice, Decision, Question
+from agentc.readings import utc_bounds
 from agentc.watcher import Event
 
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
-# 7: questions.sent. 8: unused v1 tables dropped. 9: chats
-SCHEMA_VERSION = 9
+# 7: questions.sent. 8: unused v1 tables dropped. 9: chats. 10: chats.reads
+SCHEMA_VERSION = 10
 UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
@@ -174,7 +176,8 @@ CREATE TABLE IF NOT EXISTS chats (
     kind     TEXT NOT NULL CHECK (kind IN ('setup')),
     status   TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'saved', 'closed')),
     draft    TEXT,  -- JSON: the card and habits the agent proposed; NULL: none yet
-    created  TEXT NOT NULL
+    created  TEXT NOT NULL,
+    reads    TEXT  -- JSON: [[what it asked a tool, the result], ...], so it reads each once
 );
 -- Each message in a chat, in order
 CREATE TABLE IF NOT EXISTS chat_turns (
@@ -218,6 +221,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
         db.execute("ALTER TABLE events ADD COLUMN tries INTEGER NOT NULL DEFAULT 0")  # before 3
     if "sent" not in [col[1] for col in db.execute("PRAGMA table_info(questions)")]:
         db.execute("ALTER TABLE questions ADD COLUMN sent TEXT")  # before 7
+    if "reads" not in [col[1] for col in db.execute("PRAGMA table_info(chats)")]:
+        db.execute("ALTER TABLE chats ADD COLUMN reads TEXT")  # before 10
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
 
@@ -246,6 +251,13 @@ def plug_mac(db: sqlite3.Connection, *, name: str) -> str | None:
     sql = "SELECT mac FROM plugs WHERE name = ? ORDER BY last_seen DESC LIMIT 1"
     row = db.execute(sql, (name,)).fetchone()
     return row[0] if row else None
+
+
+def timers_on(db: sqlite3.Connection, *, mac: str) -> bool:
+    """Is the plug's Timers switch on? If it is off, no timer on the plug fires.
+    Not read yet counts as on: the import reads it on every pass."""
+    row = db.execute("SELECT timers_on FROM plugs WHERE mac = ?", (mac,)).fetchone()
+    return not row or row[0] is None or bool(row[0])
 
 
 def plug_macs(db: sqlite3.Connection, *, site_id: int) -> dict[str, str]:
@@ -348,14 +360,16 @@ def learned(db: sqlite3.Connection, *, mac: str) -> dict[str, tuple[float, str]]
 def add_audit(
     db: sqlite3.Connection, *, site_id: int, at: datetime, actor: str, action: str, ref: str,
     detail: dict[str, str],
-) -> None:  # fmt: skip
-    """Add a line to the history of changes, e.g. why a draft was blocked. Never edited."""
+) -> int:  # fmt: skip
+    """Add a line to the history of changes, e.g. why a draft was blocked. Never edited.
+    Returns its id."""
     with db:
-        db.execute(
+        cur = db.execute(
             "INSERT INTO audit (site_id, ts_utc, actor, action, ref, detail)"
             " VALUES (?, ?, ?, ?, ?, ?)",
             (site_id, at.astimezone(UTC).isoformat(), actor, action, ref, json.dumps(detail)),
         )
+    return cur.lastrowid or 0
 
 
 def add_llm_call(
@@ -385,9 +399,6 @@ def llm_usd(
     after = since.astimezone(UTC).isoformat() if since else None
     (usd,) = db.execute(sql, (site_id, after, run_id)).fetchone()
     return usd
-
-
-# energy.db belongs to the logger: the app only ever reads it (decision ADR-006).
 
 
 def add_event(db: sqlite3.Connection, *, site_id: int, event: Event, dedupe: str) -> bool:
@@ -565,7 +576,7 @@ def count_questions(
     """Questions due to reach the owner from start to end: all plugs, or one."""
     sql = """SELECT COUNT(*) FROM questions WHERE site_id = ? AND send_at >= ? AND send_at < ?
              AND plug_mac = COALESCE(?, plug_mac)"""
-    return db.execute(sql, (site_id, *_utc_bounds(start, end), mac)).fetchone()[0]
+    return db.execute(sql, (site_id, *utc_bounds(start, end), mac)).fetchone()[0]
 
 
 def answer_question(
@@ -664,68 +675,6 @@ def last_event_start(
     return datetime.fromisoformat(start) if start else None
 
 
-def open_readings(path: str | Path) -> sqlite3.Connection:
-    """Open energy.db read-only. Any write through this connection fails."""
-    return sqlite3.connect(f"file:{Path(path).resolve()}?mode=ro", uri=True)
-
-
-def readings(
-    db: sqlite3.Connection, *, plug: str, start: datetime, end: datetime
-) -> list[tuple[datetime, float]]:
-    """One plug's minute readings in [start, end), oldest first; failed reads skipped."""
-    sql = """SELECT ts_utc, power_w FROM readings
-             WHERE plug = ? AND ts_utc >= ? AND ts_utc < ? AND power_w IS NOT NULL
-             ORDER BY ts_utc"""
-    rows = db.execute(sql, (plug, *_utc_bounds(start, end)))
-    return [(datetime.fromisoformat(ts), w) for ts, w in rows]
-
-
-def counter(
-    db: sqlite3.Connection, *, plug: str, start: datetime, end: datetime
-) -> list[tuple[datetime, float]]:
-    """The plug's own energy meter (total kWh) in [start, end), oldest first."""
-    sql = """SELECT ts_utc, total_kwh FROM readings
-             WHERE plug = ? AND ts_utc >= ? AND ts_utc < ? AND total_kwh IS NOT NULL
-             ORDER BY ts_utc"""
-    rows = db.execute(sql, (plug, *_utc_bounds(start, end)))
-    return [(datetime.fromisoformat(ts), total) for ts, total in rows]
-
-
-def last_rounds(
-    db: sqlite3.Connection, *, n: int, end: datetime
-) -> list[tuple[datetime, dict[str, bool]]]:
-    """The logger's last n rounds before `end`, oldest first: which plugs answered."""
-    sql = """SELECT ts_utc, plug, error IS NULL FROM readings
-             WHERE ts_utc IN (SELECT DISTINCT ts_utc FROM readings
-                              WHERE ts_utc < ? ORDER BY ts_utc DESC LIMIT ?)
-             ORDER BY ts_utc"""
-    rounds: dict[str, dict[str, bool]] = {}
-    for ts, plug, answered in db.execute(sql, (end.astimezone(UTC).isoformat(), n)):
-        rounds.setdefault(ts, {})[plug] = bool(answered)
-    return [(datetime.fromisoformat(ts), plugs) for ts, plugs in rounds.items()]
-
-
-def last_round(db: sqlite3.Connection, *, end: datetime) -> datetime | None:
-    """When the logger's newest round before `end` was, failed reads included. None if none."""
-    sql = "SELECT MAX(ts_utc) FROM readings WHERE ts_utc < ?"
-    (ts,) = db.execute(sql, (end.astimezone(UTC).isoformat(),)).fetchone()
-    return datetime.fromisoformat(ts) if ts else None
-
-
-def answered(db: sqlite3.Connection, *, plug: str | None, start: datetime, end: datetime) -> bool:
-    """Did this plug (or, with None, any plug) answer at least once in [start, end)?"""
-    sql = "SELECT 1 FROM readings WHERE ts_utc >= ? AND ts_utc < ? AND error IS NULL"
-    args: tuple[str, ...] = _utc_bounds(start, end)
-    if plug is not None:
-        sql, args = sql + " AND plug = ?", (*args, plug)
-    return db.execute(sql + " LIMIT 1", args).fetchone() is not None
-
-
-def _utc_bounds(start: datetime, end: datetime) -> tuple[str, str]:
-    # Stored as UTC ISO text, so the bounds must be UTC text too for the comparison to hold
-    return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()
-
-
 # chats: the setup chat (and later the main chat)
 
 
@@ -767,14 +716,26 @@ class Chat:
     plug_mac: str
     status: str  # open, saved or closed
     draft: dict[str, Any] | None  # the card the agent proposed last; None: none yet
+    reads: tuple[tuple[str, str], ...] = ()  # (what it asked a tool, the result), oldest first
 
 
 def chat(db: sqlite3.Connection, *, chat_id: int) -> Chat | None:
     """One chat, or None."""
-    row = db.execute(
-        "SELECT plug_mac, status, draft FROM chats WHERE id = ?", (chat_id,)
-    ).fetchone()
-    return Chat(row[0], row[1], json.loads(row[2]) if row[2] else None) if row else None
+    sql = "SELECT plug_mac, status, draft, reads FROM chats WHERE id = ?"
+    if (row := db.execute(sql, (chat_id,)).fetchone()) is None:
+        return None
+    reads = tuple((a, r) for a, r in json.loads(row[3])) if row[3] else ()
+    return Chat(row[0], row[1], json.loads(row[2]) if row[2] else None, reads)
+
+
+def add_reads(db: sqlite3.Connection, *, chat_id: int, reads: Sequence[tuple[str, str]]) -> None:
+    """Keep what the agent read in this chat, so its next reply has it without reading again."""
+    if not reads:
+        return
+    with db:
+        (raw,) = db.execute("SELECT reads FROM chats WHERE id = ?", (chat_id,)).fetchone()
+        kept = [*(json.loads(raw) if raw else []), *(list(r) for r in reads)]
+        db.execute("UPDATE chats SET reads = ? WHERE id = ?", (json.dumps(kept), chat_id))
 
 
 def close_chat(db: sqlite3.Connection, *, chat_id: int, status: str) -> None:
@@ -783,3 +744,45 @@ def close_chat(db: sqlite3.Connection, *, chat_id: int, status: str) -> None:
         db.execute(
             "UPDATE chats SET status = ? WHERE id = ? AND status = 'open'", (status, chat_id)
         )
+
+
+# writes to plugs: each one is an audit row (FR-21), so the history is the record
+
+
+def shadow(db: sqlite3.Connection, *, site_id: int) -> bool:
+    """Is shadow mode on? On until the owner turns it off: answers are recorded, not written."""
+    sql = "SELECT value FROM settings WHERE site_id = ? AND key = 'shadow'"
+    row = db.execute(sql, (site_id,)).fetchone()
+    return row is None or row[0] == "on"
+
+
+def set_shadow(db: sqlite3.Connection, *, site_id: int, on: bool, now: datetime) -> None:
+    with db:
+        db.execute("INSERT INTO settings (site_id, key, value) VALUES (?, 'shadow', ?)"
+                   " ON CONFLICT (site_id, key) DO UPDATE SET value = excluded.value",
+                   (site_id, "on" if on else "off"))  # fmt: skip
+    add_audit(db, site_id=site_id, at=now, actor="owner", action="shadow", ref="site",
+              detail={"shadow": "on" if on else "off"})  # fmt: skip
+
+
+def count_writes(db: sqlite3.Connection, *, site_id: int, plug: str, since: datetime) -> int:
+    """Writes sent to a plug since a time, failed ones too: each one reached the plug."""
+    sql = """SELECT COUNT(*) FROM audit WHERE site_id = ? AND ref = ? AND ts_utc >= ?
+             AND action IN ('write', 'write_failed')"""
+    return db.execute(sql, (site_id, f"plug:{plug}", since.astimezone(UTC).isoformat())).fetchone()[
+        0
+    ]
+
+
+def undoable(db: sqlite3.Connection, *, site_id: int, since: datetime) -> list[tuple[int, str]]:
+    """Switch-offs since a time with nothing written to that plug after them, as
+    (audit id, plug), oldest first: each can still be undone. A failed switch off counts
+    (the relay may be off with only the read-back lost); a failed later write does not (a
+    failed undo keeps its button, to try again)."""
+    sql = """SELECT a.id, substr(a.ref, 6) FROM audit a
+             WHERE a.site_id = ? AND a.action IN ('write', 'write_failed') AND a.ts_utc >= ?
+               AND json_extract(a.detail, '$.does') = 'switch_off'
+               AND NOT EXISTS (SELECT 1 FROM audit b WHERE b.site_id = a.site_id
+                               AND b.ref = a.ref AND b.id > a.id AND b.action = 'write')
+             ORDER BY a.id"""
+    return [(i, p) for i, p in db.execute(sql, (site_id, since.astimezone(UTC).isoformat()))]

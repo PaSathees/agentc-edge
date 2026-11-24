@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Sign in</h1>
+{% if password %}
+<form class="card login" method="post" action="/login">
+  <input type="hidden" name="next" value="{{ next }}">
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+  {% if error %}<p class="warn">{{ error }}</p>{% endif %}
+  <button class="primary">Sign in</button>
+</form>
+{% else %}
+<p>Open the hub through Tailscale as the user set in AGENTC_TAILSCALE_USER, or add AGENTC_PASSWORD to .env and restart.</p>
+{% endif %}
+{% endblock %}

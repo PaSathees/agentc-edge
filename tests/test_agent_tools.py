@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import config, store
+from agentc import config, readings, store
 from agentc.agent_tools import Tools, segments
 from agentc.calc import Period, ProfileHour, TimeOfUse
 from agentc.house import Card
@@ -46,7 +46,7 @@ def tools(tmp_path):
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
-    return Tools(app, store.open_readings(path), CFG, site_id=1, now=NOW)
+    return Tools(app, readings.connect(path), CFG, site_id=1, now=NOW)
 
 
 # segments: a stretch of readings in plain words, not raw minutes
@@ -78,6 +78,12 @@ def test_device_shows_its_card(tools):
     assert tools.run("device", {"device": "Desk 2"}).startswith(
         "Desk 2: computer. Where: desk 2. Plugged in: monitor."
     )
+
+
+def test_device_says_when_its_timers_switch_is_off(tools):
+    store.plug_seen(tools.app, site_id=1, mac="AA", name="Plug-1", ip="192.0.2.1",
+                    timers_on=False, now=NOW)  # fmt: skip
+    assert "Timers switch: off" in tools.run("device", {"device": "Desk 2"})
 
 
 def test_an_unknown_device_lists_the_known_ones(tools):

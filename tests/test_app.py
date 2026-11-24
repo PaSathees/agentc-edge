@@ -104,7 +104,7 @@ def test_a_second_tap_finds_nothing_open(client):
 def test_the_night_tap_answers_the_nights_questions(client):
     c, _, said = client
     r = c.post(f"/night/2026-11-02/switch_off_now/{notify.token(KEY, '2026-11-02', OFF.does)}")
-    assert r.status_code == 200 and "Recorded: Switch off." in r.text and len(said) == 1
+    assert r.status_code == 200 and "Recorded: switch Desk 2 off." in r.text and len(said) == 1
 
 
 def test_a_night_tap_needs_its_own_token_and_an_open_night(client):
@@ -246,13 +246,23 @@ def test_a_message_is_saved_and_its_reply_streams(chat):
     assert 'class="bubble owner"' in r.text and "the roof light" in r.text
     assert f'sse-connect="/setup/Plug-1/reply?tok={tok}"' in r.text
     model([[{"type": "tool_use", "id": "t1", "name": "power", "input": {"device": "Desk 2",
-                                                                         "hours": 24}}],
+                                                                         "hours": 24}},
+            {"type": "tool_use", "id": "t2", "name": "device", "input": {"device": "Desk 2"}}],
            [{"type": "text", "text": "Which room?"}]])  # fmt: skip
     got = events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)
-    assert got[0] == ("step", "looking at its power")
-    assert got[1] == ("text", "Which room?")
+    assert got[:2] == [("step", "looking at its power"), ("step", "reading its card")]
+    assert got[2] == ("text", "Which room?")
     assert got[-1][0] == "done" and "data-say>Which room?</div>" in got[-1][1]
     assert [role for _, role, _ in store.turns(db, chat_id=1)] == ["agent", "owner", "agent"]
+    found = store.chat(db, chat_id=1)
+    assert found is not None and [a for a, _ in found.reads] == [
+        'device {"device": "Desk 2"}'
+    ]  # kept for the next reply; power changes each minute, so it is read again
+    c.post("/setup/Plug-1/say", data={"text": "the study", "tok": tok})
+    model([[{"type": "text", "text": "Thanks."}]])
+    c.get(f"/setup/Plug-1/reply?tok={tok}")
+    found = store.chat(db, chat_id=1)
+    assert found is not None and len(found.reads) == 1  # no new read, nothing added
 
 
 def test_a_draft_card_shows_with_save_and_only_save_writes_it(chat):
@@ -382,7 +392,7 @@ def test_a_broken_worker_still_ends_the_stream(chat, monkeypatch):
     c, _, tok = chat
     c.post("/setup/Plug-1/say", data={"text": "hello", "tok": tok})
     model([[{"type": "text", "text": "never"}]])
-    monkeypatch.setattr(webchat.store, "open_readings", lambda path: _raises(OSError("disk"))())
+    monkeypatch.setattr(webchat.readings, "connect", lambda path: _raises(OSError("disk"))())
     assert (
         "Something went wrong: disk" in events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)[-1][1]
     )

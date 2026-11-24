@@ -103,7 +103,7 @@ def covers(habit: Habit, local: datetime) -> bool:
 
 def card(
     device: Device, c: Card, *, timers: Sequence[Timer], habits: Sequence[Habit],
-    automations: Automations = NO_AUTOMATIONS,
+    automations: Automations = NO_AUTOMATIONS, timers_on: bool = True,
 ) -> str:  # fmt: skip
     """The device in plain words: what it is, its access, rules, timers, what the plug does on
     its own (auto-off, plug rules), and habits."""
@@ -116,6 +116,8 @@ def card(
     lines += [
         f"Timer {t.slot}: {describe(t)}. Why: {c.why.get(t.slot, 'not known')}" for t in set_timers
     ] or ["Timers: none."]
+    if not timers_on:
+        lines.append("Timers switch: off on the plug, so no timer fires. Do not offer a timer.")
     if automations.auto_off_s:
         lines.append(f"Auto-off: after {_duration(automations.auto_off_s)}, set on the plug")
     lines += [f"Plug rule {r.n} ({'on' if r.on else 'off'}): {r.text}" for r in automations.rules]

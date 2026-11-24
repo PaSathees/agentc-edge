@@ -313,7 +313,8 @@ def test_a_that_is_normal_answer_saves_a_habit(cfg, capsys, tmp_path):
 def test_a_switch_off_answer_is_only_recorded_in_shadow_mode(cfg, capsys, tmp_path):
     asked(cfg, capsys, tmp_path)
     assert run(cfg, capsys, "answer", "1", "1") == (
-        0, "Recorded: Off. Shadow mode: nothing was sent to the plug.\n")  # fmt: skip
+        0, "Recorded: switch Desk 2 off. Desk 2 is set to advice, so nothing was sent. To let me"
+        " change it, set its access to write in config.toml.\n")  # fmt: skip
 
 
 def test_an_answer_to_no_open_question(cfg, capsys, tmp_path):

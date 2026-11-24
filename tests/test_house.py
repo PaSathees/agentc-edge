@@ -85,6 +85,12 @@ def test_a_card_skips_timers_that_are_not_set():
     assert "Timers: none." in house.card(DESK, CARD, timers=[unset], habits=[])
 
 
+def test_the_card_says_when_the_plugs_timers_switch_is_off():
+    text = house.card(DESK, CARD, timers=[], habits=[], timers_on=False)
+    assert "Timers switch: off on the plug, so no timer fires. Do not offer a timer." in text
+    assert "Timers switch" not in house.card(DESK, CARD, timers=[], habits=[])
+
+
 # must run: the owner's word, else the kind
 
 

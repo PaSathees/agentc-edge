@@ -17,13 +17,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
-from agentc import config, llm, notify, setup, store
+from agentc import config, llm, notify, readings, setup, store
 from agentc.agent_tools import Tools
 from agentc.config import Config
 from agentc.llm import OverBudget, StepSend, Unreachable
 from agentc.web.deps import Cfg, Db, Model, Now, Secret, Tok, known, pages
+from agentc.web.login import Owner, Ways
 
-router = APIRouter()
+router = APIRouter(dependencies=[Owner])  # every chat page and form needs the login
 AT_ONCE = threading.BoundedSemaphore(2)  # model replies running at once, on the whole hub
 WAIT_S = 120  # a stream gives up after this long with no news
 TEXT_MAX = 1000  # characters in one owner message
@@ -68,8 +69,9 @@ RUNS_LOCK = threading.Lock()
 
 
 @router.get("/setup", response_class=HTMLResponse)
-def devices(request: Request, cfg: Cfg, data: Db) -> HTMLResponse:
-    """Every plug, what the housemate knows about it, and a link to set it up or edit it."""
+def devices(request: Request, cfg: Cfg, key: Secret, ways: Ways, data: Db) -> HTMLResponse:
+    """Every plug, what the housemate knows about it, and a link to set it up or edit it.
+    On top, shadow mode, and which devices a tap may switch."""
     db, site = data
     macs = store.plug_macs(db, site_id=site)
     rows = []
@@ -78,8 +80,29 @@ def devices(request: Request, cfg: Cfg, data: Db) -> HTMLResponse:
         summary = ", ".join(x for x in (c.what, c.room) if x)
         rows.append({"plug": plug, "name": config.device(cfg, plug).name, "known": known(c),
                      "summary": summary})  # fmt: skip
+    writable = [config.device(cfg, p).name for p in cfg.plugs
+                if config.device(cfg, p).access == "write"]  # fmt: skip
     return pages.TemplateResponse(request, "devices.html", {
-        "title": "Devices", "page": "setup", "devices": rows})  # fmt: skip
+        "title": "Devices", "page": "setup", "devices": rows, "writable": writable,
+        "shadow": store.shadow(db, site_id=site), "login": ways.set,
+        "tok": notify.token(key, "shadow")})  # fmt: skip
+
+
+@router.post("/shadow")
+def shadow(on: Annotated[str, Form()], tok: Tok, key: Secret, now: Now, ways: Ways,
+           data: Db) -> RedirectResponse:  # fmt: skip
+    """The owner turns shadow mode on or off. Off needs a login first: else anyone who can
+    open the page could switch plugs."""
+    if not notify.valid(key, tok, "shadow"):
+        raise HTTPException(403, "Not a form from this hub")
+    if on not in ("on", "off"):
+        raise HTTPException(422, "on or off")
+    if on == "off" and not ways.set:
+        raise HTTPException(409, "Set a login in .env first: AGENTC_PASSWORD or"
+                            " AGENTC_TAILSCALE_USER.")  # fmt: skip
+    db, site = data
+    store.set_shadow(db, site_id=site, on=on == "on", now=now)
+    return RedirectResponse("/setup", status_code=303)
 
 
 @router.get("/setup/{plug}", response_class=HTMLResponse)
@@ -204,11 +227,14 @@ def _answer(cfg: Config, site: int, plug: str, chat: int, talk: list[tuple[str, 
             raise LookupError("No ANTHROPIC_API_KEY in .env: the setup chat needs the model.")
         if not cfg.energy_db.exists():
             raise LookupError("No readings yet: the logger starts them within a minute.")
-        db, energy = store.open_app(cfg.app_db), store.open_readings(cfg.energy_db)
+        db, energy = store.open_app(cfg.app_db), readings.connect(cfg.energy_db)
         brain = llm.Llm(db, site, cfg.tz, cfg.tiers, cfg.budget, model)
+        found = store.chat(db, chat_id=chat)
         r = setup.reply(talk, plug, tools=Tools(db, energy, cfg, site, now), llm=brain,
                         run_id=f"setup:{chat}:{len(talk)}", draft=draft,
-                        on_event=lambda kind, text: run.put((kind, text)))  # fmt: skip
+                        on_event=lambda kind, text: run.put((kind, text)),
+                        earlier=found.reads if found else ())  # fmt: skip
+        store.add_reads(db, chat_id=chat, reads=r.reads)
         store.add_turn(db, chat_id=chat, site_id=site, role="agent", text=r.text, now=now)
         if r.draft:
             store.set_draft(db, chat_id=chat, draft=r.draft.to_json())

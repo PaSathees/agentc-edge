@@ -28,7 +28,10 @@ services:
 
   web:  # the inbox and the phone's taps, on port 8765
     <<: *agentc
-    entrypoint: ["uvicorn", "agentc.app:app", "--host", "0.0.0.0", "--port", "8765"]
+    # --no-proxy-headers: the app sees who really connected, so a Tailscale login header
+    # counts only when it comes from Tailscale Serve on the hub itself (web/login.py)
+    entrypoint: ["uvicorn", "agentc.app:app", "--host", "0.0.0.0", "--port", "8765",
+                 "--no-proxy-headers"]
 
   ntfy:  # push messages to the phone, on port 8090; iOS gets only a message id via ntfy.sh
     image: binwiederhier/ntfy:v2.11.0

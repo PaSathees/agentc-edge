@@ -24,6 +24,7 @@ from agentc import (
     llm,
     logger,
     notify,
+    readings,
     store,
     timers,
 )
@@ -193,7 +194,7 @@ def show_look(
     )
     run_id = f"look:{event_id}:{now:%Y%m%dT%H%M}"
     model = llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, step)
-    tools = agent_tools.Tools(db, store.open_readings(cfg.energy_db), cfg, site_id, now)
+    tools = agent_tools.Tools(db, readings.connect(cfg.energy_db), cfg, site_id, now)
     device = config.device(cfg, names[e.plug_mac]).name
     signal = event_words(e, {e.plug_mac: device}, tz=cfg.tz)
     print(f"Signal: {signal}")
@@ -227,7 +228,7 @@ def show_policy(db: Connection, cfg: Config, plug: str | None) -> int:
 
 def show_learn(db: Connection, cfg: Config, *, site_id: int) -> int:
     """Learn each plug's levels now, and say what each one learned."""
-    energy = store.open_readings(cfg.energy_db)
+    energy = readings.connect(cfg.energy_db)
     found = jobs.learn_pass(db, energy, cfg, site_id=site_id, now=datetime.now(UTC))
     for name in store.plug_macs(db, site_id=site_id):
         if name not in found:
@@ -268,16 +269,16 @@ def show_profile(db: Connection, cfg: Config, *, site_id: int, plug: str, days: 
         return 1
     end = datetime.now(UTC)
     start = end - timedelta(days=days)
-    energy = store.open_readings(cfg.energy_db)
+    energy = readings.connect(cfg.energy_db)
     policy = config.device(cfg, plug).policy
-    readings = store.readings(energy, plug=plug, start=start, end=end)
-    profile = calc.build_profile(readings, tz=cfg.tz, policy=policy)
+    rows = readings.power(energy, plug=plug, start=start, end=end)
+    profile = calc.build_profile(rows, tz=cfg.tz, policy=policy)
     if profile is None:
         print(f"{plug}: not enough data yet. A profile needs {policy.min_days} days.")
         return 1
     store.save_profile(db, site_id=site_id, mac=mac, profile=profile)
     print(week_table(profile))
-    used = calc.kwh(store.counter(energy, plug=plug, start=start, end=end))
+    used = calc.kwh(readings.counter(energy, plug=plug, start=start, end=end))
     print(f"\n{plug} used {used:.2f} kWh in the last {days} days.")
     return 0
 
@@ -360,7 +361,7 @@ def show_watch(
 ) -> int:  # fmt: skip
     """Run the jobs that are due now; print new signals, what the housemate made of them,
     and what went to the phone. quiet: say nothing when nothing is new (for `run`)."""
-    energy = store.open_readings(cfg.energy_db)
+    energy = readings.connect(cfg.energy_db)
     now = datetime.now(UTC)
     events, looked, sent = jobs.run_due(db, energy, cfg, site_id=site_id, now=now, llm=model,
                                         sender=sender)  # fmt: skip
@@ -457,12 +458,12 @@ def show_replay(
     """
     copy = sqlite3.connect(":memory:")
     db.backup(copy)
-    energy = store.open_readings(cfg.energy_db)
+    energy = readings.connect(cfg.energy_db)
     end = datetime.now(UTC)
     start = end - timedelta(days=days)
     for name, mac in store.plug_macs(copy, site_id=site_id).items():
-        readings = store.readings(energy, plug=name, start=start, end=end)
-        profile = calc.build_profile(readings, tz=cfg.tz, policy=config.device(cfg, name).policy)
+        rows = readings.power(energy, plug=name, start=start, end=end)
+        profile = calc.build_profile(rows, tz=cfg.tz, policy=config.device(cfg, name).policy)
         if profile:
             store.save_profile(copy, site_id=site_id, mac=mac, profile=profile)
     jobs.learn_pass(copy, energy, cfg, site_id=site_id, now=end)  # in the copy only

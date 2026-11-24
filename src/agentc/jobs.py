@@ -11,6 +11,7 @@ from sqlite3 import Connection
 from zoneinfo import ZoneInfo
 
 from agentc import (
+    actuator,
     agent,
     agent_tools,
     calc,
@@ -19,6 +20,7 @@ from agentc import (
     learn,
     notify,
     owner,
+    readings,
     store,
     timers,
     watcher,
@@ -132,20 +134,20 @@ def watch_pass(
 ) -> list[Event]:
     """Check every known plug with its own policy; save new events and return them."""
     macs = store.plug_macs(app, site_id=site_id)
-    rounds = store.last_rounds(energy, n=watcher.PASS_ROUNDS, end=now)
+    rounds = readings.last_rounds(energy, n=watcher.PASS_ROUNDS, end=now)
     outages = watcher.offline_events(rounds, macs)
     found = [e for e in outages if not _reported(app, energy, site_id, e)]
-    if stopped := watcher.logger_stopped(store.last_round(energy, end=now), now=now):
+    if stopped := watcher.logger_stopped(readings.last_round(energy, end=now), now=now):
         found.append(stopped)  # its dedupe key is its start, so one event per stop
     for name, mac in macs.items():
         usual = watcher.usual_week(store.load_profile(app, mac=mac))  # no profile: never unusual
-        readings = store.readings(energy, plug=name, start=now - LOOKBACK, end=now)
+        rows = readings.power(energy, plug=name, start=now - LOOKBACK, end=now)
         policy = config.device(cfg, name, store.learned(app, mac=mac)).policy
-        found += watcher.automation_events(mac, store.load_timers(app, mac=mac), readings, usual,
+        found += watcher.automation_events(mac, store.load_timers(app, mac=mac), rows, usual,
                                            now=now, tz=cfg.tz, policy=policy)  # fmt: skip
         if house.runs_always(store.load_card(app, mac=mac)):
             continue  # a fridge's or router's cycles are normal (FM-04)
-        runs = watcher.unusual_runs(readings, usual, tz=cfg.tz, policy=policy)
+        runs = watcher.unusual_runs(rows, usual, tz=cfg.tz, policy=policy)
         found += [watcher.run_event(mac, run) for run in runs]
     return [
         e for e in found
@@ -251,7 +253,7 @@ def _watts(energy: Connection, plug: str, e: Event, now: datetime) -> float:
 
 def _now_w(energy: Connection, plug: str, now: datetime) -> float | None:
     """Its last reading in the last 5 minutes; None if there is none."""
-    recent = store.readings(energy, plug=plug, start=now - agent_tools.NOW_WINDOW, end=now)
+    recent = readings.power(energy, plug=plug, start=now - agent_tools.NOW_WINDOW, end=now)
     return recent[-1][1] if recent else None
 
 
@@ -329,7 +331,8 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
            now: datetime) -> str:  # fmt: skip
     """The owner's tap on a question: do what the choice does, and say what was done.
 
-    Shadow mode (Phase 3): a switch off or a timer is recorded, never written.
+    A switch off or a timer goes to the Actuator, which checks it and writes it, or records
+    it in shadow mode.
     """
     q = store.get_question(app, question_id=question_id)
     if q is None or q.status != "open":
@@ -351,11 +354,11 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
     if c.does == "remind_later":
         store.ask_again(app, question_id=question_id, at=now + REMIND)
         return f"I'll ask again at {(now + REMIND).astimezone(zone):%H:%M}."
-    if c.does in ("switch_off_now", "set_timer"):
-        store.add_audit(app, site_id=site_id, at=now, actor="code", action="shadow_action",
-                        ref=ref, detail={"does": c.does, "off": c.off or "", "on": c.on or "",
-                                         "days": c.days or ""})  # fmt: skip
-        return f"Recorded: {c.label}. Shadow mode: nothing was sent to the plug."
+    if c.does == "switch_off_now":
+        return actuator.switch(app, cfg, site_id=site_id, plug=plug, on=False, why=ref, now=now)
+    if c.does == "set_timer":
+        return actuator.set_timer(app, cfg, site_id=site_id, plug=plug, off=c.off or "",
+                                  on=c.on or "", days=c.days or "", why=ref, now=now)  # fmt: skip
     return "Noted."
 
 
@@ -369,7 +372,10 @@ def answer_night(app: Connection, cfg: Config, *, site_id: int, night: date, doe
             continue
         n = next((n for n, c in enumerate(q.decision.choices, 1) if c.does == does), None)
         if n is not None:
-            done.append(answer(app, cfg, site_id=site_id, question_id=q.id, choice=n, now=now))
+            try:
+                done.append(answer(app, cfg, site_id=site_id, question_id=q.id, choice=n, now=now))
+            except LookupError:
+                continue  # answered on its own at the same moment: the rest still go
     if not done:
         raise LookupError(f"No open questions from the night before {night}.")
     return "\n".join(done)
@@ -395,10 +401,10 @@ def change_check(
         last = store.last_event_start(app, site_id=site_id, kind="change_point", plug_mac=mac)
         if last is not None and last >= since:
             continue  # asked already; the owner's answer or the new levels settle it
-        readings = store.readings(energy, plug=name, start=since, end=now)
-        recent = [r for r in readings if r[0] >= now - RECENT]
+        rows = readings.power(energy, plug=name, start=since, end=now)
+        recent = [r for r in rows if r[0] >= now - RECENT]
         before = [
-            [r for r in readings if now - RECENT * (k + 1) <= r[0] < now - RECENT * k]
+            [r for r in rows if now - RECENT * (k + 1) <= r[0] < now - RECENT * k]
             for k in range(1, int((now - since) / RECENT))
         ]  # the earlier windows, each as long as `recent`
         if (e := watcher.change_point(mac, before, recent, now=now)) and store.add_event(
@@ -420,14 +426,14 @@ def learn_pass(
     found: dict[str, learn.Levels | None] = {}
     for name, mac in store.plug_macs(app, site_id=site_id).items():
         policy = config.device(cfg, name).policy
-        week = store.readings(energy, plug=name, start=now - PROFILE_DAYS, end=now)
+        week = readings.power(energy, plug=name, start=now - PROFILE_DAYS, end=now)
         if profile := calc.build_profile(week, tz=cfg.tz, policy=policy):
             store.save_profile(app, site_id=site_id, mac=mac, profile=profile)
-        readings = store.readings(energy, plug=name, end=now,
+        rows = readings.power(energy, plug=name, end=now,
                                   start=now - timedelta(days=policy.history_days))  # fmt: skip
-        if not readings or (now - readings[0][0]).days < policy.min_days:
+        if not rows or (now - rows[0][0]).days < policy.min_days:
             continue
-        found[name] = lv = learn.levels([w for _, w in readings])
+        found[name] = lv = learn.levels([w for _, w in rows])
         store.save_learned(app, site_id=site_id, mac=mac, at=now,
                            values=learn.values(lv) if lv else {})  # fmt: skip
     return found
@@ -440,7 +446,7 @@ def _reported(app: Connection, energy: Connection, site_id: int, e: Event) -> bo
     if last is None:
         return False
     plug = e.facts.get("plug")  # None for lost contact with every plug
-    return not store.answered(energy, plug=str(plug) if plug else None, start=last, end=e.start)
+    return not readings.answered(energy, plug=str(plug) if plug else None, start=last, end=e.start)
 
 
 def timer_check(app: Connection, cfg: Config, *, site_id: int, now: datetime) -> list[Event]:

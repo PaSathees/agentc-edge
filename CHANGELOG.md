@@ -4,6 +4,7 @@ One line per phase. Details: `docs/` and the pull requests.
 
 ## Unreleased
 
+- **Phase 4, 2026-11-24:** the first writes to plugs, only after your tap. A login for the pages (Tailscale or a password) and a host check. The Actuator, the only code that changes a plug: switch off now with undo, and timer pairs written all or nothing in slots 9 to 16, each read back; at most 4 changes a plug a day; shadow mode on by default, turned off on the Devices page. The setup chat keeps what it read between messages and suggests habits from the usual week (FM-08).
 - **Phase 3d3b, 2026-11-24:** the setup chat works on a phone. It opens at the newest message and nothing hides under the message box. The mic keeps listening through pauses and never sends by itself: tap stop, check the words, then Send. Read aloud works on iPhone (turn it on with the speaker button). Start again moved to the menu.
 - **Phase 3d3, 2026-11-24:** a web UI (HTMX and Jinja, our own CSS) with a Devices page and a setup chat: the agent reads the plug, asks a few questions and drafts a card; only your Save writes it. Replies stream in; voice in and out where the browser allows it.
 - **Phase 3d1 to 3d2, 2026-11-23:** questions on your phone through ntfy, with signed tap buttons and one message for the night; an inbox page; the whole system as one Docker Compose stack, set up in 6 steps (`docs/setup.md`); restart-safe jobs.
