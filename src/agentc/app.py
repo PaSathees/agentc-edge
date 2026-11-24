@@ -6,13 +6,15 @@ and once a question is answered its token does nothing either. The jobs run apar
 app (`agentc run`).
 """
 
-from datetime import date
+from datetime import date, datetime
+from sqlite3 import Connection
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from agentc import __version__, config, jobs, notify, store
+from agentc import __version__, actuator, config, jobs, notify, store
+from agentc.config import Config
 from agentc.notify import Message, NotSent, Publish
 from agentc.web import chat, login
 from agentc.web.deps import (  # noqa: F401 (re-exported: tests override these)
@@ -62,9 +64,10 @@ def inbox(request: Request, cfg: Cfg, key: Secret, now: Now, data: Db) -> HTMLRe
                if not known(store.load_card(db, mac=mac))]  # fmt: skip
     notes = [d["text"] for d in store.audit_since(db, site_id=site, action="note",
                                                    since=now - jobs.NOTES_SINCE)]  # fmt: skip
+    undo = _undo(db, cfg, key, site, since=now - actuator.UNDO_FOR, hub="")
     return pages.TemplateResponse(request, "inbox.html", {
         "title": "Inbox", "page": "inbox", "questions": questions, "unknown": unknown,
-        "notes": notes})  # fmt: skip
+        "notes": notes, "undo": undo})  # fmt: skip
 
 
 @app.post("/answer/{question_id}/{choice}/{tok}", response_class=HTMLResponse)
@@ -79,6 +82,21 @@ def answer(request: Request, question_id: int, choice: int, tok: str, cfg: Cfg, 
                            now=now)  # fmt: skip
     except LookupError as err:
         raise HTTPException(409, err.args[0]) from None
+    return _done(request, done, say, _switched(db, cfg, key, site, now), _hub(cfg))
+
+
+@app.post("/undo/{write_id}/{tok}", response_class=HTMLResponse)
+def undo(request: Request, write_id: int, tok: str, cfg: Cfg, key: Secret, now: Now, say: Say,
+         data: Db) -> HTMLResponse:  # fmt: skip
+    """Switch a plug back on after a switch off, from the inbox or the phone."""
+    if not notify.valid(key, tok, "undo", write_id):
+        raise HTTPException(403, "Not a button from this hub")
+    db, site = data
+    found = dict(store.undoable(db, site_id=site, since=now - actuator.UNDO_FOR))
+    if (plug := found.get(write_id)) is None:
+        raise HTTPException(409, "It was changed again since, or it is over a day old.")
+    done = actuator.switch(db, cfg, site_id=site, plug=plug, on=True, why=f"undo:{write_id}",
+                           now=now)  # fmt: skip
     return _done(request, done, say)
 
 
@@ -101,16 +119,39 @@ def answer_night(request: Request, night: date, does: str, tok: str, cfg: Cfg, k
         done = jobs.answer_night(db, cfg, site_id=site, night=night, does=does, now=now)
     except LookupError as err:
         raise HTTPException(409, err.args[0]) from None
-    return _done(request, done, say)
+    return _done(request, done, say, _switched(db, cfg, key, site, now), _hub(cfg))
 
 
-def _done(request: Request, text: str, say: Publish | None) -> HTMLResponse:
-    """What the tap did: as a page (the inbox) and as a quiet message (the phone)."""
+def _undo(db: Connection, cfg: Config, key: str, site: int, *, since: datetime, hub: str
+          ) -> list[tuple[str, str]]:  # fmt: skip
+    """Each switch off since a time that can be undone, as (device name, undo url)."""
+    return [(config.device(cfg, plug).name, notify.undo_url(hub, key, wid))
+            for wid, plug in store.undoable(db, site_id=site, since=since)]  # fmt: skip
+
+
+def _hub(cfg: Config) -> str:
+    return cfg.owner.inbox_url if cfg.owner else ""
+
+
+def _switched(db: Connection, cfg: Config, key: str, site: int, now: datetime
+              ) -> list[tuple[str, str]]:  # fmt: skip
+    """Undo buttons for what this tap switched off: its rows are stamped with its time."""
+    return _undo(db, cfg, key, site, since=now, hub="")
+
+
+def _done(request: Request, text: str, say: Publish | None,
+          undo: list[tuple[str, str]] | None = None, hub: str = "") -> HTMLResponse:  # fmt: skip
+    """What the tap did: as a page (the inbox) and as a quiet message (the phone), with a
+    button to switch back on anything it switched off. hub: the phone's address for the hub."""
+    undo = undo or []
     if say:
+        buttons = tuple(
+            notify.Button(f"Switch {name} back on", f"{hub}{url}") for name, url in undo
+        )
         try:
-            say(Message("Done", text, quiet=True))
+            say(Message("Done", text, buttons[: notify.MAX_BUTTONS], quiet=True))
         except NotSent:
             pass  # the answer is saved; only the echo is lost
     return pages.TemplateResponse(request, "done.html", {
-        "title": "Done", "page": "inbox", "lines": text.splitlines(), "back": "/",
+        "title": "Done", "page": "inbox", "lines": text.splitlines(), "back": "/", "undo": undo,
         "back_label": "Back to the inbox"})  # fmt: skip

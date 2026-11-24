@@ -85,3 +85,28 @@ def test_an_unreadable_clock_raises_plug_error(plug, utc):
     plug.utc = utc
     with pytest.raises(PlugError, match="unreadable clock"):
         TasmotaPlug(plug.ip).clock()
+
+
+# the one direct command (ADR-008)
+
+
+def test_switch_then_read_the_relay_back(plug):
+    p = TasmotaPlug(plug.ip)
+    p.switch(True)
+    assert p.power() is True and plug.relay_on
+    p.switch(False)
+    assert p.power() is False
+    assert plug.commands[-4:] == ["Power On", "Power", "Power Off", "Power"]
+
+
+def test_a_stuck_relay_reads_back_unchanged(plug):
+    plug.relay_on, plug.stuck = True, True
+    p = TasmotaPlug(plug.ip)
+    p.switch(False)
+    assert p.power() is True  # the Actuator compares, so this is caught
+
+
+def test_an_unreadable_power_answer_raises_plug_error(plug, monkeypatch):
+    monkeypatch.setattr(plug, "handle", lambda cmnd: {"POWER1": "OFF"})
+    with pytest.raises(PlugError, match="unreadable Power answer"):
+        TasmotaPlug(plug.ip).power()

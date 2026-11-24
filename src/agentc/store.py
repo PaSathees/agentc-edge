@@ -360,14 +360,16 @@ def learned(db: sqlite3.Connection, *, mac: str) -> dict[str, tuple[float, str]]
 def add_audit(
     db: sqlite3.Connection, *, site_id: int, at: datetime, actor: str, action: str, ref: str,
     detail: dict[str, str],
-) -> None:  # fmt: skip
-    """Add a line to the history of changes, e.g. why a draft was blocked. Never edited."""
+) -> int:  # fmt: skip
+    """Add a line to the history of changes, e.g. why a draft was blocked. Never edited.
+    Returns its id."""
     with db:
-        db.execute(
+        cur = db.execute(
             "INSERT INTO audit (site_id, ts_utc, actor, action, ref, detail)"
             " VALUES (?, ?, ?, ?, ?, ?)",
             (site_id, at.astimezone(UTC).isoformat(), actor, action, ref, json.dumps(detail)),
         )
+    return cur.lastrowid or 0
 
 
 def add_llm_call(
@@ -742,3 +744,44 @@ def close_chat(db: sqlite3.Connection, *, chat_id: int, status: str) -> None:
         db.execute(
             "UPDATE chats SET status = ? WHERE id = ? AND status = 'open'", (status, chat_id)
         )
+
+
+# writes to plugs: each one is an audit row (FR-21), so the history is the record
+
+
+def shadow(db: sqlite3.Connection, *, site_id: int) -> bool:
+    """Is shadow mode on? On until the owner turns it off: answers are recorded, not written."""
+    sql = "SELECT value FROM settings WHERE site_id = ? AND key = 'shadow'"
+    row = db.execute(sql, (site_id,)).fetchone()
+    return row is None or row[0] == "on"
+
+
+def set_shadow(db: sqlite3.Connection, *, site_id: int, on: bool, now: datetime) -> None:
+    with db:
+        db.execute("INSERT INTO settings (site_id, key, value) VALUES (?, 'shadow', ?)"
+                   " ON CONFLICT (site_id, key) DO UPDATE SET value = excluded.value",
+                   (site_id, "on" if on else "off"))  # fmt: skip
+    add_audit(db, site_id=site_id, at=now, actor="owner", action="shadow", ref="site",
+              detail={"shadow": "on" if on else "off"})  # fmt: skip
+
+
+def count_writes(db: sqlite3.Connection, *, site_id: int, plug: str, since: datetime) -> int:
+    """Writes sent to a plug since a time, failed ones too: each one reached the plug."""
+    sql = """SELECT COUNT(*) FROM audit WHERE site_id = ? AND ref = ? AND ts_utc >= ?
+             AND action IN ('write', 'write_failed')"""
+    return db.execute(sql, (site_id, f"plug:{plug}", since.astimezone(UTC).isoformat())).fetchone()[
+        0
+    ]
+
+
+def undoable(db: sqlite3.Connection, *, site_id: int, since: datetime) -> list[tuple[int, str]]:
+    """Switch-offs since a time with nothing written to that plug after them, as
+    (audit id, plug), oldest first: each can still be undone."""
+    sql = """SELECT a.id, substr(a.ref, 6) FROM audit a
+             WHERE a.site_id = ? AND a.action = 'write' AND a.ts_utc >= ?
+               AND json_extract(a.detail, '$.does') = 'switch_off'
+               AND NOT EXISTS (SELECT 1 FROM audit b WHERE b.site_id = a.site_id
+                               AND b.ref = a.ref AND b.id > a.id
+                               AND b.action IN ('write', 'write_failed'))
+             ORDER BY a.id"""
+    return [(i, p) for i, p in db.execute(sql, (site_id, since.astimezone(UTC).isoformat()))]

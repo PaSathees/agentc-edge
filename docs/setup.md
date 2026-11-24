@@ -73,6 +73,16 @@ Done. After about 7 days of readings, each plug has a usual week, and signals be
 
 Open `http://<the hub>:8765/setup` (Devices, at the top of every page). For each plug, press **Set up** and tell it what is plugged in, in your own words. It looks at the plug's readings, asks a few short questions, and shows a card. Nothing is saved until you press **Save**. Each chat costs about USD 0.002 on Claude Haiku (the default small model); without one, set cards by hand: `docker compose exec jobs agentc house Plug-1 kind=computer room=study`.
 
+## 8. Let it switch a device (optional)
+
+At first AgentC only asks and records your answers (shadow mode). To let a tap on "Switch off" really switch a device:
+
+1. In `config.toml`, set that device's `access = "write"`. Start with one that is safe to switch off, like a TV box.
+2. Set a login in `.env` (`AGENTC_PASSWORD`, or `AGENTC_TAILSCALE_USER`), then `docker compose up -d`.
+3. On the Devices page, tap **Turn shadow mode off**.
+
+Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
+
 ## Every day
 
 | To | Run |

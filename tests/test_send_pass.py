@@ -196,7 +196,7 @@ def test_a_night_tap_skips_questions_without_that_choice_and_other_nights(app): 
     asked(app, "BB", decision=Decision("ask", "Off?", (Choice("Later", "remind_later"),
                                                      Choice("No", "nothing"))), n=2)  # fmt: skip
     asked(app, "AA", due=MORNING + timedelta(days=1), n=3)
-    assert tap_night(app, "switch_off_now").startswith("Recorded: Off.")
+    assert tap_night(app, "switch_off_now").startswith("Recorded: switch Plug-6 off.")
     assert [q.status for q in store.questions(app, site_id=1)] == ["answered", "open", "open"]
 
 

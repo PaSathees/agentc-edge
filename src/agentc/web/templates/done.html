@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block main %}
 {% for line in lines %}<p>{{ line }}</p>{% endfor %}
+{% for name, url in undo or [] %}<form method="post" action="{{ url }}"><button>Switch {{ name }} back on</button></form>{% endfor %}
 <p><a href="{{ back }}">{{ back_label }}</a></p>
 {% endblock %}

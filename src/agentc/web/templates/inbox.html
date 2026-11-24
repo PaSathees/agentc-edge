@@ -10,6 +10,12 @@
 {% else %}
 <p>No open questions.</p>
 {% endfor %}
+{% if undo %}
+<h2>Switched off, last day</h2>
+<ul class="plain">
+  {% for name, url in undo %}<li><span>{{ name }}</span><form class="inline" method="post" action="{{ url }}"><button>Switch back on</button></form></li>{% endfor %}
+</ul>
+{% endif %}
 {% if unknown %}
 <h2>Devices to set up</h2>
 <ul class="plain">

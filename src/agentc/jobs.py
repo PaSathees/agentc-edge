@@ -11,6 +11,7 @@ from sqlite3 import Connection
 from zoneinfo import ZoneInfo
 
 from agentc import (
+    actuator,
     agent,
     agent_tools,
     calc,
@@ -330,7 +331,8 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
            now: datetime) -> str:  # fmt: skip
     """The owner's tap on a question: do what the choice does, and say what was done.
 
-    Shadow mode (Phase 3): a switch off or a timer is recorded, never written.
+    A switch off goes to the Actuator, which checks it and writes it, or records it in
+    shadow mode. A timer is recorded only, until 4c.
     """
     q = store.get_question(app, question_id=question_id)
     if q is None or q.status != "open":
@@ -352,7 +354,9 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
     if c.does == "remind_later":
         store.ask_again(app, question_id=question_id, at=now + REMIND)
         return f"I'll ask again at {(now + REMIND).astimezone(zone):%H:%M}."
-    if c.does in ("switch_off_now", "set_timer"):
+    if c.does == "switch_off_now":
+        return actuator.switch(app, cfg, site_id=site_id, plug=plug, on=False, why=ref, now=now)
+    if c.does == "set_timer":
         store.add_audit(app, site_id=site_id, at=now, actor="code", action="shadow_action",
                         ref=ref, detail={"does": c.does, "off": c.off or "", "on": c.on or "",
                                          "days": c.days or ""})  # fmt: skip

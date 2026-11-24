@@ -104,7 +104,7 @@ def test_a_second_tap_finds_nothing_open(client):
 def test_the_night_tap_answers_the_nights_questions(client):
     c, _, said = client
     r = c.post(f"/night/2026-11-02/switch_off_now/{notify.token(KEY, '2026-11-02', OFF.does)}")
-    assert r.status_code == 200 and "Recorded: Switch off." in r.text and len(said) == 1
+    assert r.status_code == 200 and "Recorded: switch Desk 2 off." in r.text and len(said) == 1
 
 
 def test_a_night_tap_needs_its_own_token_and_an_open_night(client):

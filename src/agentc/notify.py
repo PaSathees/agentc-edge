@@ -58,6 +58,11 @@ def answer_url(hub: str, secret: str, question_id: int, choice: int) -> str:
     return f"{hub}/answer/{question_id}/{choice}/{token(secret, question_id, choice)}"
 
 
+def undo_url(hub: str, secret: str, write_id: int) -> str:
+    """Switch a plug back on after a switch off (audit row write_id)."""
+    return f"{hub}/undo/{write_id}/{token(secret, 'undo', write_id)}"
+
+
 def night_url(hub: str, secret: str, night: date, does: str) -> str:
     return f"{hub}/night/{night}/{does}/{token(secret, night, does)}"
 

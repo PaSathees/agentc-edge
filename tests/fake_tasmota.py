@@ -24,6 +24,7 @@ class FakePlug:
         self.utc = "2026-11-13T07:08:23"  # the plug's own clock; tests can skew it
         self.local = "2026-11-13T12:38:23"
         self.relay_on = False
+        self.stuck = False  # True: the relay ignores Power commands, as a broken one would
         self.timers_on = True
         self.timezone = "+05:30"
         self.timers = {n: dict(EMPTY_TIMER) for n in range(1, 17)}
@@ -47,7 +48,7 @@ class FakePlug:
         name, _, arg = cmnd.partition(" ")
         key = name.lower()
         if key == "power":
-            if arg:
+            if arg and not self.stuck:
                 self.relay_on = arg.upper() in ("1", "ON")
             return {"POWER": "ON" if self.relay_on else "OFF"}
         if key == "status" and arg == "8":

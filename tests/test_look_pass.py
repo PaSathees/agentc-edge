@@ -9,6 +9,7 @@ from agentc import jobs, store
 from agentc.config import Budget
 from agentc.house import Habit
 from agentc.llm import Llm, Unreachable
+from agentc.owner import Choice, Decision
 from agentc.policy import Policy
 from agentc.watcher import Event
 from tests.fake_tasmota import FakePlug
@@ -302,8 +303,18 @@ def test_that_is_normal_saves_a_habit_and_says_its_scope(app, tmp_path):  # noqa
 
 def test_a_switch_off_is_recorded_but_not_sent_in_shadow_mode(app, tmp_path):  # noqa: F811
     asked(app, tmp_path)
-    assert tap(app, 1) == "Recorded: Off. Shadow mode: nothing was sent to the plug."
+    assert tap(app, 1).startswith("Recorded: switch Plug-6 off. Plug-6 is set to advice")
     assert actions(app)[-2:] == ["answer", "shadow_action"]
+
+
+def test_a_timer_choice_is_only_recorded_until_4c(app, tmp_path):  # noqa: F811
+    signal(app)
+    (eid,) = [e for (e,) in app.execute("SELECT id FROM events")]
+    timer = Choice("Off at 01:30", "set_timer", "01:30", "07:00", "weekdays")
+    store.add_question(app, site_id=1, event_id=eid, mac="AA", now=NOW, send_at=NOW,
+                       decision=Decision("propose", "Timer?", (timer,)))  # fmt: skip
+    assert tap(app, 1) == "Recorded: Off at 01:30. Shadow mode: nothing was sent to the plug."
+    assert actions(app)[-1] == "shadow_action"
 
 
 def test_remind_later_asks_again_in_2_hours(app, tmp_path):  # noqa: F811
