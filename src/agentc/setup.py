@@ -25,6 +25,8 @@ MAX_STEPS = 5  # model calls per owner message
 QUESTIONS = 5  # questions in a chat, at most
 DAYS = {"every_day": "1111111", "weekdays": "0111110", "weekends": "1000001"}  # Sunday first
 HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+FIELD_MAX = 200  # characters in one card field: they go into every later prompt
+LOST = "Sorry, I lost my words there. Could you say that again?"
 
 SYSTEM = f"""You help the owner of a home describe the device on one smart plug, so the \
 housemate that watches the home's electricity knows it.
@@ -110,6 +112,9 @@ def parse(raw: dict[str, Any], *, base: house.Card) -> Draft:
         raise ValueError("kind and must_run must be from their lists")
     if not str(raw["what"]).strip():
         raise ValueError("what is plugged in is needed")
+    texts = [raw["what"], raw["room"], raw["notes"], *(h["text"] for h in raw["habits"])]
+    if any(len(str(x)) > FIELD_MAX for x in texts):
+        raise ValueError(f"keep each field under {FIELD_MAX} characters")
     habits = []
     for h in raw["habits"]:
         if h["days"] not in DAYS or not (HHMM.match(h["start"]) and HHMM.match(h["end"])):
@@ -123,14 +128,15 @@ def parse(raw: dict[str, Any], *, base: house.Card) -> Draft:
 
 def reply(
     talk: list[tuple[str, str]], plug: str, *, tools: Tools, llm: Llm, run_id: str,
-    on_event: Event | None = None,
+    draft: Draft | None = None, on_event: Event | None = None,
 ) -> Reply:  # fmt: skip
     """The agent's answer to the owner's last message. talk: (role, text), oldest first,
-    starting with the greeting. Raises OverBudget or Unreachable."""
+    starting with the greeting. draft: the card it proposed last, so it can change it.
+    Raises OverBudget or Unreachable."""
     say = on_event or (lambda kind, text: None)
     mac = store.plug_mac(tools.app, name=plug)
     base = store.load_card(tools.app, mac=mac) if mac else house.Card()
-    messages = _messages(talk, plug, tools)
+    messages = _messages(talk, plug, tools, draft)
     used: list[str] = []
     for step in range(MAX_STEPS):
         offer = TOOLS if step < MAX_STEPS - 1 else [PROPOSE]
@@ -140,8 +146,8 @@ def reply(
         messages.append({"role": "assistant", "content": r.blocks})
         text = "".join(b.get("text", "") for b in r.blocks if b.get("type") == "text").strip()
         calls = [b for b in r.blocks if b.get("type") == "tool_use"]
-        if not calls:
-            return Reply(text, None, tuple(used))
+        if not calls:  # a question, or nothing usable (an empty or refused reply)
+            return Reply(text if text and r.stop_reason != "refusal" else LOST, None, tuple(used))
         results = []
         for c in calls:
             if c["name"] == "propose_card":
@@ -162,13 +168,16 @@ def reply(
                  tuple(used))  # fmt: skip
 
 
-def _messages(talk: list[tuple[str, str]], plug: str, tools: Tools) -> list[dict[str, Any]]:
-    """The chat as model messages. The first one holds the brief: the plug, its card now and
-    the greeting, which code wrote."""
+def _messages(talk: list[tuple[str, str]], plug: str, tools: Tools, draft: Draft | None
+              ) -> list[dict[str, Any]]:  # fmt: skip
+    """The chat as model messages. The first one holds the brief: the plug, its card now,
+    the card proposed last (not saved), and the greeting, which code wrote."""
     name = config.device(tools.cfg, plug).name
     now = card(tools.app, tools.cfg, plug)
     brief = (f"Plug: {plug}. Device name: {name}.\nWhat the housemate knows now:\n{now}\n\n"
              f"You opened the chat with: {talk[0][1]}")  # fmt: skip
+    if draft:
+        brief += f"\n\nThe card you proposed last (not saved yet): {draft.to_json()}"
     messages: list[dict[str, Any]] = []
     for role, text in talk[1:]:
         kind = "user" if role == "owner" else "assistant"
@@ -182,11 +191,14 @@ def save(db: Connection, cfg: Config, *, site_id: int, chat_id: int, now: dateti
     """The owner pressed Save: write the draft card and its habits, and say what was saved.
     Raises LookupError if there is nothing to save."""
     found = store.chat(db, chat_id=chat_id)
-    if found is None or found[1] != "open" or (raw := found[2]) is None:
+    if found is None or found.status != "open" or (raw := found.draft) is None:
         raise LookupError("Nothing to save: no open draft.")
-    mac = found[0]
+    mac = found.plug_mac
     d = Draft.from_json(raw, base=store.load_card(db, mac=mac))
     store.save_card(db, site_id=site_id, mac=mac, card=d.card, now=now)
+    for hid, old in store.habits(db, mac=mac):  # an edit replaces what setup said before
+        if old.source == "setup":
+            store.end_habit(db, habit_id=hid, now=now)
     for h in d.habits:
         store.add_habit(db, site_id=site_id, mac=mac, habit=h, now=now)
     store.close_chat(db, chat_id=chat_id, status="saved")

@@ -71,7 +71,7 @@ Done. After about 7 days of readings, each plug has a usual week, and signals be
 
 ## 7. Tell it about your devices
 
-Open `http://<the hub>:8765/setup` (Devices in the inbox). For each plug, press **Set up** and tell it what is plugged in, in your own words. It looks at the plug's readings, asks a few short questions, and shows a card. Nothing is saved until you press **Save**. Each chat costs about USD 0.002 with an API key; without one, set cards by hand: `docker compose exec jobs agentc house Plug-1 kind=computer room=study`.
+Open `http://<the hub>:8765/setup` (Devices, at the top of every page). For each plug, press **Set up** and tell it what is plugged in, in your own words. It looks at the plug's readings, asks a few short questions, and shows a card. Nothing is saved until you press **Save**. Each chat costs about USD 0.002 on Claude Haiku (the default small model); without one, set cards by hand: `docker compose exec jobs agentc house Plug-1 kind=computer room=study`.
 
 ## Every day
 

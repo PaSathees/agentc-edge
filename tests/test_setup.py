@@ -134,7 +134,7 @@ def test_save_writes_the_card_and_habits_and_closes_the_chat(tools):  # noqa: F8
     assert said == "Saved the card for Desk 2 and 1 habit."
     assert store.load_card(tools.app, mac="AA").room == "study"
     assert [h.source for _, h in store.habits(tools.app, mac="AA")] == ["setup"]
-    assert store.chat(tools.app, chat_id=chat_id)[1] == "saved"  # type: ignore[index]
+    assert store.chat(tools.app, chat_id=chat_id).status == "saved"  # type: ignore[union-attr]
     with pytest.raises(LookupError, match="no open draft"):
         setup.save(tools.app, CFG, site_id=1, chat_id=chat_id, now=NOW)
 
@@ -156,3 +156,35 @@ def test_a_chat_is_kept_and_reopened(tools):  # noqa: F811
     later = NOW + timedelta(minutes=1)
     assert store.open_chat(tools.app, site_id=1, mac="AA", kind="setup", now=later) != first
     assert store.chat(tools.app, chat_id=999) is None
+
+
+def test_an_empty_or_refused_reply_gets_a_fixed_sentence(tools):  # noqa: F811
+    assert chat(tools, Script([{"type": "text", "text": "  "}])).text == setup.LOST
+
+    def refuses(*, tier, system, messages, tools, on_text=None):  # noqa: F811
+        return [{"type": "text", "text": "No."}], "refusal", 1000, 100
+
+    assert chat(tools, refuses).text == setup.LOST
+
+
+def test_the_last_draft_is_in_the_brief_so_a_change_can_be_made(tools):  # noqa: F811
+    script = Script([{"type": "text", "text": "Which room then?"}])
+    m = Llm(tools.app, 1, CFG.tz, CFG.tiers, Budget(3.0, 0.05), script, clock=lambda: NOW)
+    d = setup.parse(CARD, base=Card())
+    setup.reply([GREETING, ("owner", "change the room")], "Plug-1", tools=tools, llm=m,
+                run_id="r", draft=d)  # fmt: skip
+    assert "The card you proposed last (not saved yet):" in script.seen[0]["messages"][0]["content"]
+
+
+def test_a_long_field_is_refused():
+    with pytest.raises(ValueError, match="under 200 characters"):
+        setup.parse({**CARD, "notes": "x" * 201}, base=Card())
+
+
+def test_saving_again_replaces_the_habits_setup_gave_before(tools):  # noqa: F811
+    setup.save(tools.app, CFG, site_id=1, chat_id=opened(tools), now=NOW)
+    later = NOW + timedelta(minutes=5)
+    second = store.open_chat(tools.app, site_id=1, mac="AA", kind="setup", now=later)
+    store.set_draft(tools.app, chat_id=second, draft=setup.parse(CARD, base=Card()).to_json())
+    setup.save(tools.app, CFG, site_id=1, chat_id=second, now=later)
+    assert len(store.habits(tools.app, mac="AA")) == 1

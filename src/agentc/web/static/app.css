@@ -42,6 +42,8 @@ ul.plain li { display: flex; justify-content: space-between; align-items: center
 .draft dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0; }
 .draft dt { color: var(--muted); }
 .draft dd { margin: 0; }
+.draft:has(~ .draft) { opacity: 0.55; }  /* an older card: only the newest can be saved */
+.draft:has(~ .draft) form { display: none; }
 .say { display: flex; gap: 8px; align-items: flex-end; position: sticky; bottom: 0;
   padding: 8px 0; background: var(--bg); }
 .say textarea { flex: 1; font: inherit; min-height: 44px; padding: 10px 12px; resize: vertical;

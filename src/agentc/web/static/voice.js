@@ -8,7 +8,7 @@
   const mic = document.getElementById("mic");
   const speak = document.getElementById("speak");
 
-  if (Listen && mic && box) {
+  if (Listen && window.isSecureContext && mic && box) {  // the mic needs https
     mic.hidden = false;
     let heard = null;
     mic.addEventListener("click", () => {

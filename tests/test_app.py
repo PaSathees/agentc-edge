@@ -1,6 +1,9 @@
 """The web app on the hub: health, the inbox, and taps signed with the secret (3d)."""
 
+import base64
+import hashlib
 import sqlite3
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -13,6 +16,7 @@ from agentc.house import Card
 from agentc.llm import OverBudget, Unreachable
 from agentc.owner import Choice, Decision
 from agentc.watcher import Event
+from agentc.web import chat as webchat
 from tests.test_cli import EXAMPLE
 
 KEY = "s3cret"
@@ -279,7 +283,8 @@ def test_a_reload_while_answered_shows_the_answer_without_a_model_call(chat):
     ("brain", "said"),
     [(lambda: None, "No ANTHROPIC_API_KEY in .env"),
      (lambda: _raises(Unreachable("no internet")), "I can&#39;t reach the model now"),
-     (lambda: _raises(OverBudget("cap")), "budget for this month is used up")],
+     (lambda: _raises(OverBudget("month cap USD 3.0 reached")), "model budget is used up"),
+     (lambda: _raises(OverBudget("run cap USD 0.05 reached")), "hit its cost cap")],
 )  # fmt: skip
 def test_a_reply_that_cannot_run_says_why_and_keeps_the_chat(chat, brain, said):
     c, db, tok = chat
@@ -308,7 +313,7 @@ def test_start_again_closes_the_chat_unsaved(chat):
     c, db, tok = chat
     r = c.post("/setup/Plug-1/restart", data={"tok": tok}, follow_redirects=False)
     assert (r.status_code, r.headers["location"]) == (303, "/setup/Plug-1")
-    assert store.chat(db, chat_id=1)[1] == "closed"  # type: ignore[index]
+    assert store.chat(db, chat_id=1).status == "closed"  # type: ignore[union-attr]
     c.get("/setup/Plug-1")
     assert store.open_chat(db, site_id=1, mac="AA", kind="setup", now=NOW) == 2
 
@@ -326,3 +331,107 @@ def test_with_no_readings_yet_the_chat_says_so(chat, tmp_path):
     c.post("/setup/Plug-1/say", data={"text": "hello", "tok": tok})
     model([[{"type": "text", "text": "never"}]])
     assert "No readings yet" in events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)[-1][1]
+
+
+# from the review before merge: one run per chat, and a stream that always ends
+
+
+def test_a_second_stream_joins_the_run_in_progress_and_pays_once(chat):
+    c, _, tok = chat
+    c.post("/setup/Plug-1/say", data={"text": "the roof light", "tok": tok})
+    run = webchat.Run()  # a reply already running for chat 1 (another tab, a reconnect)
+    webchat.RUNS[1] = run
+    run.put(("text", "Which "))
+    run.put(("done", ("Which room?", None)))
+    run.finish()
+    web.app.dependency_overrides[web.stepper] = lambda: _raises(AssertionError("paid twice"))
+    try:
+        got = events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)
+    finally:
+        webchat.RUNS.clear()
+    assert got[0] == ("text", "Which ") and "Which room?" in got[-1][1]
+
+
+def test_a_run_tells_a_late_listener_everything_so_far():
+    run = webchat.Run()
+    run.put(("step", "looking"))
+    early = run.listen()
+    run.put(("text", "Hi"))
+    run.finish()
+    late = run.listen()
+    for q in (early, late):
+        assert [q.get() for _ in range(3)] == [("step", "looking"), ("text", "Hi"), None]
+
+
+def test_a_quiet_run_ends_the_stream_with_a_note(monkeypatch):
+    monkeypatch.setattr(webchat, "WAIT_S", 0.01)
+    silent = webchat.Run().listen()
+    (only,) = list(webchat._drain(silent))  # pyright: ignore[reportPrivateUsage]
+    assert only[0] == "done" and "taking too long" in only[1][0]
+
+
+def test_two_replies_at_once_is_the_most(chat, monkeypatch):
+    c, _, tok = chat
+    c.post("/setup/Plug-1/say", data={"text": "hello", "tok": tok})
+    monkeypatch.setattr(webchat, "AT_ONCE", threading.BoundedSemaphore(0))  # all busy
+    model([[{"type": "text", "text": "never"}]])
+    assert "Busy with another reply" in events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)[-1][1]
+
+
+def test_a_broken_worker_still_ends_the_stream(chat, monkeypatch):
+    c, _, tok = chat
+    c.post("/setup/Plug-1/say", data={"text": "hello", "tok": tok})
+    model([[{"type": "text", "text": "never"}]])
+    monkeypatch.setattr(webchat.store, "open_readings", lambda path: _raises(OSError("disk"))())
+    assert (
+        "Something went wrong: disk" in events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)[-1][1]
+    )
+
+
+def test_a_reply_that_cannot_render_still_ends_with_done(chat, monkeypatch):
+    c, _, tok = chat
+    c.post("/setup/Plug-1/say", data={"text": "hello", "tok": tok})
+    model([[{"type": "text", "text": "Which room?"}]])
+
+    def broken(name):
+        raise ValueError("bad template")
+
+    monkeypatch.setattr(webchat.pages, "get_template", broken)
+    last = events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)[-1]
+    assert last[0] == "done" and "Could not show the reply: bad template" in last[1]
+
+
+def test_text_keeps_its_new_lines_and_loses_carriage_returns():
+    assert webchat._event("text", "a\r\nb\n") == "event: text\ndata: a\ndata: b\ndata: \n\n"  # pyright: ignore[reportPrivateUsage]
+
+
+def test_typing_after_save_starts_a_new_greeted_chat(chat):
+    c, db, tok = chat
+    c.post("/setup/Plug-1/say", data={"text": "roof light, living room", "tok": tok})
+    model([[{"type": "tool_use", "id": "t1", "name": "propose_card", "input": ROOF}]])
+    c.get(f"/setup/Plug-1/reply?tok={tok}")
+    c.post("/setup/Plug-1/save", data={"tok": tok})
+    r = c.post("/setup/Plug-1/say", data={"text": "one more thing", "tok": tok})
+    assert r.status_code == 200
+    assert [role for _, role, _ in store.turns(db, chat_id=2)] == ["agent", "owner"]
+
+
+@pytest.mark.parametrize(("text", "code"), [("   ", 422), ("x" * 1001, 422)])
+def test_empty_or_huge_messages_are_refused(chat, text, code):
+    c, _, tok = chat
+    assert c.post("/setup/Plug-1/say", data={"text": text, "tok": tok}).status_code == code
+
+
+def test_a_second_message_waits_for_the_reply(chat):
+    c, db, tok = chat
+    c.post("/setup/Plug-1/say", data={"text": "one", "tok": tok})
+    assert c.post("/setup/Plug-1/say", data={"text": "two", "tok": tok}).status_code == 409
+    assert [role for _, role, _ in store.turns(db, chat_id=1)] == ["agent", "owner"]
+
+
+def test_the_vendored_scripts_match_their_recorded_hashes():
+    static = web.WEB / "static"
+    recorded = (static / "README.md").read_text()
+    for name in ("htmx.min.js", "sse.js"):
+        got = base64.b64encode(hashlib.sha256((static / name).read_bytes()).digest()).decode()
+        assert f"`{got}`" in recorded, name

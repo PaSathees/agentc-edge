@@ -6,6 +6,7 @@ JSON columns hold text written with json.dumps.
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -761,12 +762,19 @@ def set_draft(db: sqlite3.Connection, *, chat_id: int, draft: dict[str, Any] | N
                    (json.dumps(draft) if draft is not None else None, chat_id))  # fmt: skip
 
 
-def chat(db: sqlite3.Connection, *, chat_id: int) -> tuple[str, str, dict[str, Any] | None] | None:
-    """(plug MAC, status, draft) of one chat, or None."""
+@dataclass(frozen=True)
+class Chat:
+    plug_mac: str
+    status: str  # open, saved or closed
+    draft: dict[str, Any] | None  # the card the agent proposed last; None: none yet
+
+
+def chat(db: sqlite3.Connection, *, chat_id: int) -> Chat | None:
+    """One chat, or None."""
     row = db.execute(
         "SELECT plug_mac, status, draft FROM chats WHERE id = ?", (chat_id,)
     ).fetchone()
-    return (row[0], row[1], json.loads(row[2]) if row[2] else None) if row else None
+    return Chat(row[0], row[1], json.loads(row[2]) if row[2] else None) if row else None
 
 
 def close_chat(db: sqlite3.Connection, *, chat_id: int, status: str) -> None:
