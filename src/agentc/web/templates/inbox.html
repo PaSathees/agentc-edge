@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Inbox</h1>
+{% for q in questions %}
+<section class="card">
+  <b>{{ q.device }}</b>
+  <p>{{ q.text }}</p>
+  {% for c in q.choices %}<form class="inline" method="post" action="{{ c.url }}"><button>{{ c.label }}</button></form>{% endfor %}
+</section>
+{% else %}
+<p>No open questions.</p>
+{% endfor %}
+{% if unknown %}
+<h2>Devices to set up</h2>
+<ul class="plain">
+  {% for plug, name in unknown %}<li><span>{{ name }} <span class="muted">{{ plug }}</span></span><a class="button" href="/setup/{{ plug }}">Set up</a></li>{% endfor %}
+</ul>
+{% endif %}
+{% if notes %}
+<h2>Notes, last day</h2>
+<ul>{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

@@ -6,8 +6,10 @@ JSON columns hold text written with json.dumps.
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from agentc.calc import ProfileHour
 from agentc.devices.base import Automations, PlugRule, Timer
@@ -16,8 +18,8 @@ from agentc.owner import Choice, Decision, Question
 from agentc.watcher import Event
 
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
-# 7: questions.sent. 8: unused v1 tables dropped
-SCHEMA_VERSION = 8
+# 7: questions.sent. 8: unused v1 tables dropped. 9: chats
+SCHEMA_VERSION = 9
 UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
@@ -162,6 +164,26 @@ CREATE TABLE IF NOT EXISTS questions (
     answer   INTEGER,  -- the choice picked, from 1
     answered TEXT,
     sent     TEXT  -- when it went to the phone; NULL: not yet
+);
+-- A conversation with the owner, e.g. the setup chat for one plug; the draft card waits
+-- here until the owner saves it
+CREATE TABLE IF NOT EXISTS chats (
+    id       INTEGER PRIMARY KEY,
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    plug_mac TEXT NOT NULL REFERENCES plugs(mac),
+    kind     TEXT NOT NULL CHECK (kind IN ('setup')),
+    status   TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'saved', 'closed')),
+    draft    TEXT,  -- JSON: the card and habits the agent proposed; NULL: none yet
+    created  TEXT NOT NULL
+);
+-- Each message in a chat, in order
+CREATE TABLE IF NOT EXISTS chat_turns (
+    id      INTEGER PRIMARY KEY,
+    chat_id INTEGER NOT NULL REFERENCES chats(id),
+    site_id INTEGER NOT NULL REFERENCES sites(id),
+    role    TEXT NOT NULL CHECK (role IN ('owner', 'agent')),
+    text    TEXT NOT NULL,
+    ts_utc  TEXT NOT NULL
 );
 -- Shadow mode, pause, caps; key-value
 CREATE TABLE IF NOT EXISTS settings (
@@ -702,3 +724,62 @@ def answered(db: sqlite3.Connection, *, plug: str | None, start: datetime, end: 
 def _utc_bounds(start: datetime, end: datetime) -> tuple[str, str]:
     # Stored as UTC ISO text, so the bounds must be UTC text too for the comparison to hold
     return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()
+
+
+# chats: the setup chat (and later the main chat)
+
+
+def open_chat(db: sqlite3.Connection, *, site_id: int, mac: str, kind: str, now: datetime) -> int:
+    """The plug's open chat of this kind, or a new one. Returns its id."""
+    with db:
+        row = db.execute("SELECT id FROM chats WHERE plug_mac = ? AND kind = ? AND status = 'open'"
+                         " ORDER BY id DESC LIMIT 1", (mac, kind)).fetchone()  # fmt: skip
+        if row:
+            return row[0]
+        cur = db.execute("INSERT INTO chats (site_id, plug_mac, kind, created) VALUES (?, ?, ?, ?)",
+                         (site_id, mac, kind, now.astimezone(UTC).isoformat()))  # fmt: skip
+    return cur.lastrowid or 0
+
+
+def add_turn(db: sqlite3.Connection, *, chat_id: int, site_id: int, role: str, text: str,
+             now: datetime) -> int:  # fmt: skip
+    with db:
+        at = now.astimezone(UTC).isoformat()
+        cur = db.execute("INSERT INTO chat_turns (chat_id, site_id, role, text, ts_utc)"
+                         " VALUES (?, ?, ?, ?, ?)", (chat_id, site_id, role, text, at))  # fmt: skip
+    return cur.lastrowid or 0
+
+
+def turns(db: sqlite3.Connection, *, chat_id: int) -> list[tuple[int, str, str]]:
+    """A chat's messages as (id, role, text), oldest first."""
+    sql = "SELECT id, role, text FROM chat_turns WHERE chat_id = ? ORDER BY id"
+    return [tuple(r) for r in db.execute(sql, (chat_id,))]  # type: ignore[misc]
+
+
+def set_draft(db: sqlite3.Connection, *, chat_id: int, draft: dict[str, Any] | None) -> None:
+    with db:
+        db.execute("UPDATE chats SET draft = ? WHERE id = ?",
+                   (json.dumps(draft) if draft is not None else None, chat_id))  # fmt: skip
+
+
+@dataclass(frozen=True)
+class Chat:
+    plug_mac: str
+    status: str  # open, saved or closed
+    draft: dict[str, Any] | None  # the card the agent proposed last; None: none yet
+
+
+def chat(db: sqlite3.Connection, *, chat_id: int) -> Chat | None:
+    """One chat, or None."""
+    row = db.execute(
+        "SELECT plug_mac, status, draft FROM chats WHERE id = ?", (chat_id,)
+    ).fetchone()
+    return Chat(row[0], row[1], json.loads(row[2]) if row[2] else None) if row else None
+
+
+def close_chat(db: sqlite3.Connection, *, chat_id: int, status: str) -> None:
+    """saved: the owner saved the draft. closed: started again, or left."""
+    with db:
+        db.execute(
+            "UPDATE chats SET status = ? WHERE id = ? AND status = 'open'", (status, chat_id)
+        )

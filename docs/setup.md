@@ -69,11 +69,15 @@ It prints the ntfy server and topic. In the ntfy app, add that server, subscribe
 
 Done. After about 7 days of readings, each plug has a usual week, and signals begin.
 
+## 7. Tell it about your devices
+
+Open `http://<the hub>:8765/setup` (Devices, at the top of every page). For each plug, press **Set up** and tell it what is plugged in, in your own words. It looks at the plug's readings, asks a few short questions, and shows a card. Nothing is saved until you press **Save**. Each chat costs about USD 0.002 on Claude Haiku (the default small model); without one, set cards by hand: `docker compose exec jobs agentc house Plug-1 kind=computer room=study`.
+
 ## Every day
 
 | To | Run |
 |---|---|
-| Tell it what each plug powers (it asks better questions) | `docker compose exec jobs agentc house Plug-1 kind=computer room=study what="monitor and lamp"` |
+| Tell it what each plug powers (it asks better questions) | The Devices page, `http://<the hub>:8765/setup`, or `agentc house Plug-1 kind=computer` |
 | See open questions, or answer one | `docker compose exec jobs agentc questions`, or the inbox page |
 | Watch what it does | `docker compose logs -f jobs` |
 | Update | `git pull && docker compose up -d --build` |
@@ -94,7 +98,8 @@ AGENTC_HUB=http://100.x.y.z        # from `tailscale ip -4` on the hub
 Run `docker compose up -d`, then `agentc ping` again. In the ntfy app, subscribe on the new server it prints, and delete the old subscription and its messages: an old message's buttons still point at the old address.
 
 - **Keep Tailscale on, at home too.** The phone reaches the hub only through it now. At home Tailscale goes straight over your Wi-Fi, so nothing leaves the house. On iPhone, turn VPN On Demand off, or include your home Wi-Fi in it.
-- **No HTTPS or `tailscale serve` is needed.** Tailscale already encrypts the traffic between your devices, and no port is opened to the internet.
+- **No HTTPS or `tailscale serve` is needed for messages.** Tailscale already encrypts the traffic between your devices, and no port is opened to the internet.
+- **To talk instead of type** in the setup chat, browsers need https. Turn on HTTPS in the Tailscale admin page (DNS tab), run `sudo tailscale serve --bg --https=443 http://127.0.0.1:8765` and `sudo tailscale serve --bg --https=8443 http://127.0.0.1:8090` on the hub, and set `AGENTC_HUB=https://<the hub>.<your tailnet>.ts.net`. Then `agentc ping` again and add the new ntfy server.
 - After the phone changes network (Wi-Fi to mobile data), the first page or tap can take a few seconds while Tailscale reconnects.
 
 ## Who can do what

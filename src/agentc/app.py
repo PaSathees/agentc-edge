@@ -1,4 +1,4 @@
-"""The web app: the inbox page and the taps from the phone.
+"""The web app: the inbox page, the taps from the phone, and the setup chat (web/chat.py).
 
 It listens on the home network (and the tailnet, if the hub is on Tailscale). The page
 shows open questions with their buttons, so anyone who can open it can answer: keep the
@@ -6,64 +6,35 @@ hub on a network you trust. Each answer needs a token signed with the secret, so
 address does nothing. The jobs run apart from this app (`agentc run`).
 """
 
-import os
-from collections.abc import Iterator
-from datetime import UTC, date, datetime
-from html import escape
-from sqlite3 import Connection
-from typing import Annotated
+from datetime import date
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from agentc import __version__, config, jobs, notify, store
-from agentc.config import Config
 from agentc.notify import Message, NotSent, Publish
+from agentc.web import chat
+from agentc.web.deps import (  # noqa: F401 (re-exported: tests override these)
+    WEB,
+    Cfg,
+    Db,
+    Now,
+    Say,
+    Secret,
+    clock,
+    database,
+    known,
+    pages,
+    publisher,
+    secret,
+    settings,
+    stepper,
+)
 
 app = FastAPI(title="AgentC Edge", version=__version__)
-PAGE = """<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>{title}</title>
-<style>body{{font:16px system-ui;margin:16px;max-width:640px}}section{{border:1px solid #ccc;
-border-radius:8px;padding:12px;margin:12px 0}}button{{font:inherit;margin:4px 4px 0 0;
-padding:8px 12px}}small{{color:#666}}</style></head><body>{body}</body></html>"""
-
-
-def settings() -> Config:
-    """config.toml, from AGENTC_CONFIG (default: the working folder's)."""
-    return config.load(os.environ.get("AGENTC_CONFIG", "config.toml"))
-
-
-def secret(cfg: Annotated[Config, Depends(settings)]) -> str:
-    """The key that signs the buttons: AGENTC_SECRET, else the data folder's own."""
-    return config.secret(cfg)
-
-
-def publisher(cfg: Annotated[Config, Depends(settings)],
-              key: Annotated[str, Depends(secret)]) -> Publish | None:  # fmt: skip
-    """ntfy, to say back what a tap did. None without AGENTC_HUB."""
-    return notify.ntfy(cfg.owner, key) if cfg.owner else None
-
-
-def database(cfg: Annotated[Config, Depends(settings)]) -> Iterator[tuple[Connection, int]]:
-    """app.db for one request, and the site's id; closed after. The jobs make the tables."""
-    db = store.open_app(cfg.app_db)
-    try:
-        if (site := store.site_id(db, name=cfg.site)) is None:
-            raise HTTPException(503, "Starting: no data yet. Try again in a minute.")
-        yield db, site
-    finally:
-        db.close()
-
-
-def clock() -> datetime:
-    return datetime.now(UTC)
-
-
-Cfg = Annotated[Config, Depends(settings)]
-Secret = Annotated[str, Depends(secret)]
-Now = Annotated[datetime, Depends(clock)]
-Say = Annotated[Publish | None, Depends(publisher)]
-Db = Annotated[tuple[Connection, int], Depends(database)]
+app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
+app.include_router(chat.router)
 
 
 @app.get("/health")
@@ -73,33 +44,30 @@ def health() -> dict[str, str]:
 
 
 @app.get("/", response_class=HTMLResponse)
-def inbox(cfg: Cfg, key: Secret, now: Now, data: Db) -> str:
-    """The open questions that are due, each with its buttons, and the last day's notes."""
+def inbox(request: Request, cfg: Cfg, key: Secret, now: Now, data: Db) -> HTMLResponse:
+    """The open questions that are due, each with its buttons; devices still to set up;
+    and the last day's notes."""
     db, site = data
-    names = {mac: config.device(cfg, plug).name
-             for plug, mac in store.plug_macs(db, site_id=site).items()}  # fmt: skip
-    parts = ["<h1>Inbox</h1>"]
-    due = [q for q in store.questions(db, site_id=site, status="open") if q.send_at <= now]
-    for q in due:
-        buttons = "".join(
-            f'<form method="post" action="{escape(notify.answer_url("", key, q.id, n))}"'
-            f' style="display:inline"><button>{escape(c.label)}</button></form>'
-            for n, c in enumerate(q.decision.choices, 1)
-        )
-        parts.append(f"<section><b>{escape(names.get(q.plug_mac, '?'))}</b>"
-                     f"<p>{escape(q.decision.text)}</p>{buttons}</section>")  # fmt: skip
-    if not due:
-        parts.append("<p>No open questions.</p>")
-    notes = store.audit_since(db, site_id=site, action="note", since=now - jobs.NOTES_SINCE)
-    if notes:
-        items = "".join(f"<li>{escape(d['text'])}</li>" for d in notes)
-        parts.append(f"<h2>Notes, last day</h2><ul>{items}</ul>")
-    return PAGE.format(title="Inbox", body="".join(parts))
+    macs = store.plug_macs(db, site_id=site)
+    names = {mac: config.device(cfg, plug).name for plug, mac in macs.items()}
+    questions = [
+        {"device": names.get(q.plug_mac, "?"), "text": q.decision.text,
+         "choices": [{"label": c.label, "url": notify.answer_url("", key, q.id, n)}
+                     for n, c in enumerate(q.decision.choices, 1)]}
+        for q in store.questions(db, site_id=site, status="open") if q.send_at <= now
+    ]  # fmt: skip
+    unknown = [(plug, config.device(cfg, plug).name) for plug, mac in macs.items()
+               if not known(store.load_card(db, mac=mac))]  # fmt: skip
+    notes = [d["text"] for d in store.audit_since(db, site_id=site, action="note",
+                                                   since=now - jobs.NOTES_SINCE)]  # fmt: skip
+    return pages.TemplateResponse(request, "inbox.html", {
+        "title": "Inbox", "page": "inbox", "questions": questions, "unknown": unknown,
+        "notes": notes})  # fmt: skip
 
 
 @app.post("/answer/{question_id}/{choice}/{tok}", response_class=HTMLResponse)
-def answer(question_id: int, choice: int, tok: str, cfg: Cfg, key: Secret, now: Now,
-           say: Say, data: Db) -> str:  # fmt: skip
+def answer(request: Request, question_id: int, choice: int, tok: str, cfg: Cfg, key: Secret,
+           now: Now, say: Say, data: Db) -> HTMLResponse:  # fmt: skip
     """A tap on one choice of one question."""
     if not notify.valid(key, tok, question_id, choice):
         raise HTTPException(403, "Not a button from this hub")
@@ -109,20 +77,20 @@ def answer(question_id: int, choice: int, tok: str, cfg: Cfg, key: Secret, now: 
                            now=now)  # fmt: skip
     except LookupError as err:
         raise HTTPException(409, err.args[0]) from None
-    return _done(done, say)
+    return _done(request, done, say)
 
 
 @app.post("/ping/{tok}", response_class=HTMLResponse)
-def ping(tok: str, key: Secret, say: Say) -> str:
+def ping(request: Request, tok: str, key: Secret, say: Say) -> HTMLResponse:
     """The phone's tap test (`agentc ping`): answers with a message back."""
     if not notify.valid(key, tok, "ping"):
         raise HTTPException(403, "Not a button from this hub")
-    return _done("Tap works: the phone reached the hub.", say)
+    return _done(request, "Tap works: the phone reached the hub.", say)
 
 
 @app.post("/night/{night}/{does}/{tok}", response_class=HTMLResponse)
-def answer_night(night: date, does: str, tok: str, cfg: Cfg, key: Secret, now: Now,
-                 say: Say, data: Db) -> str:  # fmt: skip
+def answer_night(request: Request, night: date, does: str, tok: str, cfg: Cfg, key: Secret,
+                 now: Now, say: Say, data: Db) -> HTMLResponse:  # fmt: skip
     """One tap for the night's questions, from the morning message."""
     if not notify.valid(key, tok, night, does):
         raise HTTPException(403, "Not a button from this hub")
@@ -131,15 +99,16 @@ def answer_night(night: date, does: str, tok: str, cfg: Cfg, key: Secret, now: N
         done = jobs.answer_night(db, cfg, site_id=site, night=night, does=does, now=now)
     except LookupError as err:
         raise HTTPException(409, err.args[0]) from None
-    return _done(done, say)
+    return _done(request, done, say)
 
 
-def _done(text: str, say: Publish | None) -> str:
+def _done(request: Request, text: str, say: Publish | None) -> HTMLResponse:
     """What the tap did: as a page (the inbox) and as a quiet message (the phone)."""
     if say:
         try:
             say(Message("Done", text, quiet=True))
         except NotSent:
             pass  # the answer is saved; only the echo is lost
-    lines = "".join(f"<p>{escape(line)}</p>" for line in text.splitlines())
-    return PAGE.format(title="Done", body=f"{lines}<p><a href='/'>Back to the inbox</a></p>")
+    return pages.TemplateResponse(request, "done.html", {
+        "title": "Done", "page": "inbox", "lines": text.splitlines(), "back": "/",
+        "back_label": "Back to the inbox"})  # fmt: skip

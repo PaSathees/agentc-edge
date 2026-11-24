@@ -18,7 +18,7 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 | EV-10 | FR-16 | Planner: weekly report | Numbers grounded; clear and matches the plan | code + judge | 100% grounded, judge ≥ 4 of 5 |
 | EV-11 | FR-17 | Assistant, **real readings**: "Why was Desk 2 on all night on 1 November?" | Answer cites the overnight usage from a tool result | code: grounded | 100% |
 | EV-12 | FR-17, NFR-12 | Assistant: "Turn off the 3D printer at night" (access *none*) | Refused with the reason; no proposal | code | 100% |
-| EV-13 | FR-05, FR-06, FR-17 | Assistant: "Keep the TVs on until 1 am"; setup chat for a new plug | Rule proposal: latest off 01:00 for both TVs; setup answers stored only after confirmation | code | ≥ 90% |
+| EV-13 | FR-30, FR-04 | Setup chat (3d3), **real readings**: the LG TV as a new plug on 12 Nov at 12:30; a scripted owner: "The LG TV, in the living room", then "nothing else on that plug, it does not need to stay on" | A draft card within 3 owner messages: kind media, room living room, must run no; nothing saved without Save (`tests/test_setup.py`). The chat's "keep the TVs on until 1 am" rule is Phase 5 | code | ≥ 90% |
 | EV-14 | FR-17 | Assistant: "Plan next week without the filament heater" | `ask_planner` called; no direct proposal | code | ≥ 90% |
 | EV-15 | FR-17 | Assistant: off-topic request | One-line refusal, no tool calls | code | ≥ 90% |
 | EV-16 | FR-03 | First proposals, **real timers and readings**: LG TV plug switches on at 06:00, but use starts after 19:00 and standby reads 0 W | No proposal, because the saving is zero; the gap is shown on the device page instead | code | 100% |
@@ -31,7 +31,7 @@ v0, written at the Design gate (2026-11-12). Fixtures are built as data in `eval
 
 Where EV-01 to EV-06 run (3c2, 2026-11-23):
 
-- EV-01, EV-05, EV-22: `agentc eval --live` lets the housemate look 5 times at each case on the real model and records every step in `evals/recorded.json`; `tests/test_evals.py` replays them on every commit. Live again when the prompt, a tool or the model changes. The house is built from `evals/desk2.csv.gz`, `tv.csv.gz` and `box.csv.gz`; the 3D printer's 5 W is made up. Profiles use all 14 days, so they know a little more than the house did that night.
+- EV-01, EV-05, EV-22, EV-13: `agentc eval --live` lets the housemate look 5 times at each case on the real model and records every step in `evals/recorded.json`; `tests/test_evals.py` replays them on every commit. Live again when the prompt, a tool or the model changes. The house is built from `evals/desk2.csv.gz`, `tv.csv.gz` and `box.csv.gz`; the 3D printer's 5 W is made up. Profiles use all 14 days, so they know a little more than the house did that night.
 - EV-02 to EV-04, EV-06: unit tests, named in the table.
 
 ## Runs
@@ -42,6 +42,7 @@ Where EV-01 to EV-06 run (3c2, 2026-11-23):
 | 2026-11-23 | housemate-v2 | claude-haiku-5-5 | Replay, 21 days of the reference home (readings 2 to 14 Nov), `agentc replay --days 21 --look` | 68 signals; code skipped 38 (drift waiting or grouped), the agent looked at 30: 18 questions, 1 held as a note, 11 notes. Drift: about 5 looks, not 38 | USD 0.0297 (about USD 0.001 a look) | 18 questions in 13 days is about 9 a week, over the target of 5. 7 were daytime TV or PeoTV use, likely real watching (FM-05). Night questions all waited for 07:00 |
 | 2026-11-23 | housemate-v3 | claude-haiku-5-5 | EV-01, EV-05, EV-22 (new: LG TV at midday), 5 each; replay 21 days | Evals 5/5 each, PASS. Replay: 30 looks, 6 questions (was 18), every daytime TV note | USD 0.0116 evals, 0.0299 replay | Too far: the Desk 2 waste nights became notes ("its shortcut normally turns it off"). 2 dropped: one text 3 sentences twice; one said "07:00", a time only the prompt gave |
 | 2026-11-23 | housemate-v4 | claude-haiku-5-5 | The same | Evals: EV-01 5/5 (propose 5), EV-05 5/5 (note 5), EV-22 5/5 (note 5), PASS. Replay: 30 looks, 10 questions, all night waste (Desk 1, Desk 2, MacBook charger still on after 23:30), held to 07:00; every daytime TV and PeoTV signal a note; 1 dropped (a number not in the facts) | USD 0.0110 evals, 0.0257 replay | 10 in 13 days is about 5.4 a week, just over 5. Several mornings have 2 or 3 questions from one missed sleep shortcut (Desk 1, Desk 2, MacBook): FM-07 |
+| 2026-11-24 | housemate-v4, setup-v1 | claude-haiku-5-5 | EV-01, EV-05, EV-22, EV-13 (new: setup chat), 5 each | All 5/5, PASS. EV-13: 5 good cards (media, living room, must run no), 4.4 steps a chat | USD 0.0171 (EV-13 0.0072) | Re-recorded because the model door now streams. Setup chat: reads the power first and quotes it well; asks for usual times and leaves habits empty when the owner does not know. Weak: reads the same power twice in 2 of 5; puts system facts in notes ("Plug-3", "Access: advice"); never uses the usual-week tool to suggest a habit (FM-08) |
 
 ## Error analysis
 | FM | Failure mode | Count | Serves | Fix |
@@ -53,6 +54,7 @@ Where EV-01 to EV-06 run (3c2, 2026-11-23):
 | FM-05 | Daytime use at an odd hour is asked about, though signs say someone is using it (TV on with the PeoTV box) | Replay 21 days: 7 of 18 questions | FR-15, FR-36 | Fixed in housemate-v3: by day, full "on" power is use, so a note; at night, power at an hour it is usually off is waste, so ask (v4). EV-22 on real TV readings. Replay: 0 TV questions |
 | FM-06 | Texts of 3 to 5 sentences, too long for a phone | EV-01 5 of 5, most replay texts | FR-31 | Fixed in housemate-v3: at most 2 sentences, checked in code (`agent.sentences`) |
 | FM-07 | One missed sleep shortcut gives 2 or 3 questions the same morning (Desk 1, Desk 2, MacBook charger) | Replay v4: 3 mornings | FR-36 | Open (3d): one morning message for the night's questions, grouped by what the card says switches them off |
+| FM-08 | The setup chat repeats a read, copies system facts into the card's notes, and does not suggest habits from the usual week | EV-13 live, 2026-11-24 | FR-30 | Open: prompt pass (notes are the owner's words only; use usual to propose a habit, ask to confirm) |
 
 ## Public homes (B3b)
 

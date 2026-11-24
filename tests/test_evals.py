@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from agentc import agent, cli, evals
+from agentc import agent, cli, evals, setup
+from agentc.house import Card
 
 NONE = {"off": None, "on": None, "days": None}
 OFF = [{"label": "Switch off", "does": "switch_off_now", **NONE},
@@ -23,14 +24,25 @@ class Wise:
     def __init__(self):
         self.steps = 0
 
-    def __call__(self, *, tier, system, messages, tools):
+    def __call__(self, *, tier, system, messages, tools, on_text=None):
         self.steps += 1
+        if any(t["name"] == "propose_card" for t in tools):  # the setup chat: one card
+            return (
+                [{"type": "tool_use", "id": "t1", "name": "propose_card", "input": TV_CARD}],
+                "tool_use",
+                1000,
+                100,
+            )
         desk = messages[0]["content"].startswith("Signal: Desk 2:")
         return (decide("ask", OFF) if desk else decide("ignore")), "tool_use", 1000, 100
 
 
+TV_CARD = {"kind": "media", "room": "living room", "what": "LG TV", "notes": "",
+           "must_run": "no", "habits": [], "message": "Here is the card. Save it?"}  # fmt: skip
+
+
 def always(blocks):
-    def send(*, tier, system, messages, tools):
+    def send(*, tier, system, messages, tools, on_text=None):
         return blocks, "tool_use", 1000, 100
 
     return send
@@ -60,7 +72,7 @@ def test_ev22_is_the_tv_on_at_midday():
 
 def test_a_model_that_decides_well_passes(tmp_path):
     scores = evals.run(Wise(), samples=2, path=tmp_path / "r.json")
-    assert [s.passed for s in scores] == [True, True, True]
+    assert [s.passed for s in scores] == [True, True, True, True]
     assert scores[0].line() == "EV-01: right 2/2, actions ask 2, 1.0 steps each, USD 0.0003: PASS"
 
 
@@ -138,4 +150,18 @@ def test_a_stale_recording_is_reported(recorded, capsys, monkeypatch):
 
 
 def test_the_recorded_live_steps_still_pass():  # free on every commit
-    assert [s.passed for s in evals.run(None)] == [True, True, True]
+    assert [s.passed for s in evals.run(None)] == [True, True, True, True]
+
+
+def test_ev13_is_a_new_tv_on_real_readings():
+    tools = evals.setup_case(evals.settings())
+    assert "nothing known yet" in tools.run("device", {"device": "LG TV"})
+    assert tools.run("power", {"device": "LG TV", "hours": 1}).endswith("12:29: about 27 W")
+
+
+def test_ev13_scores_the_card_the_owner_described():
+    good = setup.parse(TV_CARD, base=Card())
+    assert evals._setup_right(good)  # pyright: ignore[reportPrivateUsage]
+    for change in ({"kind": "light"}, {"room": "study"}, {"must_run": "yes"}):
+        assert not evals._setup_right(setup.parse({**TV_CARD, **change}, base=Card()))  # pyright: ignore[reportPrivateUsage]
+    assert not evals._setup_right(None)  # pyright: ignore[reportPrivateUsage]

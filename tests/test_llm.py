@@ -196,3 +196,44 @@ def test_the_real_step_sends_tools_with_a_cached_system(monkeypatch):
     assert (stop, tin, tout) == ("tool_use", 1000, 100)
     assert seen["system"] == [{"type": "text", "text": "S", "cache_control": {"type": "ephemeral"}}]
     assert seen["tools"] == tools and seen["output_config"] == {"effort": "low"}
+
+
+def test_the_real_step_streams_words_when_asked(monkeypatch):
+    client = anthropic.Anthropic(api_key="test")
+    final = answer({"type": "text", "text": "Which room?"})
+
+    class Live:
+        text_stream = iter(["Which ", "room?"])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def get_final_message(self):
+            return final
+
+    seen = {}
+    monkeypatch.setattr(client.messages, "stream", lambda **kw: seen.update(kw) or Live())
+    words = []
+    blocks, stop, tin, tout = llm.claude_step(client)(
+        tier=SMALL, system="S", messages=[{"role": "user", "content": "P"}], tools=[],
+        on_text=words.append,
+    )  # fmt: skip
+    assert words == ["Which ", "room?"] and blocks == [{"type": "text", "text": "Which room?"}]
+    assert seen["system"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_step_passes_the_stream_on_only_when_asked(db):
+    got = []
+
+    def send(*, tier, system, messages, tools, on_text=None):
+        got.append(on_text)
+        return OK, "end_turn", 10, 1
+
+    m = make(db, send)
+    ask(m)
+    m.step(tier="small", agent="setup", run_id="r", prompt_version="v", system="S",
+           messages=[{"role": "user", "content": "hi"}], tools=[], on_text=print)  # fmt: skip
+    assert got == [None, print]

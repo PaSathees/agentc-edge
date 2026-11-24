@@ -30,11 +30,15 @@ Block = dict[str, Any]  # one content block: text, thinking, tool_use or tool_re
 MAX_STEP_TOKENS = 8000  # one step of the agent loop: a few tool calls or a decision
 
 
+OnText = Callable[[str], None]  # gets the reply's words as they come (a chat on the page)
+
+
 class StepSend(Protocol):
     """One step of an agent loop: messages and tools in; content blocks, why it stopped,
     tokens in and tokens out back. Blocks are plain dicts, passed back unchanged."""
 
-    def __call__(self, *, tier: Tier, system: str, messages: list[Message], tools: list[Schema]
+    def __call__(self, *, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+                 on_text: OnText | None = None
                  ) -> tuple[list[Block], str, int, int]: ...  # fmt: skip
 
 
@@ -75,12 +79,12 @@ class Llm:
 
     def step(
         self, *, tier: str, agent: str, run_id: str, prompt_version: str, system: str,
-        messages: list[Message], tools: list[Schema],
+        messages: list[Message], tools: list[Schema], on_text: OnText | None = None,
     ) -> StepReply:  # fmt: skip
         """One step of an agent loop, traced and capped like any call (ADR-009).
 
         The trace keeps the system prompt and the whole conversation so far, so a run can be
-        read back step by step.
+        read back step by step. on_text: also get the reply's words as they come.
         """
         t, now = self.tiers[tier], self.clock()
         self._check_budget(run_id, now)
@@ -90,8 +94,9 @@ class Llm:
                  "prompt": json.dumps({"system": system, "messages": messages})}  # fmt: skip
         start = time.perf_counter()
         try:
+            stream = {"on_text": on_text} if on_text else {}  # stand-ins need not take it
             blocks, stop, tokens_in, tokens_out = self.send(
-                tier=t, system=system, messages=messages, tools=tools
+                tier=t, system=system, messages=messages, tools=tools, **stream
             )
         except Exception:
             store.add_llm_call(self.db, **trace, output=None, tokens_in=None, tokens_out=None,
@@ -133,15 +138,20 @@ def claude_step(client: anthropic.Anthropic) -> StepSend:
     """One agent step on the real model. The system prompt and tools are the same on every
     step and every run, so they are cached; thinking blocks come back and are passed back."""
 
-    def step(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema]
-             ) -> tuple[list[Block], str, int, int]:  # fmt: skip
+    def step(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+             on_text: OnText | None = None) -> tuple[list[Block], str, int, int]:  # fmt: skip
+        args: dict[str, Any] = {
+            "model": tier.model, "max_tokens": MAX_STEP_TOKENS, "tools": tools,
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            "messages": messages, "output_config": {"effort": tier.effort}}  # fmt: skip
         try:
-            msg = client.messages.create(
-                model=tier.model, max_tokens=MAX_STEP_TOKENS,
-                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-                tools=tools, messages=messages,  # pyright: ignore[reportArgumentType]
-                output_config={"effort": tier.effort},
-            )  # fmt: skip
+            if on_text is None:
+                msg = client.messages.create(**args)
+            else:  # the same call, streamed: words go to the page as the model writes them
+                with client.messages.stream(**args) as live:
+                    for words in live.text_stream:
+                        on_text(words)
+                    msg = live.get_final_message()
         except OUT_OF_REACH as err:
             raise Unreachable(f"{type(err).__name__}: {err}") from err
         blocks = [b.model_dump(mode="json", exclude_none=True) for b in msg.content]

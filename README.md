@@ -39,6 +39,7 @@ flowchart LR
 | `agentc eval [--live]` | Scores the housemate on real nights: replays recorded steps free, or asks the model again. From the repo with `uv run` (see Develop), not in Docker |
 | `agentc learn` | Learns each plug's usual week and standby level now (the jobs do it daily) |
 | `agentc policy [Plug-1]` | Every threshold: its value, where it came from, and why |
+| Devices page (`/setup` in the inbox) | Set up each device by chatting: it reads the plug, asks a few questions, shows a card; only your Save writes it. Talk instead of type on https |
 | `agentc house` | Shows what the system knows about each device: its card, timers and habits, as the agent will read it |
 | `agentc house Plug-6 kind=computer room=study` | Changes a device's card. Keys: kind, room (where it is), what, notes, must_run, why.N (why timer N is set) |
 
