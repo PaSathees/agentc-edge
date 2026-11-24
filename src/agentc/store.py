@@ -6,6 +6,7 @@ JSON columns hold text written with json.dumps.
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,8 +20,8 @@ from agentc.readings import utc_bounds
 from agentc.watcher import Event
 
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
-# 7: questions.sent. 8: unused v1 tables dropped. 9: chats
-SCHEMA_VERSION = 9
+# 7: questions.sent. 8: unused v1 tables dropped. 9: chats. 10: chats.reads
+SCHEMA_VERSION = 10
 UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
@@ -175,7 +176,8 @@ CREATE TABLE IF NOT EXISTS chats (
     kind     TEXT NOT NULL CHECK (kind IN ('setup')),
     status   TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'saved', 'closed')),
     draft    TEXT,  -- JSON: the card and habits the agent proposed; NULL: none yet
-    created  TEXT NOT NULL
+    created  TEXT NOT NULL,
+    reads    TEXT  -- JSON: [[what it asked a tool, the result], ...], so it reads each once
 );
 -- Each message in a chat, in order
 CREATE TABLE IF NOT EXISTS chat_turns (
@@ -219,6 +221,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
         db.execute("ALTER TABLE events ADD COLUMN tries INTEGER NOT NULL DEFAULT 0")  # before 3
     if "sent" not in [col[1] for col in db.execute("PRAGMA table_info(questions)")]:
         db.execute("ALTER TABLE questions ADD COLUMN sent TEXT")  # before 7
+    if "reads" not in [col[1] for col in db.execute("PRAGMA table_info(chats)")]:
+        db.execute("ALTER TABLE chats ADD COLUMN reads TEXT")  # before 10
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
 
@@ -247,6 +251,13 @@ def plug_mac(db: sqlite3.Connection, *, name: str) -> str | None:
     sql = "SELECT mac FROM plugs WHERE name = ? ORDER BY last_seen DESC LIMIT 1"
     row = db.execute(sql, (name,)).fetchone()
     return row[0] if row else None
+
+
+def timers_on(db: sqlite3.Connection, *, mac: str) -> bool:
+    """Is the plug's Timers switch on? If it is off, no timer on the plug fires.
+    Not read yet counts as on: the import reads it on every pass."""
+    row = db.execute("SELECT timers_on FROM plugs WHERE mac = ?", (mac,)).fetchone()
+    return not row or row[0] is None or bool(row[0])
 
 
 def plug_macs(db: sqlite3.Connection, *, site_id: int) -> dict[str, str]:
@@ -703,14 +714,26 @@ class Chat:
     plug_mac: str
     status: str  # open, saved or closed
     draft: dict[str, Any] | None  # the card the agent proposed last; None: none yet
+    reads: tuple[tuple[str, str], ...] = ()  # (what it asked a tool, the result), oldest first
 
 
 def chat(db: sqlite3.Connection, *, chat_id: int) -> Chat | None:
     """One chat, or None."""
-    row = db.execute(
-        "SELECT plug_mac, status, draft FROM chats WHERE id = ?", (chat_id,)
-    ).fetchone()
-    return Chat(row[0], row[1], json.loads(row[2]) if row[2] else None) if row else None
+    sql = "SELECT plug_mac, status, draft, reads FROM chats WHERE id = ?"
+    if (row := db.execute(sql, (chat_id,)).fetchone()) is None:
+        return None
+    reads = tuple((a, r) for a, r in json.loads(row[3])) if row[3] else ()
+    return Chat(row[0], row[1], json.loads(row[2]) if row[2] else None, reads)
+
+
+def add_reads(db: sqlite3.Connection, *, chat_id: int, reads: Sequence[tuple[str, str]]) -> None:
+    """Keep what the agent read in this chat, so its next reply has it without reading again."""
+    if not reads:
+        return
+    with db:
+        (raw,) = db.execute("SELECT reads FROM chats WHERE id = ?", (chat_id,)).fetchone()
+        kept = [*(json.loads(raw) if raw else []), *(list(r) for r in reads)]
+        db.execute("UPDATE chats SET reads = ? WHERE id = ?", (json.dumps(kept), chat_id))
 
 
 def close_chat(db: sqlite3.Connection, *, chat_id: int, status: str) -> None:

@@ -169,7 +169,9 @@ def _decide(raw: dict[str, Any], tools: Tools, plug: str, facts: str
         return None, f"format: {err}"
     mac = store.plug_mac(tools.app, name=plug)
     c = store.load_card(tools.app, mac=mac) if mac else Card()
-    return d, check_decision(d, device=config.device(tools.cfg, plug), card=c, facts=facts)
+    on = store.timers_on(tools.app, mac=mac) if mac else True
+    return d, check_decision(d, device=config.device(tools.cfg, plug), card=c, facts=facts,
+                             timers_on=on)  # fmt: skip
 
 
 def parse(raw: dict[str, Any]) -> Decision:
@@ -190,8 +192,10 @@ def sentences(text: str) -> int:
     return len(END.findall(text)) + (1 if text and text[-1] not in ".!?" else 0)
 
 
-def check_decision(d: Decision, *, device: Device, card: Card, facts: str) -> str | None:
-    """Why the decision is blocked, or None if it passes. Cheap checks first."""
+def check_decision(d: Decision, *, device: Device, card: Card, facts: str,
+                   timers_on: bool = True) -> str | None:  # fmt: skip
+    """Why the decision is blocked, or None if it passes. Cheap checks first.
+    timers_on: the plug's Timers switch; off, a new timer would never fire."""
     if (n := sentences(d.text)) > SENTENCES:
         return f"format: {n} sentences; at most {SENTENCES}, for a phone"
     if device.access == "none" and d.action not in ("ignore", "note"):
@@ -210,6 +214,10 @@ def check_decision(d: Decision, *, device: Device, card: Card, facts: str) -> st
                 return "format: set_timer needs off, on and days"
             if not (HHMM.match(c.off) and HHMM.match(c.on)):
                 return "format: times are HH:MM"
+            if not timers_on:
+                return (
+                    f"timers: the Timers switch on {device.name}'s plug is off, so no timer fires"
+                )
         if c.does in ("switch_off_now", "set_timer") and runs_always(card):
             return f"must run: {device.name} is never switched off"
         if c.off and (hard := [r for r in device.rules if r.hard and breaks(c.off, r)]):

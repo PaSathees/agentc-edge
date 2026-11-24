@@ -253,6 +253,15 @@ def test_a_message_is_saved_and_its_reply_streams(chat):
     assert got[1] == ("text", "Which room?")
     assert got[-1][0] == "done" and "data-say>Which room?</div>" in got[-1][1]
     assert [role for _, role, _ in store.turns(db, chat_id=1)] == ["agent", "owner", "agent"]
+    found = store.chat(db, chat_id=1)
+    assert found is not None and [a for a, _ in found.reads] == [
+        'power {"device": "Desk 2", "hours": 24}'
+    ]  # kept for the next reply
+    c.post("/setup/Plug-1/say", data={"text": "the study", "tok": tok})
+    model([[{"type": "text", "text": "Thanks."}]])
+    c.get(f"/setup/Plug-1/reply?tok={tok}")
+    found = store.chat(db, chat_id=1)
+    assert found is not None and len(found.reads) == 1  # no new read, nothing added
 
 
 def test_a_draft_card_shows_with_save_and_only_save_writes_it(chat):

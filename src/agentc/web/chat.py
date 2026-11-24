@@ -207,9 +207,12 @@ def _answer(cfg: Config, site: int, plug: str, chat: int, talk: list[tuple[str, 
             raise LookupError("No readings yet: the logger starts them within a minute.")
         db, energy = store.open_app(cfg.app_db), readings.connect(cfg.energy_db)
         brain = llm.Llm(db, site, cfg.tz, cfg.tiers, cfg.budget, model)
+        found = store.chat(db, chat_id=chat)
         r = setup.reply(talk, plug, tools=Tools(db, energy, cfg, site, now), llm=brain,
                         run_id=f"setup:{chat}:{len(talk)}", draft=draft,
-                        on_event=lambda kind, text: run.put((kind, text)))  # fmt: skip
+                        on_event=lambda kind, text: run.put((kind, text)),
+                        earlier=found.reads if found else ())  # fmt: skip
+        store.add_reads(db, chat_id=chat, reads=r.reads)
         store.add_turn(db, chat_id=chat, site_id=site, role="agent", text=r.text, now=now)
         if r.draft:
             store.set_draft(db, chat_id=chat, draft=r.draft.to_json())

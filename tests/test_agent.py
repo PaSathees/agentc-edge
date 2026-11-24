@@ -183,6 +183,17 @@ def test_check_decision(d, device, card, why):
     assert check_decision(d, device=device, card=card, facts=FACTS) == why
 
 
+def test_no_timer_is_offered_on_a_plug_with_its_timers_switch_off():
+    d = decision("propose", "Set Desk 2 off at 01:30 and on at 07:00?",
+                 Choice("Yes", "set_timer", "01:30", "07:00", "every_day"))  # fmt: skip
+    assert check_decision(d, device=DESK, card=CARD, facts=FACTS, timers_on=False) == (
+        "timers: the Timers switch on Desk 2's plug is off, so no timer fires"
+    )
+    off = decision("ask", "Desk 2 is on, about 5 W. Off?", Choice("Off", "switch_off_now"),
+                   Choice("Fine", "save_habit"))  # fmt: skip
+    assert check_decision(off, device=DESK, card=CARD, facts=FACTS, timers_on=False) is None
+
+
 def test_numbers_the_agent_chose_for_a_timer_are_allowed():
     d = decision("propose", "Set Desk 2 off at 01:30 and on at 07:00?",
                  Choice("Yes", "set_timer", "01:30", "07:00", "every_day"))  # fmt: skip

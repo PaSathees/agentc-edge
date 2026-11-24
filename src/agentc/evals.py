@@ -11,7 +11,7 @@ import hashlib
 import json
 import sqlite3
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -153,10 +153,11 @@ OWNER = ("The LG TV, in the living room.",
          "That is all I know.")  # fmt: skip
 
 
-def _setup_right(d: setup.Draft | None) -> bool:
-    """Media, in the living room, not must-run: what the owner said."""
+def _setup_right(d: setup.Draft | None, used: Sequence[str]) -> bool:
+    """Media, in the living room, not must-run: what the owner said. And it read the usual
+    week, to suggest when the TV is on (FM-08)."""
     return (d is not None and d.card.kind == "media" and "living" in d.card.room.lower()
-            and d.card.must_run is None)  # fmt: skip
+            and d.card.must_run is None and "usual" in used)  # fmt: skip
 
 
 def setup_case(cfg: Config) -> Tools:
@@ -186,15 +187,16 @@ def _setup_sample(send: StepSend, cfg: Config) -> Sample:
 
     brain = Llm(tools.app, 1, cfg.tz, cfg.tiers, cfg.budget, listen, clock=lambda: tools.now)
     talk = [("agent", setup.greeting("LG TV", house.Card()))]
-    draft, used = None, []
+    draft, used, earlier = None, [], []
     for said in OWNER:  # up to 3 owner messages
         talk.append(("owner", said))
-        r = setup.reply(talk, TV[0], tools=tools, llm=brain, run_id=SETUP_ID)
+        r = setup.reply(talk, TV[0], tools=tools, llm=brain, run_id=SETUP_ID, earlier=earlier)
         used += r.tools
+        earlier += r.reads
         talk.append(("agent", r.text))
         if (draft := r.draft) is not None:
             break
-    return Sample(steps, "card" if draft else "none", _setup_right(draft), used,
+    return Sample(steps, "card" if draft else "none", _setup_right(draft, used), used,
                   store.llm_usd(tools.app, site_id=1))  # fmt: skip
 
 

@@ -1,6 +1,7 @@
 """The housemate's evals: real nights, recorded live, replayed free on every commit."""
 
 import json
+import re
 
 import pytest
 
@@ -26,9 +27,11 @@ class Wise:
 
     def __call__(self, *, tier, system, messages, tools, on_text=None):
         self.steps += 1
-        if any(t["name"] == "propose_card" for t in tools):  # the setup chat: one card
+        if any(t["name"] == "propose_card" for t in tools):  # the setup chat: usual, then a card
+            read = any(isinstance(m["content"], list) for m in messages)  # a tool result came
+            name, args = ("propose_card", TV_CARD) if read else ("usual", USUAL)
             return (
-                [{"type": "tool_use", "id": "t1", "name": "propose_card", "input": TV_CARD}],
+                [{"type": "tool_use", "id": "t1", "name": name, "input": args}],
                 "tool_use",
                 1000,
                 100,
@@ -37,6 +40,7 @@ class Wise:
         return (decide("ask", OFF) if desk else decide("ignore")), "tool_use", 1000, 100
 
 
+USUAL = {"device": "LG TV", "day": "Monday", "start": "18:00", "end": "23:00"}
 TV_CARD = {"kind": "media", "room": "living room", "what": "LG TV", "notes": "",
            "must_run": "no", "habits": [], "message": "Here is the card. Save it?"}  # fmt: skip
 
@@ -95,7 +99,8 @@ def test_live_steps_are_recorded_and_replayed_at_no_cost(tmp_path):
     saved = json.loads(path.read_text())
     assert saved["EV-01"]["model"] == "claude-haiku-5-5" and len(saved["EV-01"]["samples"]) == 2
     again = evals.run(None, path=path)
-    assert [s.line().replace("0.0003", "0.0000") for s in live] == [s.line() for s in again]
+    free = [s.line() for s in again]
+    assert [re.sub(r"USD [\d.]+", "USD 0.0000", s.line()) for s in live] == free
 
 
 @pytest.mark.parametrize("what", ["SYSTEM", "VERSION"])
@@ -160,8 +165,10 @@ def test_ev13_is_a_new_tv_on_real_readings():
 
 
 def test_ev13_scores_the_card_the_owner_described():
-    good = setup.parse(TV_CARD, base=Card())
-    assert evals._setup_right(good)  # pyright: ignore[reportPrivateUsage]
+    right = evals._setup_right  # pyright: ignore[reportPrivateUsage]
+    good, read = setup.parse(TV_CARD, base=Card()), ["power", "usual"]
+    assert right(good, read)
     for change in ({"kind": "light"}, {"room": "study"}, {"must_run": "yes"}):
-        assert not evals._setup_right(setup.parse({**TV_CARD, **change}, base=Card()))  # pyright: ignore[reportPrivateUsage]
-    assert not evals._setup_right(None)  # pyright: ignore[reportPrivateUsage]
+        assert not right(setup.parse({**TV_CARD, **change}, base=Card()), read)
+    assert not right(None, read)
+    assert not right(good, ["power"])  # never read the usual week, so suggested no times

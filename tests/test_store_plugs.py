@@ -31,6 +31,14 @@ def test_plug_seen_twice_keeps_first_seen_and_updates_the_rest(db):
     assert plug_row(db) == ("Plug-6", "192.0.2.2", T0.isoformat(), T1.isoformat(), 1, None, 1)
 
 
+def test_timers_on_is_the_plugs_switch_and_on_until_read(db):
+    assert store.timers_on(db, mac="AA")  # never read: the import reads it every pass
+    store.plug_seen(db, site_id=1, mac="AA", name="Plug-6", ip="192.0.2.1", timers_on=False, now=T0)
+    assert not store.timers_on(db, mac="AA")
+    store.plug_seen(db, site_id=1, mac="AA", name="Plug-6", ip="192.0.2.1", timers_on=True, now=T1)
+    assert store.timers_on(db, mac="AA")
+
+
 def test_plug_failed_marks_it_unreachable_and_keeps_last_seen(db):
     store.plug_seen(db, site_id=1, mac="AA", name="Plug-6", ip="192.0.2.1", timers_on=True, now=T0)
     store.plug_failed(db, name="Plug-6", error="timed out")

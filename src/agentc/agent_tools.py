@@ -183,4 +183,6 @@ def card(app: Connection, cfg: Config, plug: str) -> str:
     found = [h for _, h in store.habits(app, mac=mac)] if mac else []
     c = store.load_card(app, mac=mac) if mac else house.Card()
     auto = store.load_automations(app, mac=mac) if mac else house.NO_AUTOMATIONS
-    return house.card(config.device(cfg, plug), c, timers=saved, habits=found, automations=auto)
+    on = store.timers_on(app, mac=mac) if mac else True
+    return house.card(config.device(cfg, plug), c, timers=saved, habits=found, automations=auto,
+                      timers_on=on)  # fmt: skip

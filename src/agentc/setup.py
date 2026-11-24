@@ -6,8 +6,9 @@ with propose_card. It never saves anything: only the owner's Save does, after co
 the draft (FR-30: no card is saved without the owner's confirmation).
 """
 
+import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from sqlite3 import Connection
@@ -20,22 +21,27 @@ from agentc.agent_tools import Tools, card
 from agentc.config import Config
 from agentc.llm import Llm
 
-VERSION = "setup-v1"  # change it with any change to SYSTEM or the tools
+VERSION = "setup-v2"  # change it with any change to SYSTEM or the tools
 MAX_STEPS = 5  # model calls per owner message
 QUESTIONS = 5  # questions in a chat, at most
 DAYS = {"every_day": "1111111", "weekdays": "0111110", "weekends": "1000001"}  # Sunday first
 HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 FIELD_MAX = 200  # characters in one card field: they go into every later prompt
 LOST = "Sorry, I lost my words there. Could you say that again?"
+SYSTEM_FACT = re.compile(r"\bPlug-\d+|\bAccess:|\bMust run:|\bTimer \d+", re.IGNORECASE)
 
 SYSTEM = f"""You help the owner of a home describe the device on one smart plug, so the \
 housemate that watches the home's electricity knows it.
 
 Ask one short question at a time, in plain words, and at most {QUESTIONS} questions in all. \
-Before you ask about times, read the plug's power with the tools, so you can check what the \
-owner says ("you said weekdays, but it also ran on Sunday"). Find out: what is plugged in, \
-which room, when it is normally on, whether it must always stay on, and whether anything \
-else shares the plug.
+Find out: what is plugged in, which room, when it is normally on, whether it must always \
+stay on, and whether anything else shares the plug.
+
+Before you ask about times, read the plug's usual week (usual), for a weekday and a \
+weekend day. Then suggest the times you see and ask if they are right ("It is usually on \
+weekdays from 19:00 to 23:00. Is that when you watch?"). Put a habit in the card only after \
+the owner agrees. Read power to check what the owner says now. Read each thing once: a \
+result stays true for the whole chat.
 
 When you know what is plugged in and its kind, call propose_card. Its message is what you \
 say with it: show nothing new, and end by asking the owner to save it or say what to change. \
@@ -43,6 +49,8 @@ If the owner asks for a change, call propose_card again with the change.
 
 Rules:
 - Use only facts the owner or a tool gave you. Never guess a room or a time.
+- room, what, notes and habits hold the owner's words only. Never copy the plug's name, \
+its access, its timers or other system facts into them.
 - must_run is yes only for a device that must never be switched off, such as a fridge, a \
 router or a medical device.
 - A habit is a time the device is normally on, from the owner's words, e.g. "MacBook \
@@ -55,7 +63,8 @@ PROPOSE = tool(
     {"kind": {"type": "string", "enum": list(house.KINDS)},
      "room": {"type": "string", "description": "the room, in the owner's words; empty if unknown"},
      "what": {"type": "string", "description": "what is plugged in, in the owner's words"},
-     "notes": {"type": "string", "description": "anything else that helps; may be empty"},
+     "notes": {"type": "string",
+               "description": "anything else the owner said that helps; may be empty"},
      "must_run": {"type": "string", "enum": ["yes", "no"]},
      "habits": {"type": "array", "description": "normal times it is on; may be empty", "items": {
          "type": "object", "additionalProperties": False,
@@ -97,6 +106,7 @@ class Reply:
     text: str  # what the agent says
     draft: Draft | None  # a card to show, with Save and Change
     tools: tuple[str, ...]  # the read tools it used, in order
+    reads: tuple[tuple[str, str], ...] = ()  # (what it asked, the result): new in this reply
 
 
 def greeting(name: str, c: house.Card) -> str:
@@ -115,6 +125,8 @@ def parse(raw: dict[str, Any], *, base: house.Card) -> Draft:
     texts = [raw["what"], raw["room"], raw["notes"], *(h["text"] for h in raw["habits"])]
     if any(len(str(x)) > FIELD_MAX for x in texts):
         raise ValueError(f"keep each field under {FIELD_MAX} characters")
+    if any(SYSTEM_FACT.search(str(x)) for x in texts):
+        raise ValueError("use the owner's words only: no plug names, access or timers")
     habits = []
     for h in raw["habits"]:
         if h["days"] not in DAYS or not (HHMM.match(h["start"]) and HHMM.match(h["end"])):
@@ -129,15 +141,20 @@ def parse(raw: dict[str, Any], *, base: house.Card) -> Draft:
 def reply(
     talk: list[tuple[str, str]], plug: str, *, tools: Tools, llm: Llm, run_id: str,
     draft: Draft | None = None, on_event: Event | None = None,
+    earlier: Sequence[tuple[str, str]] = (),
 ) -> Reply:  # fmt: skip
     """The agent's answer to the owner's last message. talk: (role, text), oldest first,
     starting with the greeting. draft: the card it proposed last, so it can change it.
+    earlier: what it read before in this chat, as (asked, result): the chat keeps only the
+    words, so without these it would read everything again each time.
     Raises OverBudget or Unreachable."""
     say = on_event or (lambda kind, text: None)
     mac = store.plug_mac(tools.app, name=plug)
     base = store.load_card(tools.app, mac=mac) if mac else house.Card()
-    messages = _messages(talk, plug, tools, draft)
+    messages = _messages(talk, plug, tools, draft, earlier)
     used: list[str] = []
+    read = {asked for asked, _ in earlier}  # each read once a chat: again adds cost, not news
+    new: list[tuple[str, str]] = []
     for step in range(MAX_STEPS):
         offer = TOOLS if step < MAX_STEPS - 1 else [PROPOSE]
         r = llm.step(tier="small", agent="setup", run_id=run_id, prompt_version=VERSION,
@@ -147,35 +164,49 @@ def reply(
         text = "".join(b.get("text", "") for b in r.blocks if b.get("type") == "text").strip()
         calls = [b for b in r.blocks if b.get("type") == "tool_use"]
         if not calls:  # a question, or nothing usable (an empty or refused reply)
-            return Reply(text if text and r.stop_reason != "refusal" else LOST, None, tuple(used))
+            said = text if text and r.stop_reason != "refusal" else LOST
+            return Reply(said, None, tuple(used), tuple(new))
         results = []
         for c in calls:
             if c["name"] == "propose_card":
                 try:
                     return Reply(str(c["input"]["message"]), parse(c["input"], base=base),
-                                 tuple(used))  # fmt: skip
+                                 tuple(used), tuple(new))  # fmt: skip
                 except (KeyError, TypeError, ValueError) as err:
                     out, error = f"Not saved: {err}. Fix it and call propose_card again.", True
+            elif (asked := _asked(c["name"], c["input"])) in read:
+                out, error = "You read this already in this chat. Use that result.", False
             else:
+                read.add(asked)
                 say("step", STEPS.get(c["name"], "looking"))
                 out = tools.run(c["name"], c["input"])
                 used.append(c["name"])
-                error = out.startswith("Error:")
+                if not (error := out.startswith("Error:")):
+                    new.append((asked, out))
             results.append({"type": "tool_result", "tool_use_id": c["id"], "content": out,
                             "is_error": error})  # fmt: skip
         messages.append({"role": "user", "content": results})
     return Reply("Sorry, I could not finish that. Could you say it another way?", None,
-                 tuple(used))  # fmt: skip
+                 tuple(used), tuple(new))  # fmt: skip
 
 
-def _messages(talk: list[tuple[str, str]], plug: str, tools: Tools, draft: Draft | None
-              ) -> list[dict[str, Any]]:  # fmt: skip
-    """The chat as model messages. The first one holds the brief: the plug, its card now,
-    the card proposed last (not saved), and the greeting, which code wrote."""
+def _asked(name: str, args: dict[str, Any]) -> str:
+    """A tool call as one line, e.g. 'usual {"day": "Monday", ...}'. Same call, same line."""
+    return f"{name} {json.dumps(args, sort_keys=True)}"
+
+
+def _messages(talk: list[tuple[str, str]], plug: str, tools: Tools, draft: Draft | None,
+              earlier: Sequence[tuple[str, str]] = ()) -> list[dict[str, Any]]:  # fmt: skip
+    """The chat as model messages. The first one holds the brief: the device (by its name
+    only, the name the tools take), its card now, what was read before in this chat, the card
+    proposed last (not saved), and the greeting, which code wrote."""
     name = config.device(tools.cfg, plug).name
     now = card(tools.app, tools.cfg, plug)
-    brief = (f"Plug: {plug}. Device name: {name}.\nWhat the housemate knows now:\n{now}\n\n"
+    brief = (f"Device: {name}.\nWhat the housemate knows now:\n{now}\n\n"
              f"You opened the chat with: {talk[0][1]}")  # fmt: skip
+    if earlier:
+        brief += "\n\nWhat you read earlier in this chat (still true):\n" + "\n\n".join(
+            f"{asked}:\n{result}" for asked, result in earlier)  # fmt: skip
     if draft:
         brief += f"\n\nThe card you proposed last (not saved yet): {draft.to_json()}"
     messages: list[dict[str, Any]] = []

@@ -80,6 +80,12 @@ def test_device_shows_its_card(tools):
     )
 
 
+def test_device_says_when_its_timers_switch_is_off(tools):
+    store.plug_seen(tools.app, site_id=1, mac="AA", name="Plug-1", ip="192.0.2.1",
+                    timers_on=False, now=NOW)  # fmt: skip
+    assert "Timers switch: off" in tools.run("device", {"device": "Desk 2"})
+
+
 def test_an_unknown_device_lists_the_known_ones(tools):
     assert tools.run("device", {"device": "Toaster"}) == (
         "Error: no device named 'Toaster'. Known: Desk 2, 3D printer"

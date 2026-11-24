@@ -79,3 +79,13 @@ def test_an_app_db_from_phase_3c_gets_the_sent_column(tmp_path):
     db = store.connect(tmp_path / "app.db")
     assert "sent" in [row[1] for row in db.execute("PRAGMA table_info(questions)")]
     assert db.execute("PRAGMA user_version").fetchone() == (store.SCHEMA_VERSION,)
+
+
+def test_an_app_db_from_phase_3d3_gets_the_reads_column(tmp_path):
+    old = sqlite3.connect(tmp_path / "app.db")
+    old.execute("CREATE TABLE chats (id INTEGER PRIMARY KEY, site_id, plug_mac, kind, status,"
+                " draft, created)")  # fmt: skip
+    old.execute("PRAGMA user_version = 9")
+    old.close()
+    db = store.connect(tmp_path / "app.db")
+    assert "reads" in [row[1] for row in db.execute("PRAGMA table_info(chats)")]
