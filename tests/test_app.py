@@ -236,7 +236,7 @@ def test_opening_a_chat_greets_by_code(chat):
     c, db, tok = chat
     page = c.get("/setup/Plug-1").text
     assert "Let&#39;s set up Desk 2. What is plugged into it?" in page
-    assert f'value="{tok}"' in page and "/static/voice.js" in page
+    assert f'value="{tok}"' in page and "/static/chat.js" in page
     assert len(store.turns(db, chat_id=1)) == 1  # opened twice, greeted once
 
 
@@ -260,7 +260,7 @@ def test_a_draft_card_shows_with_save_and_only_save_writes_it(chat):
     c.post("/setup/Plug-1/say", data={"text": "roof light, living room", "tok": tok})
     model([[{"type": "tool_use", "id": "t1", "name": "propose_card", "input": ROOF}]])
     done = events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)[-1][1]
-    assert "<dt>Kind</dt><dd>light</dd>" in done and ">Save</button>" in done
+    assert "<dt>Kind</dt><dd>light</dd>" in done and ">Save card</button>" in done
     assert store.load_card(db, mac="AA") == Card()  # nothing saved yet
     assert "Card for Desk 2" in c.get("/setup/Plug-1").text  # the draft survives a reload
     r = c.post("/setup/Plug-1/save", data={"tok": tok})
