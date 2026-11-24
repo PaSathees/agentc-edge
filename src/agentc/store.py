@@ -15,6 +15,7 @@ from agentc.calc import ProfileHour
 from agentc.devices.base import Automations, PlugRule, Timer
 from agentc.house import SOURCES, Card, Habit
 from agentc.owner import Choice, Decision, Question
+from agentc.readings import utc_bounds
 from agentc.watcher import Event
 
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
@@ -387,9 +388,6 @@ def llm_usd(
     return usd
 
 
-# energy.db belongs to the logger: the app only ever reads it (decision ADR-006).
-
-
 def add_event(db: sqlite3.Connection, *, site_id: int, event: Event, dedupe: str) -> bool:
     """Save an event. False if one with the same key is already saved."""
     with db:
@@ -565,7 +563,7 @@ def count_questions(
     """Questions due to reach the owner from start to end: all plugs, or one."""
     sql = """SELECT COUNT(*) FROM questions WHERE site_id = ? AND send_at >= ? AND send_at < ?
              AND plug_mac = COALESCE(?, plug_mac)"""
-    return db.execute(sql, (site_id, *_utc_bounds(start, end), mac)).fetchone()[0]
+    return db.execute(sql, (site_id, *utc_bounds(start, end), mac)).fetchone()[0]
 
 
 def answer_question(
@@ -662,68 +660,6 @@ def last_event_start(
     sql = "SELECT MAX(start_utc) FROM events WHERE site_id = ? AND kind = ? AND plug_mac IS ?"
     (start,) = db.execute(sql, (site_id, kind, plug_mac)).fetchone()
     return datetime.fromisoformat(start) if start else None
-
-
-def open_readings(path: str | Path) -> sqlite3.Connection:
-    """Open energy.db read-only. Any write through this connection fails."""
-    return sqlite3.connect(f"file:{Path(path).resolve()}?mode=ro", uri=True)
-
-
-def readings(
-    db: sqlite3.Connection, *, plug: str, start: datetime, end: datetime
-) -> list[tuple[datetime, float]]:
-    """One plug's minute readings in [start, end), oldest first; failed reads skipped."""
-    sql = """SELECT ts_utc, power_w FROM readings
-             WHERE plug = ? AND ts_utc >= ? AND ts_utc < ? AND power_w IS NOT NULL
-             ORDER BY ts_utc"""
-    rows = db.execute(sql, (plug, *_utc_bounds(start, end)))
-    return [(datetime.fromisoformat(ts), w) for ts, w in rows]
-
-
-def counter(
-    db: sqlite3.Connection, *, plug: str, start: datetime, end: datetime
-) -> list[tuple[datetime, float]]:
-    """The plug's own energy meter (total kWh) in [start, end), oldest first."""
-    sql = """SELECT ts_utc, total_kwh FROM readings
-             WHERE plug = ? AND ts_utc >= ? AND ts_utc < ? AND total_kwh IS NOT NULL
-             ORDER BY ts_utc"""
-    rows = db.execute(sql, (plug, *_utc_bounds(start, end)))
-    return [(datetime.fromisoformat(ts), total) for ts, total in rows]
-
-
-def last_rounds(
-    db: sqlite3.Connection, *, n: int, end: datetime
-) -> list[tuple[datetime, dict[str, bool]]]:
-    """The logger's last n rounds before `end`, oldest first: which plugs answered."""
-    sql = """SELECT ts_utc, plug, error IS NULL FROM readings
-             WHERE ts_utc IN (SELECT DISTINCT ts_utc FROM readings
-                              WHERE ts_utc < ? ORDER BY ts_utc DESC LIMIT ?)
-             ORDER BY ts_utc"""
-    rounds: dict[str, dict[str, bool]] = {}
-    for ts, plug, answered in db.execute(sql, (end.astimezone(UTC).isoformat(), n)):
-        rounds.setdefault(ts, {})[plug] = bool(answered)
-    return [(datetime.fromisoformat(ts), plugs) for ts, plugs in rounds.items()]
-
-
-def last_round(db: sqlite3.Connection, *, end: datetime) -> datetime | None:
-    """When the logger's newest round before `end` was, failed reads included. None if none."""
-    sql = "SELECT MAX(ts_utc) FROM readings WHERE ts_utc < ?"
-    (ts,) = db.execute(sql, (end.astimezone(UTC).isoformat(),)).fetchone()
-    return datetime.fromisoformat(ts) if ts else None
-
-
-def answered(db: sqlite3.Connection, *, plug: str | None, start: datetime, end: datetime) -> bool:
-    """Did this plug (or, with None, any plug) answer at least once in [start, end)?"""
-    sql = "SELECT 1 FROM readings WHERE ts_utc >= ? AND ts_utc < ? AND error IS NULL"
-    args: tuple[str, ...] = _utc_bounds(start, end)
-    if plug is not None:
-        sql, args = sql + " AND plug = ?", (*args, plug)
-    return db.execute(sql + " LIMIT 1", args).fetchone() is not None
-
-
-def _utc_bounds(start: datetime, end: datetime) -> tuple[str, str]:
-    # Stored as UTC ISO text, so the bounds must be UTC text too for the comparison to hold
-    return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()
 
 
 # chats: the setup chat (and later the main chat)

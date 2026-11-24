@@ -1,9 +1,9 @@
 """The web app: the inbox page, the taps from the phone, and the setup chat (web/chat.py).
 
-It listens on the home network (and the tailnet, if the hub is on Tailscale). The page
-shows open questions with their buttons, so anyone who can open it can answer: keep the
-hub on a network you trust. Each answer needs a token signed with the secret, so a guessed
-address does nothing. The jobs run apart from this app (`agentc run`).
+Pages need the owner's login (web/login.py): Tailscale or a password. The phone's buttons
+need none: each carries a token signed with the secret, so a guessed address does nothing,
+and once a question is answered its token does nothing either. The jobs run apart from this
+app (`agentc run`).
 """
 
 from datetime import date
@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from agentc import __version__, config, jobs, notify, store
 from agentc.notify import Message, NotSent, Publish
-from agentc.web import chat
+from agentc.web import chat, login
 from agentc.web.deps import (  # noqa: F401 (re-exported: tests override these)
     WEB,
     Cfg,
@@ -34,6 +34,8 @@ from agentc.web.deps import (  # noqa: F401 (re-exported: tests override these)
 
 app = FastAPI(title="AgentC Edge", version=__version__)
 app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
+app.add_middleware(login.HostCheck)
+app.include_router(login.router)
 app.include_router(chat.router)
 
 
@@ -43,7 +45,7 @@ def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, dependencies=[login.Owner])
 def inbox(request: Request, cfg: Cfg, key: Secret, now: Now, data: Db) -> HTMLResponse:
     """The open questions that are due, each with its buttons; devices still to set up;
     and the last day's notes."""

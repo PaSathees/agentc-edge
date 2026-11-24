@@ -7,7 +7,7 @@ from datetime import UTC, date, timedelta
 
 import pytest
 
-from agentc import jobs, notify, store
+from agentc import jobs, notify, readings, store
 from agentc.owner import Choice, Decision
 from agentc.watcher import Event
 from tests.test_jobs import CFG, MONDAY, app  # noqa: F401 (app is a fixture)
@@ -39,7 +39,7 @@ def sender(phone):  # noqa: F811
     return jobs.Sender(phone, HUB, KEY)
 
 
-def readings(tmp_path, watts):
+def energy_at(tmp_path, watts):
     """energy.db from 00:00 to 23:59 on Monday: watts[plug] all day."""
     rows = [((MONDAY + timedelta(minutes=m)).astimezone(UTC).isoformat(), plug, w, None)
             for m in range(24 * 60) for plug, w in watts.items()]  # fmt: skip
@@ -48,7 +48,7 @@ def readings(tmp_path, watts):
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
-    return store.open_readings(path)
+    return readings.connect(path)
 
 
 def asked(app, mac="AA", due=MORNING, decision=ASK, n=1):  # noqa: F811
@@ -73,23 +73,23 @@ def audit(app):  # noqa: F811
 def test_the_nights_questions_go_as_one_message(app, tmp_path, phone):  # noqa: F811 (FM-07)
     asked(app, "AA")
     asked(app, "BB", n=2)
-    (m,) = send(app, readings(tmp_path, {"Plug-6": 5.0, "Plug-2": 12.0}), phone)
+    (m,) = send(app, energy_at(tmp_path, {"Plug-6": 5.0, "Plug-2": 12.0}), phone)
     assert m.title == "2 devices stayed on last night"
     assert m.text == "Plug-6: about 5 W now\n3D printer: about 12 W now"
     assert phone.got == [m]
-    assert send(app, readings(tmp_path, {"Plug-6": 5.0}), phone) == []  # sent once
+    assert send(app, energy_at(tmp_path, {"Plug-6": 5.0}), phone) == []  # sent once
 
 
 def test_a_device_off_by_morning_is_not_asked_about(app, tmp_path, phone):  # noqa: F811
     asked(app, "AA")
-    assert send(app, readings(tmp_path, {"Plug-6": 1.0}), phone) == []
+    assert send(app, energy_at(tmp_path, {"Plug-6": 1.0}), phone) == []
     assert [q.status for q in store.questions(app, site_id=1)] == ["expired"]
     assert audit(app) == ["off_by_morning"]
 
 
 def test_one_night_question_goes_with_its_own_buttons(app, tmp_path, phone):  # noqa: F811
     asked(app, "AA")
-    (m,) = send(app, readings(tmp_path, {}), phone)  # no reading: kept, not dropped
+    (m,) = send(app, energy_at(tmp_path, {}), phone)  # no reading: kept, not dropped
     assert (m.title, [b.label for b in m.buttons]) == ("Plug-6", ["Off", "Normal"])
 
 
@@ -97,18 +97,18 @@ def test_a_day_question_goes_on_its_own(app, tmp_path, phone):  # noqa: F811
     noon = MONDAY + timedelta(hours=12)
     asked(app, "AA", due=noon)
     asked(app, "BB", due=noon, n=2)
-    assert [m.title for m in send(app, readings(tmp_path, {}), phone, now=noon)] == [
+    assert [m.title for m in send(app, energy_at(tmp_path, {}), phone, now=noon)] == [
         "Plug-6", "3D printer"]  # fmt: skip
 
 
 def test_a_question_not_due_yet_waits(app, tmp_path, phone):  # noqa: F811
     asked(app, "AA")
-    assert send(app, readings(tmp_path, {"Plug-6": 5.0}), phone, now=MORNING - timedelta(1)) == []
+    assert send(app, energy_at(tmp_path, {"Plug-6": 5.0}), phone, now=MORNING - timedelta(1)) == []
 
 
 def test_if_ntfy_fails_the_question_goes_on_the_next_pass(app, tmp_path, phone):  # noqa: F811
     asked(app, "AA", due=MONDAY + timedelta(hours=12))
-    db, noon = readings(tmp_path, {}), MONDAY + timedelta(hours=12)
+    db, noon = energy_at(tmp_path, {}), MONDAY + timedelta(hours=12)
     phone.down = True
     assert send(app, db, phone, now=noon) == [] and audit(app) == ["not_sent"]
     phone.down = False
@@ -117,7 +117,7 @@ def test_if_ntfy_fails_the_question_goes_on_the_next_pass(app, tmp_path, phone):
 
 def test_remind_later_sends_it_again(app, tmp_path, phone):  # noqa: F811
     qid, noon = asked(app, "AA", due=MONDAY + timedelta(hours=12)), MONDAY + timedelta(hours=12)
-    db = readings(tmp_path, {})
+    db = energy_at(tmp_path, {})
     send(app, db, phone, now=noon)
     assert qid is not None
     store.ask_again(app, question_id=qid, at=noon + timedelta(hours=2))
@@ -138,7 +138,7 @@ def due(app, energy, phone, now):  # noqa: F811
 
 
 def test_the_days_notes_go_at_21_00_once(app, tmp_path, phone):  # noqa: F811
-    db = readings(tmp_path, {})
+    db = energy_at(tmp_path, {})
     noted(app, "Desk 2 ran late.", MONDAY + timedelta(hours=10))
     noted(app, "Too old.", MONDAY - timedelta(hours=10))
     assert due(app, db, phone, MONDAY + timedelta(hours=20, minutes=55)) == []
@@ -148,12 +148,12 @@ def test_the_days_notes_go_at_21_00_once(app, tmp_path, phone):  # noqa: F811
 
 
 def test_no_notes_no_summary(app, tmp_path, phone):  # noqa: F811
-    assert due(app, readings(tmp_path, {}), phone, MONDAY + timedelta(hours=21)) == []
+    assert due(app, energy_at(tmp_path, {}), phone, MONDAY + timedelta(hours=21)) == []
     assert store.last_run(app, site_id=1, job="summary") == MONDAY + timedelta(hours=21)
 
 
 def test_a_summary_ntfy_refused_goes_on_the_next_pass(app, tmp_path, phone):  # noqa: F811
-    db = readings(tmp_path, {})
+    db = energy_at(tmp_path, {})
     noted(app, "Small.", MONDAY + timedelta(hours=10))
     phone.down = True
     assert due(app, db, phone, MONDAY + timedelta(hours=21)) == []
@@ -166,14 +166,14 @@ def test_a_broken_send_pass_never_stops_the_jobs(app, tmp_path, phone, monkeypat
         raise RuntimeError("a bug")
 
     monkeypatch.setattr(jobs, "send_pass", broken)
-    due(app, readings(tmp_path, {}), phone, MONDAY + timedelta(hours=12))
+    due(app, energy_at(tmp_path, {}), phone, MONDAY + timedelta(hours=12))
     assert "send_pass_failed" in audit(app)
     assert store.last_run(app, site_id=1, job="watch") == MONDAY + timedelta(hours=12)
 
 
 def test_questions_due_in_the_watch_pass_are_sent(app, tmp_path, phone):  # noqa: F811
     asked(app, "AA", due=MONDAY + timedelta(hours=12))
-    assert [m.title for m in due(app, readings(tmp_path, {}), phone,
+    assert [m.title for m in due(app, energy_at(tmp_path, {}), phone,
                                   MONDAY + timedelta(hours=12))] == ["Plug-6"]  # fmt: skip
 
 
@@ -216,7 +216,7 @@ def test_after_one_refusal_the_rest_wait_for_the_next_pass(app, tmp_path, phone)
         if len(calls) == 1:
             raise notify.NotSent("busy")
 
-    assert jobs.send_pass(app, readings(tmp_path, {}), CFG, jobs.Sender(flaky, HUB, KEY),
+    assert jobs.send_pass(app, energy_at(tmp_path, {}), CFG, jobs.Sender(flaky, HUB, KEY),
                           site_id=1, now=noon) == []  # fmt: skip
     assert len(calls) == 1  # no second try in the same pass
 

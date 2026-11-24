@@ -382,7 +382,7 @@ def test_a_broken_worker_still_ends_the_stream(chat, monkeypatch):
     c, _, tok = chat
     c.post("/setup/Plug-1/say", data={"text": "hello", "tok": tok})
     model([[{"type": "text", "text": "never"}]])
-    monkeypatch.setattr(webchat.store, "open_readings", lambda path: _raises(OSError("disk"))())
+    monkeypatch.setattr(webchat.readings, "connect", lambda path: _raises(OSError("disk"))())
     assert (
         "Something went wrong: disk" in events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)[-1][1]
     )

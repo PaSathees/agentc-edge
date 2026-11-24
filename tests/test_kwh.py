@@ -8,7 +8,7 @@ T0 = datetime(2026, 11, 1, 19, 30, tzinfo=UTC)
 
 
 def meter(*totals):
-    """The counter as store.counter returns it: one reading a minute from T0."""
+    """The counter as readings.counter returns it: one reading a minute from T0."""
     return [(T0 + timedelta(minutes=i), t) for i, t in enumerate(totals)]
 
 

@@ -17,13 +17,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
-from agentc import config, llm, notify, setup, store
+from agentc import config, llm, notify, readings, setup, store
 from agentc.agent_tools import Tools
 from agentc.config import Config
 from agentc.llm import OverBudget, StepSend, Unreachable
 from agentc.web.deps import Cfg, Db, Model, Now, Secret, Tok, known, pages
+from agentc.web.login import Owner
 
-router = APIRouter()
+router = APIRouter(dependencies=[Owner])  # every chat page and form needs the login
 AT_ONCE = threading.BoundedSemaphore(2)  # model replies running at once, on the whole hub
 WAIT_S = 120  # a stream gives up after this long with no news
 TEXT_MAX = 1000  # characters in one owner message
@@ -204,7 +205,7 @@ def _answer(cfg: Config, site: int, plug: str, chat: int, talk: list[tuple[str, 
             raise LookupError("No ANTHROPIC_API_KEY in .env: the setup chat needs the model.")
         if not cfg.energy_db.exists():
             raise LookupError("No readings yet: the logger starts them within a minute.")
-        db, energy = store.open_app(cfg.app_db), store.open_readings(cfg.energy_db)
+        db, energy = store.open_app(cfg.app_db), readings.connect(cfg.energy_db)
         brain = llm.Llm(db, site, cfg.tz, cfg.tiers, cfg.budget, model)
         r = setup.reply(talk, plug, tools=Tools(db, energy, cfg, site, now), llm=brain,
                         run_id=f"setup:{chat}:{len(talk)}", draft=draft,

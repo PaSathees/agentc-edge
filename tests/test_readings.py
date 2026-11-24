@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from agentc import store
+from agentc import readings
 
 ROWS = [  # ts_utc, plug, power_w, total_kwh, error; the logger's columns that matter here
     ("2026-11-01T19:30:00+00:00", "Plug-6", 10.0, 0.500, None),
@@ -28,30 +28,30 @@ def energy_db(tmp_path):
 
 
 def test_reads_one_plug_in_a_window_skipping_failed_reads(energy_db):
-    db = store.open_readings(energy_db)
-    assert store.readings(db, plug="Plug-6", start=START, end=END) == [
+    db = readings.connect(energy_db)
+    assert readings.power(db, plug="Plug-6", start=START, end=END) == [
         (datetime(2026, 11, 1, 19, 30, tzinfo=UTC), 10.0),
         (datetime(2026, 11, 1, 19, 32, tzinfo=UTC), 9.5),
     ]
 
 
 def test_counter_reads_the_plugs_energy_meter_in_a_window(energy_db):
-    db = store.open_readings(energy_db)
-    assert store.counter(db, plug="Plug-6", start=START, end=END) == [
+    db = readings.connect(energy_db)
+    assert readings.counter(db, plug="Plug-6", start=START, end=END) == [
         (datetime(2026, 11, 1, 19, 30, tzinfo=UTC), 0.500),
         (datetime(2026, 11, 1, 19, 32, tzinfo=UTC), 0.501),
     ]
 
 
 def test_energy_db_is_opened_read_only(energy_db):
-    db = store.open_readings(energy_db)
+    db = readings.connect(energy_db)
     with pytest.raises(sqlite3.OperationalError, match="readonly"):
         db.execute("DELETE FROM readings")
 
 
 def test_last_rounds_says_which_plugs_answered(energy_db):
-    db = store.open_readings(energy_db)
-    assert store.last_rounds(db, n=2, end=END) == [
+    db = readings.connect(energy_db)
+    assert readings.last_rounds(db, n=2, end=END) == [
         (datetime(2026, 11, 1, 19, 31, tzinfo=UTC), {"Plug-6": False}),
         (datetime(2026, 11, 1, 19, 32, tzinfo=UTC), {"Plug-6": True, "Plug-2": True}),
     ]  # the round at 20:00 is not before END, and 19:30 is not in the last 2

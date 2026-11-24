@@ -12,7 +12,7 @@ from sqlite3 import Connection
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from agentc import config, house, store, watcher
+from agentc import config, house, readings, store, watcher
 from agentc.calc import TimeOfUse, kgco2e, saving_lkr, tou_rate
 from agentc.config import Config
 
@@ -97,7 +97,7 @@ class Tools:
         """Its power over the last hours, as level stretches."""
         plug, _ = self._plug(device)
         span = timedelta(hours=min(max(int(hours), 1), 24))
-        return segments(store.readings(self.energy, plug=plug, start=self.now - span, end=self.now),
+        return segments(readings.power(self.energy, plug=plug, start=self.now - span, end=self.now),
                         tz=self.cfg.tz)  # fmt: skip
 
     def usual(self, device: str, day: str, start: str, end: str) -> str:
@@ -124,7 +124,7 @@ class Tools:
         lines = []
         for plug in self.cfg.plugs:
             name = config.device(self.cfg, plug).name
-            recent = store.readings(self.energy, plug=plug, start=self.now - NOW_WINDOW,
+            recent = readings.power(self.energy, plug=plug, start=self.now - NOW_WINDOW,
                                     end=self.now + timedelta(seconds=1))  # fmt: skip
             lines.append(f"{name}: {recent[-1][1]:.0f} W" if recent else
                          f"{name}: no reading in the last 5 min")  # fmt: skip
@@ -152,9 +152,9 @@ class Tools:
             b = datetime.strptime(end, LOCAL).replace(tzinfo=zone)
         except ValueError:
             raise ValueError("times are YYYY-MM-DD HH:MM, local time") from None
-        readings = store.readings(self.energy, plug=plug, start=a, end=b)
-        kwh = sum(w * min(_next(readings, i, b) - at, watcher.MAX_GAP).total_seconds()
-                  for i, (at, w) in enumerate(readings)) / 3600 / 1000  # fmt: skip
+        rows = readings.power(self.energy, plug=plug, start=a, end=b)
+        kwh = sum(w * min(_next(rows, i, b) - at, watcher.MAX_GAP).total_seconds()
+                  for i, (at, w) in enumerate(rows)) / 3600 / 1000  # fmt: skip
         cfg, parts = self.cfg, [f"{kwh:.3f} kWh"]
         if isinstance(cfg.tariff, TimeOfUse):
             parts.append(f"LKR {kwh * tou_rate(cfg.tariff, a, tz=cfg.tz) / (1 - cfg.levy):.1f}")

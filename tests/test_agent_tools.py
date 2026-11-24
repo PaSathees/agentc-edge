@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import config, store
+from agentc import config, readings, store
 from agentc.agent_tools import Tools, segments
 from agentc.calc import Period, ProfileHour, TimeOfUse
 from agentc.house import Card
@@ -46,7 +46,7 @@ def tools(tmp_path):
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
-    return Tools(app, store.open_readings(path), CFG, site_id=1, now=NOW)
+    return Tools(app, readings.connect(path), CFG, site_id=1, now=NOW)
 
 
 # segments: a stretch of readings in plain words, not raw minutes

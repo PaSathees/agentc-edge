@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import config, jobs, learn, store
+from agentc import config, jobs, learn, readings, store
 from agentc.calc import ProfileHour
 from agentc.devices.base import Timer
 from agentc.house import Card
@@ -50,7 +50,7 @@ def energy(tmp_path, watts, *, failed=()):
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
-    return store.open_readings(path)
+    return readings.connect(path)
 
 
 def kinds(events):
@@ -221,7 +221,7 @@ def changed_energy(tmp_path):
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
-    return store.open_readings(path)
+    return readings.connect(path)
 
 
 def test_a_new_device_is_found_once_by_the_daily_check(app, tmp_path):
@@ -244,7 +244,7 @@ def gappy(tmp_path, *stretches):
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
-    return store.open_readings(path)
+    return readings.connect(path)
 
 
 def test_a_logger_that_stopped_is_reported_once(app, tmp_path):
@@ -286,7 +286,7 @@ def desk_energy(tmp_path, waste=(0, 1)):
         db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
         db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
     db.close()
-    return store.open_readings(path)
+    return readings.connect(path)
 
 
 # learning each plug's levels (B3b)
