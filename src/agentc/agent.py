@@ -15,6 +15,7 @@ from agentc import config, store
 from agentc.agent_tools import Tools, card
 from agentc.checks import breaks, made_up
 from agentc.config import Device
+from agentc.devices.base import DAY_SETS
 from agentc.house import Card, runs_always
 from agentc.llm import Llm, private
 from agentc.owner import QUIET_FROM, QUIET_TO, Choice, Decision
@@ -24,7 +25,7 @@ MAX_STEPS = 6  # model calls per signal; the last one may only decide
 TRIES = 2  # decisions per signal: one retry after a block
 ACTIONS = ("ignore", "note", "ask", "propose")
 DOES = ("switch_off_now", "set_timer", "save_habit", "remind_later", "nothing")
-DAYS = ("every_day", "weekdays", "weekends")
+DAYS = tuple(DAY_SETS)
 HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 PROMPT_TIMES = f"{QUIET_FROM:%H:%M} {QUIET_TO:%H:%M}"  # times SYSTEM gives: quiet hours
 SENTENCES = 2  # a decision's text, read on a phone

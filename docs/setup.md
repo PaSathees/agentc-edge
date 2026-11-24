@@ -75,13 +75,13 @@ Open `http://<the hub>:8765/setup` (Devices, at the top of every page). For each
 
 ## 8. Let it switch a device (optional)
 
-At first AgentC only asks and records your answers (shadow mode). To let a tap on "Switch off" really switch a device:
+At first AgentC only asks and records your answers (shadow mode). To let a tap on "Switch off" or on a timer really change a device:
 
 1. In `config.toml`, set that device's `access = "write"`. Start with one that is safe to switch off, like a TV box.
 2. Set a login in `.env` (`AGENTC_PASSWORD`, or `AGENTC_TAILSCALE_USER`), then `docker compose up -d`.
 3. On the Devices page, tap **Turn shadow mode off**.
 
-Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
+Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A timer goes in two free slots of 9 to 16 (slots 1 to 8 stay yours), the "on" timer first, each read back; if any step fails, the old timers are put back. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
 
 ## Every day
 

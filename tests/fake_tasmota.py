@@ -25,6 +25,7 @@ class FakePlug:
         self.local = "2026-11-13T12:38:23"
         self.relay_on = False
         self.stuck = False  # True: the relay ignores Power commands, as a broken one would
+        self.lost: set[int] = set()  # timer slots whose writes are answered but not kept
         self.timers_on = True
         self.timezone = "+05:30"
         self.timers = {n: dict(EMPTY_TIMER) for n in range(1, 17)}
@@ -77,7 +78,7 @@ class FakePlug:
     def _timer(self, n: int, arg: str) -> dict[str, Any]:
         if not 1 <= n <= 16:
             return {"Command": "Error"}
-        if arg:
+        if arg and n not in self.lost:
             self.timers[n].update(json.loads(arg))
         return {f"Timer{n}": self.timers[n]}
 

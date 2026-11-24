@@ -19,12 +19,13 @@ from agentc.agent import TOOLS as LOOK_TOOLS
 from agentc.agent import tool
 from agentc.agent_tools import Tools, card
 from agentc.config import Config
+from agentc.devices.base import DAY_SETS
 from agentc.llm import Llm
 
 VERSION = "setup-v2"  # change it with any change to SYSTEM or the tools
 MAX_STEPS = 5  # model calls per owner message
 QUESTIONS = 5  # questions in a chat, at most
-DAYS = {"every_day": "1111111", "weekdays": "0111110", "weekends": "1000001"}  # Sunday first
+DAYS = DAY_SETS
 HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 FIELD_MAX = 200  # characters in one card field: they go into every later prompt
 LOST = "Sorry, I lost my words there. Could you say that again?"

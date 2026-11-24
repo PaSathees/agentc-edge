@@ -307,13 +307,14 @@ def test_a_switch_off_is_recorded_but_not_sent_in_shadow_mode(app, tmp_path):  #
     assert actions(app)[-2:] == ["answer", "shadow_action"]
 
 
-def test_a_timer_choice_is_only_recorded_until_4c(app, tmp_path):  # noqa: F811
+def test_a_timer_choice_goes_to_the_actuator(app, tmp_path):  # noqa: F811
     signal(app)
     (eid,) = [e for (e,) in app.execute("SELECT id FROM events")]
     timer = Choice("Off at 01:30", "set_timer", "01:30", "07:00", "weekdays")
     store.add_question(app, site_id=1, event_id=eid, mac="AA", now=NOW, send_at=NOW,
                        decision=Decision("propose", "Timer?", (timer,)))  # fmt: skip
-    assert tap(app, 1) == "Recorded: Off at 01:30. Shadow mode: nothing was sent to the plug."
+    assert tap(app, 1).startswith("Recorded: set Plug-6's timer (off at 01:30, on at 07:00,"
+                                  " Monday to Friday). Plug-6 is set to advice")  # fmt: skip
     assert actions(app)[-1] == "shadow_action"
 
 

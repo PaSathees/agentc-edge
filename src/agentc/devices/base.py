@@ -15,6 +15,9 @@ class Info:
     hostname: str
 
 
+DAY_SETS = {"every_day": "1111111", "weekdays": "0111110", "weekends": "1000001"}  # Sunday first
+
+
 @dataclass(frozen=True)
 class Timer:
     """One of a plug's 16 timers, fields as Tasmota names them."""
@@ -68,6 +71,7 @@ class Plug(Protocol):
     def automations(self) -> Automations: ...
     def power(self) -> bool: ...  # is the relay on?
     def switch(self, on: bool) -> None: ...  # the one direct command (ADR-008)
+    def set_timer(self, t: Timer) -> None: ...  # one of the 16 timers, all its fields
 
 
 # a timer in plain words, for the owner and the agent

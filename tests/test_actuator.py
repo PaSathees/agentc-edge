@@ -8,7 +8,7 @@ import pytest
 
 from agentc import actuator, config, store
 from agentc.config import Device
-from agentc.devices.base import PlugError
+from agentc.devices.base import PlugError, Timer
 from agentc.house import Card
 from tests.test_cli import EXAMPLE
 
@@ -79,7 +79,7 @@ def test_a_device_at_advice_is_recorded_with_how_to_allow_it(home):
     app, cfg, plug = home
     cfg = replace(cfg, devices={"Plug-6": Device("Desk 2")})
     assert off(app, cfg) == ("Recorded: switch Desk 2 off. Desk 2 is set to advice, so nothing"
-                             " was sent. To let me switch it, set its access to write in"
+                             " was sent. To let me change it, set its access to write in"
                              " config.toml.")  # fmt: skip
     assert plug.commands == []
 
@@ -159,3 +159,128 @@ class _offline:
 
     def power(self):  # pragma: no cover (never reached)
         raise PlugError("gone")
+
+
+# a timer pair, all or nothing (4c)
+
+
+def timer(app, cfg, off="01:30", on="07:00", days="weekdays", **kw):
+    return actuator.set_timer(app, cfg, site_id=1, plug="Plug-6", off=off, on=on, days=days,
+                              why="question:2", now=NOW, **kw)  # fmt: skip
+
+
+def test_a_timer_pair_goes_in_two_free_slots_on_first_then_read_back(home):
+    app, cfg, plug = home
+    plug.timers[9].update(Enable=1, Time="23:00")  # a slot in use: skipped
+    r = timer(app, cfg)
+    assert r == ("Done: Desk 2 now switches off at 01:30, on at 07:00, Monday to Friday"
+                 " (timers 10 and 11).")  # fmt: skip
+    on, off = plug.timers[10], plug.timers[11]
+    assert (on["Time"], on["Action"], off["Time"], off["Action"]) == ("07:00", 1, "01:30", 0)
+    assert on["Days"] == off["Days"] == "0111110" and on["Enable"] == off["Enable"] == 1
+    sent = [c.split()[0] for c in plug.commands]
+    assert sent == ["Timers", "Timer10", "Timers", "Timer11", "Timers"]  # on first, each read
+    assert {t.slot: t.time for t in store.load_timers(app, mac="AA") if t.enable} == {
+        9: "23:00",
+        10: "07:00",
+        11: "01:30",
+    }
+    why = store.load_card(app, mac="AA").why
+    assert why[10] == why[11] == ("set by AgentC after your tap: off at 01:30, on at 07:00,"
+                                  " Monday to Friday")  # fmt: skip
+    ((_, d),) = rows(app, "write")
+    assert d == {"does": "set_timer", "why": "question:2", "off": "01:30", "on": "07:00",
+                 "days": "weekdays", "slots": "10,11"}  # fmt: skip
+
+
+def test_the_owners_own_slots_are_never_used(home):
+    app, cfg, plug = home
+    for n in range(9, 16):  # 9 to 15 in use: only 16 is free
+        plug.timers[n]["Enable"] = 1
+    assert timer(app, cfg) == "Not sent: Desk 2: it has no 2 free timer slots of 9 to 16."
+    assert [c for c in plug.commands if c != "Timers"] == []  # slots 1 to 8 stayed free
+
+
+def test_no_timer_on_a_plug_with_its_timers_switch_off(home):
+    app, cfg, plug = home
+    plug.timers_on = False
+    r = timer(app, cfg)
+    assert r.startswith("Not sent: Desk 2: its Timers switch is off, so no timer would fire.")
+    assert plug.commands == ["Timers"]
+
+
+def test_a_lost_write_puts_the_old_timers_back(home):
+    app, cfg, plug = home
+    plug.lost = {10}  # the off timer is answered, but not kept
+    r = timer(app, cfg)
+    assert r.startswith("Could not set Desk 2's timer") and r.endswith(
+        "The old timers were put back."
+    )
+    assert plug.timers[9]["Enable"] == 0 and plug.timers[10]["Enable"] == 0  # as before
+    assert rows(app, "write") == [] and len(rows(app, "note")) == 1
+
+
+def test_if_putting_back_fails_too_the_owner_is_told(home):
+    app, cfg, plug = home
+    real = actuator.TasmotaPlug(plug.ip)
+
+    class Breaks:  # reads work; the second timer write and the put back fail
+        def __init__(self):
+            self.writes = 0
+
+        def timers(self):
+            return real.timers()
+
+        def set_timer(self, t):
+            self.writes += 1
+            if self.writes > 1:
+                raise PlugError("gone")
+            real.set_timer(t)
+
+    r = timer(app, cfg, connect=lambda ip: Breaks())
+    assert r.endswith("Putting the old timers back failed too: check the plug's Timers page.")
+
+
+@pytest.mark.parametrize(
+    ("args", "why"),
+    [({"off": "1:30"}, "Not sent: Desk 2's timer needs HH:MM times and known days."),
+     ({"days": "sometimes"}, "Not sent: Desk 2's timer needs HH:MM times and known days.")],
+)  # fmt: skip
+def test_a_bad_timer_is_refused_before_the_plug(home, args, why):
+    app, cfg, plug = home
+    assert timer(app, cfg, **args) == why and plug.commands == []
+
+
+def test_a_hard_rule_is_checked_again_at_write_time(home):
+    app, cfg, plug = home
+    late = config.Rule("latest_off", "02:00", True, "Desk 2 may run until 02:00")
+    cfg = replace(cfg, devices={"Plug-6": Device("Desk 2", access="write", rules=(late,))})
+    assert timer(app, cfg) == "Not sent: Desk 2 may run until 02:00."
+    assert plug.commands == []
+
+
+def test_no_timer_ever_switches_off_a_must_run_device(home):
+    app, cfg, plug = home
+    store.save_card(app, site_id=1, mac="AA", card=Card("router"), now=NOW)
+    assert timer(app, cfg).startswith("Not sent: Desk 2 must always run")
+
+
+def test_a_timer_in_shadow_mode_is_recorded(home):
+    app, cfg, plug = home
+    store.set_shadow(app, site_id=1, on=True, now=NOW)
+    said = timer(app, cfg)
+    assert said == ("Recorded: set Desk 2's timer (off at 01:30, on at 07:00, Monday to"
+                    " Friday). Shadow mode: nothing was sent to the plug.")  # fmt: skip
+
+
+def test_a_plug_that_does_not_answer_gets_no_timer(home):
+    app, cfg, plug = home
+    plug.offline = True
+    r = timer(app, cfg, connect=lambda ip: actuator.TasmotaPlug(ip, timeout_s=0.5))
+    assert r.startswith("Could not set Desk 2's timer") and "did not answer" in r
+
+
+def test_days_read_back_as_letters_still_match():
+    want = Timer(9, True, 0, "07:00", 0, "0111110", True, 1, 1)
+    assert actuator._same(replace(want, days="-MTWTF-"), want)  # pyright: ignore[reportPrivateUsage]
+    assert not actuator._same(replace(want, days="SMTWTF-"), want)  # pyright: ignore[reportPrivateUsage]

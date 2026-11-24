@@ -60,6 +60,15 @@ class TasmotaPlug:
         """Switch the relay on or off. Read it back with power(): the answer here is not proof."""
         self._relay(self._cmd(f"Power {'On' if on else 'Off'}"))
 
+    def set_timer(self, t: Timer) -> None:
+        """Write one timer, every field. Read it back with timers(): the answer is not proof."""
+        body = {"Enable": int(t.enable), "Mode": t.mode, "Time": t.time, "Window": t.window,
+                "Days": t.days, "Repeat": int(t.repeat), "Output": t.output,
+                "Action": t.action}  # fmt: skip
+        r = self._cmd(f"Timer{t.slot} {json.dumps(body, separators=(',', ':'))}")
+        if not isinstance(r.get(f"Timer{t.slot}"), dict):
+            raise PlugError(f"{self.ip}: Timer{t.slot} was not taken: {r!r}")
+
     def _relay(self, r: dict[str, Any]) -> bool:
         if r.get("POWER") not in ("ON", "OFF"):
             raise PlugError(f"{self.ip}: unreadable Power answer: {r!r}")

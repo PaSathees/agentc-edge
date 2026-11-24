@@ -331,8 +331,8 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
            now: datetime) -> str:  # fmt: skip
     """The owner's tap on a question: do what the choice does, and say what was done.
 
-    A switch off goes to the Actuator, which checks it and writes it, or records it in
-    shadow mode. A timer is recorded only, until 4c.
+    A switch off or a timer goes to the Actuator, which checks it and writes it, or records
+    it in shadow mode.
     """
     q = store.get_question(app, question_id=question_id)
     if q is None or q.status != "open":
@@ -357,10 +357,8 @@ def answer(app: Connection, cfg: Config, *, site_id: int, question_id: int, choi
     if c.does == "switch_off_now":
         return actuator.switch(app, cfg, site_id=site_id, plug=plug, on=False, why=ref, now=now)
     if c.does == "set_timer":
-        store.add_audit(app, site_id=site_id, at=now, actor="code", action="shadow_action",
-                        ref=ref, detail={"does": c.does, "off": c.off or "", "on": c.on or "",
-                                         "days": c.days or ""})  # fmt: skip
-        return f"Recorded: {c.label}. Shadow mode: nothing was sent to the plug."
+        return actuator.set_timer(app, cfg, site_id=site_id, plug=plug, off=c.off or "",
+                                  on=c.on or "", days=c.days or "", why=ref, now=now)  # fmt: skip
     return "Noted."
 
 

@@ -110,3 +110,19 @@ def test_an_unreadable_power_answer_raises_plug_error(plug, monkeypatch):
     monkeypatch.setattr(plug, "handle", lambda cmnd: {"POWER1": "OFF"})
     with pytest.raises(PlugError, match="unreadable Power answer"):
         TasmotaPlug(plug.ip).power()
+
+
+def test_set_timer_writes_every_field(plug):
+    t = Timer(slot=9, enable=True, mode=0, time="01:30", window=0, days="0111110", repeat=True,
+              output=1, action=0)  # fmt: skip
+    TasmotaPlug(plug.ip).set_timer(t)
+    assert plug.commands[-1] == ('Timer9 {"Enable":1,"Mode":0,"Time":"01:30","Window":0,'
+                                 '"Days":"0111110","Repeat":1,"Output":1,"Action":0}')  # fmt: skip
+    assert TasmotaPlug(plug.ip).timers().timers[8] == t
+
+
+def test_a_timer_the_plug_does_not_take_raises_plug_error(plug, monkeypatch):
+    monkeypatch.setattr(plug, "handle", lambda cmnd: {"Command": "Error"})
+    t = Timer(9, True, 0, "01:30", 0, "0111110", True, 1, 0)
+    with pytest.raises(PlugError, match="Timer9 was not taken"):
+        TasmotaPlug(plug.ip).set_timer(t)
