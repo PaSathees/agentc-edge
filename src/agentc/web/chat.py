@@ -114,6 +114,7 @@ def setup_page(request: Request, plug: str, cfg: Cfg, key: Secret, now: Now,
     chat, talk = _open(cfg, db, site, plug, mac, now)
     return pages.TemplateResponse(request, "setup.html", {
         **_view(cfg, db, plug, mac, chat, key), "title": f"Set up {plug}", "page": "setup",
+        "saved": _saved(db, mac),
         "talk": talk, "waiting": talk[-1][0] == "owner"})  # fmt: skip
 
 
@@ -201,6 +202,13 @@ def _open(cfg: Config, db: Connection, site: int, plug: str, mac: str, now: date
         greet = setup.greeting(config.device(cfg, plug).name, store.load_card(db, mac=mac))
         store.add_turn(db, chat_id=chat, site_id=site, role="agent", text=greet, now=now)
     return chat, [(role, text) for _, role, text in store.turns(db, chat_id=chat)]
+
+
+def _saved(db: Connection, mac: str) -> setup.Draft | None:
+    """The card saved now, with its habits, shown under the greeting when editing. None for
+    a device not set up yet."""
+    c = store.load_card(db, mac=mac)
+    return setup.Draft(c, tuple(h for _, h in store.habits(db, mac=mac))) if known(c) else None
 
 
 def _view(cfg: Config, db: Connection, plug: str, mac: str, chat: int, key: str

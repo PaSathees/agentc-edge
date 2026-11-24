@@ -232,6 +232,22 @@ def test_the_devices_page_lists_every_plug_seen(client):
     assert "Desk 2" in page and 'href="/setup/Plug-1">Set up</a>' in page
 
 
+def test_editing_a_known_device_shows_its_saved_card_under_the_greeting(chat):
+    c, db, _ = chat
+    store.save_card(db, site_id=1, mac="AA", card=Card("fridge", "kitchen", "LG fridge"), now=NOW)
+    store.close_chat(db, chat_id=1, status="closed")  # a new chat: greeted as an edit
+    page = c.get("/setup/Plug-1").text
+    assert "Here is what I know about Desk 2." in page
+    assert '<section class="card saved"><b>Saved now</b>' in page
+    assert "<dd>LG fridge</dd>" in page and "<dt>Must run</dt><dd>yes</dd>" in page  # by kind
+    assert page.index("Here is what I know") < page.index("Saved now")
+
+
+def test_a_new_device_shows_no_saved_card(chat):
+    c, _, _ = chat
+    assert "Saved now" not in c.get("/setup/Plug-1").text
+
+
 def test_opening_a_chat_greets_by_code(chat):
     c, db, tok = chat
     page = c.get("/setup/Plug-1").text

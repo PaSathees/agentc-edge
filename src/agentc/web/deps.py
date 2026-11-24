@@ -21,6 +21,7 @@ from agentc.notify import Publish
 WEB = Path(__file__).parent
 pages = Jinja2Templates(directory=WEB / "templates")  # escapes every value it prints
 pages.env.filters["days"] = days_words  # "0111110" -> "Monday to Friday"
+pages.env.filters["runs_always"] = house.runs_always  # the owner's word, else its kind
 
 
 def settings() -> Config:

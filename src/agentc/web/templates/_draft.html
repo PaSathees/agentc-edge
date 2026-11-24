@@ -1,13 +1,6 @@
 <section class="card draft">
   <b>Card for {{ name }}</b>
-  <dl>
-    <dt>Kind</dt><dd>{{ draft.card.kind }}</dd>
-    <dt>Room</dt><dd>{{ draft.card.room or "not given" }}</dd>
-    <dt>Plugged in</dt><dd>{{ draft.card.what }}</dd>
-    {% if draft.card.notes %}<dt>Notes</dt><dd>{{ draft.card.notes }}</dd>{% endif %}
-    <dt>Must run</dt><dd>{{ "yes" if draft.card.must_run else "no" }}</dd>
-    {% for h in draft.habits %}<dt>Habit</dt><dd>{{ h.text }} <span class="muted">{{ h.days | days }}, {{ h.start }} to {{ h.end }}</span></dd>{% endfor %}
-  </dl>
+  {% with card = draft %}{% include "_card.html" %}{% endwith %}
   <form hx-post="/setup/{{ plug }}/save" hx-target="closest section" hx-swap="outerHTML">
     <input type="hidden" name="tok" value="{{ tok }}">
     <button class="primary">Save card</button>
