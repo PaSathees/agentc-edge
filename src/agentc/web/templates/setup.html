@@ -1,20 +1,41 @@
 {% extends "base.html" %}
+{% block body_class %}chat-page{% endblock %}
+{% block header %}
+<header class="bar">
+  <a class="icon" href="/setup" aria-label="Back to devices">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+  <div class="who"><b>{{ name }}</b><span class="muted">Setting up · {{ plug }}</span></div>
+  <button type="button" class="icon" id="speak" aria-pressed="false" aria-label="Read replies aloud" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="on" d="M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11"/></svg></button>
+  <details class="menu">
+    <summary class="icon" aria-label="More">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></summary>
+    <form method="post" action="/setup/{{ plug }}/restart">
+      <input type="hidden" name="tok" value="{{ tok }}">
+      <button>Start again</button>
+    </form>
+  </details>
+</header>
+{% endblock %}
 {% block main %}
-<h1>{{ name }} <span class="muted">{{ plug }}</span></h1>
 <div class="chat" id="chat">
   {% for role, text in talk %}{% include "_turn.html" %}{% endfor %}
   {% if draft %}{% include "_draft.html" %}{% endif %}
   {% if waiting %}{% include "_reply.html" %}{% endif %}
 </div>
-{% if saved %}<p>{{ saved }} <a href="/setup">Back to devices</a></p>{% endif %}
-<form class="say" hx-post="/setup/{{ plug }}/say" hx-target="#chat" hx-swap="beforeend"
-      hx-on::after-request="this.reset()">
-  <input type="hidden" name="tok" value="{{ tok }}">
-  <textarea name="text" rows="1" placeholder="Type, or tap the mic" required></textarea>
-  <button type="button" id="mic" aria-label="Talk" hidden>Mic</button>
-  <button class="primary">Send</button>
-</form>
-<p class="muted voice-only" hidden><label><input type="checkbox" id="speak"> Read replies aloud</label></p>
-<form method="post" action="/setup/{{ plug }}/restart"><input type="hidden" name="tok" value="{{ tok }}"><button>Start again</button></form>
-<script src="/static/voice.js" defer></script>
+{% endblock %}
+{% block foot %}
+<footer class="say">
+  <p class="listening-note" id="heard" hidden>Listening. Pauses are fine. Tap stop when done.</p>
+  <form hx-post="/setup/{{ plug }}/say" hx-target="#chat" hx-swap="beforeend"
+        hx-on::after-request="if (event.detail.successful) this.reset()">
+    <input type="hidden" name="tok" value="{{ tok }}">
+    <button type="button" class="round" id="mic" aria-label="Talk" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="mic" x="9" y="3" width="6" height="11" rx="3"/><path class="mic" d="M5 11a7 7 0 0014 0M12 18v3"/><rect class="stop" x="7" y="7" width="10" height="10" rx="2"/></svg></button>
+    <textarea name="text" rows="1" maxlength="1000" placeholder="Type a message" aria-label="Message" required></textarea>
+    <button class="round primary" aria-label="Send">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+  </form>
+</footer>
+<script src="/static/chat.js" defer></script>
 {% endblock %}

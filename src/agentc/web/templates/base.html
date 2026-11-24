@@ -2,19 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ title }} · AgentC</title>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/sse.js" defer></script>
   {% block head %}{% endblock %}
 </head>
-<body>
-  <header>
+<body class="{% block body_class %}{% endblock %}">
+  {% block header %}
+  <header class="site">
     <b>AgentC</b>
     <a href="/" {% if page == "inbox" %}aria-current="page"{% endif %}>Inbox</a>
     <a href="/setup" {% if page == "setup" %}aria-current="page"{% endif %}>Devices</a>
   </header>
+  {% endblock %}
   <main>{% block main %}{% endblock %}</main>
+  {% block foot %}{% endblock %}
 </body>
 </html>

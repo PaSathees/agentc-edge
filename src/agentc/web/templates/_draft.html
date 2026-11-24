@@ -8,9 +8,9 @@
     <dt>Must run</dt><dd>{{ "yes" if draft.card.must_run else "no" }}</dd>
     {% for h in draft.habits %}<dt>Habit</dt><dd>{{ h.text }} <span class="muted">{{ h.days | days }}, {{ h.start }} to {{ h.end }}</span></dd>{% endfor %}
   </dl>
-  <form class="inline" hx-post="/setup/{{ plug }}/save" hx-target="closest section" hx-swap="outerHTML">
+  <form hx-post="/setup/{{ plug }}/save" hx-target="closest section" hx-swap="outerHTML">
     <input type="hidden" name="tok" value="{{ tok }}">
-    <button class="primary">Save</button>
+    <button class="primary">Save card</button>
   </form>
   <span class="muted">Or say what to change.</span>
 </section>
