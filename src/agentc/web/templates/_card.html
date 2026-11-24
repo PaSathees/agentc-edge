@@ -1,0 +1,8 @@
+<dl>
+  <dt>Kind</dt><dd>{{ card.card.kind }}</dd>
+  <dt>Room</dt><dd>{{ card.card.room or "not given" }}</dd>
+  <dt>Plugged in</dt><dd>{{ card.card.what or "not given" }}</dd>
+  {% if card.card.notes %}<dt>Notes</dt><dd>{{ card.card.notes }}</dd>{% endif %}
+  <dt>Must run</dt><dd>{{ "yes" if card.card | runs_always else "no" }}</dd>
+  {% for h in card.habits %}<dt>Habit</dt><dd>{{ h.text }} <span class="muted">{{ h.days | days }}, {{ h.start }} to {{ h.end }}</span></dd>{% endfor %}
+</dl>
