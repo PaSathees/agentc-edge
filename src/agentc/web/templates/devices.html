@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Devices</h1>
+<p class="muted">What the housemate knows about each plug. Set one up by chatting.</p>
+<ul class="plain">
+  {% for d in devices %}
+  <li>
+    <span>{{ d.name }} <span class="muted">{{ d.plug }}{% if d.summary %} · {{ d.summary }}{% endif %}</span></span>
+    <a class="button" href="/setup/{{ d.plug }}">{{ "Edit" if d.known else "Set up" }}</a>
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

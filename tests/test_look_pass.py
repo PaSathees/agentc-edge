@@ -21,7 +21,7 @@ class Decides:
     def __init__(self, action="ask", error=None, on=None):
         self.action, self.error, self.on, self.calls = action, error, on, 0
 
-    def __call__(self, *, tier, system, messages, tools):
+    def __call__(self, *, tier, system, messages, tools, on_text=None):
         self.calls += 1
         if self.error and (self.on is None or self.calls in self.on):
             raise self.error

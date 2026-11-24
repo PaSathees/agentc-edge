@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>{{ name }} <span class="muted">{{ plug }}</span></h1>
+<div class="chat" id="chat">
+  {% for role, text in talk %}{% include "_turn.html" %}{% endfor %}
+  {% if draft %}{% include "_draft.html" %}{% endif %}
+  {% if waiting %}{% include "_reply.html" %}{% endif %}
+</div>
+{% if saved %}<p>{{ saved }} <a href="/setup">Back to devices</a></p>{% endif %}
+<form class="say" hx-post="/setup/{{ plug }}/say" hx-target="#chat" hx-swap="beforeend"
+      hx-on::after-request="this.reset()">
+  <input type="hidden" name="tok" value="{{ tok }}">
+  <textarea name="text" rows="1" placeholder="Type, or tap the mic" required></textarea>
+  <button type="button" id="mic" aria-label="Talk" hidden>Mic</button>
+  <button class="primary">Send</button>
+</form>
+<p class="muted voice-only" hidden><label><input type="checkbox" id="speak"> Read replies aloud</label></p>
+<form method="post" action="/setup/{{ plug }}/restart"><input type="hidden" name="tok" value="{{ tok }}"><button>Start again</button></form>
+<script src="/static/voice.js" defer></script>
+{% endblock %}

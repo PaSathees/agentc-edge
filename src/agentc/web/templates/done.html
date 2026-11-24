@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block main %}
+{% for line in lines %}<p>{{ line }}</p>{% endfor %}
+<p><a href="{{ back }}">{{ back_label }}</a></p>
+{% endblock %}

@@ -15,13 +15,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
-from agentc import agent, calc, config, store, watcher, words
-from agentc.agent_tools import Tools
+from agentc import agent, calc, config, house, setup, store, watcher, words
+from agentc.agent_tools import Tools, card
 from agentc.config import Config, Device, Tier
 from agentc.house import Card
-from agentc.llm import Block, Llm, Message, Schema, StepSend
+from agentc.llm import Block, Llm, Message, OnText, Schema, StepSend
 from agentc.owner import Decision
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -118,19 +119,83 @@ def run(send: StepSend | None, *, samples: int = 5, path: Path | None = None) ->
     scores = []
     for ev in LIVE:
         signal, tools = case(ev, cfg)
-        k = key(signal, ev, tools)
-        if send:
-            got = [_sample(ev, signal, send, cfg) for _ in range(samples)]
-            saved[ev.id] = {"key": k, "model": cfg.tiers["small"].model,
-                            "samples": [x.steps for x in got]}  # fmt: skip
-        elif saved[ev.id]["key"] != k:
-            raise Stale(f"{ev.id}: the prompt changed. Run `agentc eval --live` again.")
-        else:
-            got = [_sample(ev, signal, _replay(steps), cfg) for steps in saved[ev.id]["samples"]]
-        scores.append(Score(ev.id, got))
+        look = lambda s, ev=ev, signal=signal: _sample(ev, signal, s, cfg)  # noqa: E731
+        scores.append(_score(ev.id, key(signal, ev, tools), saved, send, samples, cfg, look))
+    scores.append(_score(SETUP_ID, setup_key(setup_case(cfg), cfg), saved, send, samples, cfg,
+                         lambda s: _setup_sample(s, cfg)))  # fmt: skip
     if send:
         path.write_text(json.dumps(saved, indent=1) + "\n")
     return scores
+
+
+def _score(
+    eid: str, k: str, saved: dict[str, Any], send: StepSend | None, samples: int, cfg: Config,
+    sample: Callable[[StepSend], Sample],
+) -> Score:  # fmt: skip
+    """One case: live (recording into `saved`) or replayed from it."""
+    if send:
+        got = [sample(send) for _ in range(samples)]
+        saved[eid] = {"key": k, "model": cfg.tiers["small"].model,
+                      "samples": [x.steps for x in got]}  # fmt: skip
+    elif saved[eid]["key"] != k:
+        raise Stale(f"{eid}: the prompt changed. Run `agentc eval --live` again.")
+    else:
+        got = [sample(_replay(steps)) for steps in saved[eid]["samples"]]
+    return Score(eid, got)
+
+
+# EV-13: the setup chat, on the LG TV's real readings, with an owner who says the same things
+
+
+SETUP_ID = "EV-13"
+OWNER = ("The LG TV, in the living room.",
+         "Nothing else is on that plug, and it does not need to stay on.",
+         "That is all I know.")  # fmt: skip
+
+
+def _setup_right(d: setup.Draft | None) -> bool:
+    """Media, in the living room, not must-run: what the owner said."""
+    return (d is not None and d.card.kind == "media" and "living" in d.card.room.lower()
+            and d.card.must_run is None)  # fmt: skip
+
+
+def setup_case(cfg: Config) -> Tools:
+    """The house of EV-22 (12 Nov at 12:30), with the TV's card empty: a new plug."""
+    _, tools = case(LIVE[2], cfg)
+    store.save_card(tools.app, site_id=1, mac=TV[1], card=house.Card(), now=tools.now)
+    return tools
+
+
+def setup_key(tools: Tools, cfg: Config) -> str:
+    """Changes when the setup agent's prompt, tools, brief or the owner's words change."""
+    text = setup.VERSION + setup.SYSTEM + json.dumps(setup.TOOLS, sort_keys=True)
+    text += card(tools.app, cfg, TV[0]) + json.dumps(OWNER)
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def _setup_sample(send: StepSend, cfg: Config) -> Sample:
+    tools = setup_case(cfg)
+    steps: list[list[Block]] = []
+
+    def listen(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+               on_text: OnText | None = None) -> tuple[list[Block], str, int, int]:  # fmt: skip
+        blocks, stop, tokens_in, tokens_out = send(tier=tier, system=system, messages=messages,
+                                                   tools=tools)  # fmt: skip
+        steps.append(blocks)
+        return blocks, stop, tokens_in, tokens_out
+
+    brain = Llm(tools.app, 1, cfg.tz, cfg.tiers, cfg.budget, listen, clock=lambda: tools.now)
+    talk = [("agent", setup.greeting("LG TV", house.Card()))]
+    draft, used = None, []
+    for said in OWNER:  # up to 3 owner messages
+        talk.append(("owner", said))
+        r = setup.reply(talk, TV[0], tools=tools, llm=brain, run_id=SETUP_ID)
+        used += r.tools
+        talk.append(("agent", r.text))
+        if (draft := r.draft) is not None:
+            break
+    return Sample(steps, "card" if draft else "none", _setup_right(draft), used,
+                  store.llm_usd(tools.app, site_id=1))  # fmt: skip
 
 
 def settings() -> Config:
@@ -196,8 +261,8 @@ def _sample(ev: Eval, signal: str, send: StepSend, cfg: Config) -> Sample:
     _, tools = case(ev, cfg)  # a fresh house each time: nothing carries over
     steps: list[list[Block]] = []
 
-    def listen(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema]
-               ) -> tuple[list[Block], str, int, int]:  # fmt: skip
+    def listen(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+               on_text: OnText | None = None) -> tuple[list[Block], str, int, int]:  # fmt: skip
         blocks, stop, tokens_in, tokens_out = send(tier=tier, system=system, messages=messages,
                                                    tools=tools)  # fmt: skip
         steps.append(blocks)
@@ -214,8 +279,8 @@ def _replay(steps: list[list[Block]]) -> StepSend:
     """A stand-in model that sends the recorded steps in turn, at no cost."""
     left = list(steps)
 
-    def send(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema]
-             ) -> tuple[list[Block], str, int, int]:  # fmt: skip
+    def send(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+             on_text: OnText | None = None) -> tuple[list[Block], str, int, int]:  # fmt: skip
         return left.pop(0), "tool_use", 0, 0
 
     return send
