@@ -200,6 +200,20 @@ def test_a_night_tap_skips_questions_without_that_choice_and_other_nights(app): 
     assert [q.status for q in store.questions(app, site_id=1)] == ["answered", "open", "open"]
 
 
+def test_a_question_answered_at_the_same_moment_does_not_stop_the_rest(app, monkeypatch):  # noqa: F811
+    asked(app, "AA")
+    asked(app, "BB", n=2)
+    real = jobs.answer
+
+    def first_taken(app, cfg, *, question_id, **kw):  # question 1 was tapped in the inbox
+        if question_id == 1:
+            raise LookupError("No open question 1.")
+        return real(app, cfg, question_id=question_id, **kw)
+
+    monkeypatch.setattr(jobs, "answer", first_taken)
+    assert tap_night(app, "save_habit").count("Saved: ") == 1
+
+
 def test_a_night_tap_with_nothing_to_answer(app):  # noqa: F811
     with pytest.raises(LookupError, match="No open questions from the night before 2026-11-02"):
         tap_night(app, "save_habit")

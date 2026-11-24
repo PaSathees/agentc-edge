@@ -6,8 +6,10 @@ Before anything is sent, the write-time checks, cheapest first:
 2. must run: never switched off, by a tap or a timer.
 3. a timer: times as HH:MM, known days, no hard rule broken (checked again here).
 4. access advice: the choice is recorded, nothing is sent.
-5. shadow mode on: recorded, nothing is sent.
+5. shadow mode on, or no login set in .env: recorded, nothing is sent.
 6. at most WRITES_A_DAY writes a plug a day, failed ones too.
+An undo (switching back on what a tap switched off) skips 4 and 5: it only puts things back,
+so it works even after the owner turns shadow mode on again to stop everything.
 Then the write, a separate read-back, and one audit row. A failure is audited and shown as
 a note in the inbox. A timer change is all or nothing: on a failure the old timers go back.
 """
@@ -41,15 +43,17 @@ def switch(
     name = config.device(cfg, plug).name
     act = f"switch {name} {'on' if on else 'off'}"
     detail = {"does": "switch_on" if on else "switch_off", "why": why}
-    if stop := _checks(app, cfg, site_id, plug, act, detail, now, off=not on):
+    undo = on and why.startswith("undo:")
+    if stop := _checks(app, cfg, site_id, plug, act, detail, now, off=not on, undo=undo):
         return stop
     try:
         p = connect(cfg.plugs[plug])
         p.switch(on)
         state = p.power()  # read back: the plug's answer to the command is not proof
     except PlugError as err:
+        maybe = "" if on else " It may be off: Switch back on is in the inbox."
         return _failed(app, site_id, plug, detail, now, f"Could not {act}: the plug did not"
-                       f" answer ({err}).")  # fmt: skip
+                       f" answer ({err}).{maybe}")  # fmt: skip
     if state != on:
         return _failed(app, site_id, plug, detail, now, f"Could not {act}: the plug still"
                        f" says {'on' if state else 'off'}.")  # fmt: skip
@@ -111,7 +115,7 @@ def set_timer(
 
 def _checks(
     app: Connection, cfg: Config, site_id: int, plug: str, act: str, detail: dict[str, str],
-    now: datetime, *, off: bool, timer: tuple[str, str, str] | None = None,
+    now: datetime, *, off: bool, timer: tuple[str, str, str] | None = None, undo: bool = False,
 ) -> str:  # fmt: skip
     """The write-time checks. Returns why nothing is sent, or "" to go ahead."""
     device = config.device(cfg, plug)
@@ -120,12 +124,17 @@ def _checks(
     refused = _rules(device, card, off=off, timer=timer)
     if refused:
         return _refused(app, site_id, plug, detail, now, refused)
-    if device.access != "write" or store.shadow(app, site_id=site_id):
+    logged_in = any(config.logins())  # with no login, anyone on the network could tap
+    if not undo and (device.access != "write" or not logged_in
+                     or store.shadow(app, site_id=site_id)):  # fmt: skip
         store.add_audit(app, site_id=site_id, at=now, actor="code", action="shadow_action",
                         ref=detail["why"], detail={**detail, "plug": plug})  # fmt: skip
         if device.access != "write":
             return (f"Recorded: {act}. {device.name} is set to advice, so nothing was sent. To"
                     " let me change it, set its access to write in config.toml.")  # fmt: skip
+        if not logged_in:
+            return (f"Recorded: {act}. No login is set in .env, so nothing was sent to the"
+                    " plug.")  # fmt: skip
         return f"Recorded: {act}. Shadow mode: nothing was sent to the plug."
     midnight = now.astimezone(ZoneInfo(cfg.tz)).replace(hour=0, minute=0, second=0, microsecond=0)
     if store.count_writes(app, site_id=site_id, plug=plug, since=midnight) >= WRITES_A_DAY:
@@ -153,19 +162,25 @@ def _rules(device: Device, card: house.Card, *, off: bool,
 
 def _same(got: Timer, want: Timer) -> bool:
     """A timer as the plug reads it back. Tasmota may show days as letters ("-MTWTF-")."""
-    bits = "".join("0" if d in "0-" else "1" for d in got.days)
-    return got == Timer(want.slot, want.enable, want.mode, want.time, want.window, got.days,
-                        want.repeat, want.output, want.action) and bits == want.days  # fmt: skip
+    return replace(got, days=_bits(got.days)) == replace(want, days=_bits(want.days))
+
+
+def _bits(days: str) -> str:
+    return "".join("0" if d in "0-" else "1" for d in days)
 
 
 def _put_back(p: Plug, old: list[Timer]) -> str:
-    """Write the old timers back, the last written first. Says whether that worked."""
+    """Write the old timers back, the last written first, and read them back. Says how it
+    went."""
     try:
         for t in reversed(old):
             p.set_timer(t)
+        now = p.timers().timers
+        if all(_same(now[t.slot - 1], t) for t in old):
+            return "The old timers were put back."
     except PlugError:
-        return "Putting the old timers back failed too: check the plug's Timers page."
-    return "The old timers were put back."
+        pass
+    return "Putting the old timers back failed too: check the plug's Timers page."
 
 
 def _merge(timers: list[Timer], new: tuple[Timer, ...]) -> list[Timer]:

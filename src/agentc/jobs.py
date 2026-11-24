@@ -372,7 +372,10 @@ def answer_night(app: Connection, cfg: Config, *, site_id: int, night: date, doe
             continue
         n = next((n for n, c in enumerate(q.decision.choices, 1) if c.does == does), None)
         if n is not None:
-            done.append(answer(app, cfg, site_id=site_id, question_id=q.id, choice=n, now=now))
+            try:
+                done.append(answer(app, cfg, site_id=site_id, question_id=q.id, choice=n, now=now))
+            except LookupError:
+                continue  # answered on its own at the same moment: the rest still go
     if not done:
         raise LookupError(f"No open questions from the night before {night}.")
     return "\n".join(done)

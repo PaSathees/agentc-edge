@@ -18,7 +18,7 @@ ME = "me@example.com"
 def locked(client, monkeypatch):  # noqa: F811 (the fixture)
     """The app with a password and a Tailscale user set; sleeps skipped."""
     c, db, said = client
-    monkeypatch.setattr(login.time, "sleep", lambda s: None)
+    monkeypatch.setattr(login, "LAST_WRONG", [0.0])  # no wrong guess from an earlier test
     web.app.dependency_overrides[login.login] = lambda: login.Login(PASSWORD, frozenset({ME}))
     return c, db, said
 
@@ -55,12 +55,24 @@ def test_the_right_password_signs_in_for_30_days(locked):
     assert c.get("/setup").status_code == 200
 
 
-def test_a_wrong_password_is_refused_slowly(locked, monkeypatch):
+def test_one_wrong_guess_a_second_for_the_whole_hub(locked, monkeypatch):
     c, _, _ = locked
-    slept = []
-    monkeypatch.setattr(login.time, "sleep", slept.append)
+    clock = [100.0]
+    monkeypatch.setattr(login.time, "monotonic", lambda: clock[0])
     r = sign_in(c, "guess")
-    assert (r.status_code, slept) == (401, [1]) and "That is not the password." in r.text
+    assert r.status_code == 401 and "That is not the password." in r.text
+    clock[0] += 0.5
+    r = sign_in(c)  # even the right one waits, so guessing in parallel gains nothing
+    assert r.status_code == 429 and "Wait a second, then try again." in r.text
+    clock[0] += 0.6
+    assert sign_in(c).status_code == 303
+    assert c.get("/", follow_redirects=False).status_code == 200
+
+
+def test_a_new_password_signs_everyone_out(locked):
+    c, _, _ = locked
+    sign_in(c)
+    web.app.dependency_overrides[login.login] = lambda: login.Login("new one", frozenset({ME}))
     assert c.get("/", follow_redirects=False).status_code == 303
 
 
@@ -131,7 +143,7 @@ def test_the_ways_in_come_from_env(monkeypatch):
 
 
 OURS = ["192.168.1.134:8765", "100.99.216.20", "[::1]:8765", "localhost:8765",
-        "edge-hub.tail1.ts.net", "Hub.Local"]  # fmt: skip
+        "edge-hub.tail1.ts.net", "Hub.Local", "hub.local."]  # fmt: skip
 
 
 @pytest.mark.parametrize("host", OURS)

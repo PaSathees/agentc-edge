@@ -187,7 +187,7 @@ Write-time checks, kept from version 1:
 - At most 4 writes per plug a day.
 - Read back within 30 seconds.
 
-**Shadow mode** records approved actions and writes nothing. Phase 3 runs in shadow mode.
+**Shadow mode** records approved actions and writes nothing. It is on until the owner turns it off on the Devices page, which needs a login; with no login set, nothing is written either. An undo (switch back on) works even in shadow mode, so turning shadow mode on stops new changes without blocking a way back.
 
 ## 6. Checks and guardrails
 

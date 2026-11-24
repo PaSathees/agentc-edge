@@ -246,17 +246,18 @@ def test_a_message_is_saved_and_its_reply_streams(chat):
     assert 'class="bubble owner"' in r.text and "the roof light" in r.text
     assert f'sse-connect="/setup/Plug-1/reply?tok={tok}"' in r.text
     model([[{"type": "tool_use", "id": "t1", "name": "power", "input": {"device": "Desk 2",
-                                                                         "hours": 24}}],
+                                                                         "hours": 24}},
+            {"type": "tool_use", "id": "t2", "name": "device", "input": {"device": "Desk 2"}}],
            [{"type": "text", "text": "Which room?"}]])  # fmt: skip
     got = events(c.get(f"/setup/Plug-1/reply?tok={tok}").text)
-    assert got[0] == ("step", "looking at its power")
-    assert got[1] == ("text", "Which room?")
+    assert got[:2] == [("step", "looking at its power"), ("step", "reading its card")]
+    assert got[2] == ("text", "Which room?")
     assert got[-1][0] == "done" and "data-say>Which room?</div>" in got[-1][1]
     assert [role for _, role, _ in store.turns(db, chat_id=1)] == ["agent", "owner", "agent"]
     found = store.chat(db, chat_id=1)
     assert found is not None and [a for a, _ in found.reads] == [
-        'power {"device": "Desk 2", "hours": 24}'
-    ]  # kept for the next reply
+        'device {"device": "Desk 2"}'
+    ]  # kept for the next reply; power changes each minute, so it is read again
     c.post("/setup/Plug-1/say", data={"text": "the study", "tok": tok})
     model([[{"type": "text", "text": "Thanks."}]])
     c.get(f"/setup/Plug-1/reply?tok={tok}")

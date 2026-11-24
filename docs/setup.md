@@ -81,7 +81,7 @@ At first AgentC only asks and records your answers (shadow mode). To let a tap o
 2. Set a login in `.env` (`AGENTC_PASSWORD`, or `AGENTC_TAILSCALE_USER`), then `docker compose up -d`.
 3. On the Devices page, tap **Turn shadow mode off**.
 
-Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A timer goes in two free slots of 9 to 16 (slots 1 to 8 stay yours), the "on" timer first, each read back; if any step fails, the old timers are put back. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
+Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A timer goes in two free slots of 9 to 16 (slots 1 to 8 stay yours; a disabled timer in 9 to 16 may be reused), the "on" timer first, each read back; if any step fails, the old timers are put back. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
 
 ## Every day
 
@@ -95,7 +95,7 @@ Each switch off is read back from the plug and kept in the history. For a day, t
 
 Back up the `data` folder: it holds every reading (`energy.db`), the house model and your answers (`app.db`), and the key that signs the phone's buttons (`secret`).
 
-Nothing here switches a plug. This version only watches and asks (shadow mode).
+Nothing here switches a plug until you allow it (step 8).
 
 ## Away from home: Tailscale (optional)
 
@@ -120,7 +120,8 @@ Run `docker compose up -d`, then `agentc ping` again. In the ntfy app, subscribe
 - A button's address only works with its signed token: a guessed address does nothing.
 - On iPhone, ntfy.sh only relays a message id to wake the app; the text comes from the hub.
 - The housemate's prompts never contain IP or MAC addresses. ntfy never sees your API key.
-- Nothing switches a plug yet (shadow mode). Phase 4 adds writes, after your tap, only to devices you set to `write`.
+- A plug changes only after your tap, only for a device set to `write`, with shadow mode off and a login set (step 8).
+- Tailscale Serve tells the app who you are, and the app trusts that only from the hub itself. Never put another proxy in front of the app on the hub: it would be trusted too.
 
 ## If something is wrong
 

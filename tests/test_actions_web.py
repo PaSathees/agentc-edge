@@ -14,8 +14,11 @@ TAP = f"/answer/1/1/{notify.token(KEY, 1, 1)}"  # "Switch off" on Desk 2's quest
 
 
 @pytest.fixture
-def live(client, plug):  # noqa: F811 (the fixture)
-    """Desk 2 (Plug-1) on the fake plug, set to write; shadow mode off; a phone to echo to."""
+def live(client, plug, monkeypatch):  # noqa: F811 (the fixture)
+    """Desk 2 (Plug-1) on the fake plug, set to write; shadow mode off; a login set; a phone
+    to echo to."""
+    monkeypatch.setenv("AGENTC_PASSWORD", "pw")
+    monkeypatch.setattr(login, "LAST_WRONG", [0.0])
     c, db, said = client
     cfg = web.app.dependency_overrides[web.settings]()
     hub = config.Owner("http://192.0.2.50")
@@ -38,6 +41,7 @@ def test_a_tap_switches_off_and_offers_the_undo_on_page_and_phone(live):
     assert [(b.label, b.url) for b in m.buttons] == [
         ("Switch Desk 2 back on", f"http://192.0.2.50:8765{url}")
     ]
+    c.post("/login", data={"password": "pw", "next": "/"})  # a login is set, so the inbox asks
     assert f'action="{url}"' in c.get("/").text  # and in the inbox, for a day
 
 

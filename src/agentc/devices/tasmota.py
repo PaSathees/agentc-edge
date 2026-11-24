@@ -70,9 +70,10 @@ class TasmotaPlug:
             raise PlugError(f"{self.ip}: Timer{t.slot} was not taken: {r!r}")
 
     def _relay(self, r: dict[str, Any]) -> bool:
-        if r.get("POWER") not in ("ON", "OFF"):
+        state = r.get("POWER", r.get("POWER1"))  # POWER1: some plugs name their one relay
+        if state not in ("ON", "OFF"):
             raise PlugError(f"{self.ip}: unreadable Power answer: {r!r}")
-        return r["POWER"] == "ON"
+        return state == "ON"
 
     def _get(self, cmnd: str, key: str) -> dict[str, Any]:
         """Run a command and return one section of its answer."""

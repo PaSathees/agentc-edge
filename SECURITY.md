@@ -12,4 +12,5 @@ Please open a [private security advisory](https://github.com/PaSathees/agentc-ed
 - **ntfy is open to your network.** Anyone on it can read your messages if they learn the topic, which is made from the hub's secret, so it is hard to guess.
 - **Buttons are signed.** Each answer needs a token signed with the hub's secret (`data/secret`). Once a question is answered, its token does nothing.
 - **What leaves the hub:** the housemate's prompts to the Anthropic API (no IP or MAC addresses), and on iPhone a message id that ntfy.sh relays to wake the app. Your readings stay on the hub.
-- **Nothing switches a plug yet** (shadow mode). Phase 4 adds writes, after your tap, only to devices you set to `write`.
+- **A plug changes only after your tap**, only for a device you set to `write`, and only with shadow mode off and a login set. At most 4 changes a plug a day; each one is read back and kept in the history. A switch off can be undone for a day.
+- **The Tailscale name is trusted from the hub itself.** Tailscale Serve runs on the hub, so a request from 127.0.0.1 with a `Tailscale-User-Login` header counts as that user. Never put another proxy in front of the app on the hub: it would be trusted too.

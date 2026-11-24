@@ -107,7 +107,7 @@ def test_a_stuck_relay_reads_back_unchanged(plug):
 
 
 def test_an_unreadable_power_answer_raises_plug_error(plug, monkeypatch):
-    monkeypatch.setattr(plug, "handle", lambda cmnd: {"POWER1": "OFF"})
+    monkeypatch.setattr(plug, "handle", lambda cmnd: {"POWER2": "OFF"})
     with pytest.raises(PlugError, match="unreadable Power answer"):
         TasmotaPlug(plug.ip).power()
 
@@ -126,3 +126,8 @@ def test_a_timer_the_plug_does_not_take_raises_plug_error(plug, monkeypatch):
     t = Timer(9, True, 0, "01:30", 0, "0111110", True, 1, 0)
     with pytest.raises(PlugError, match="Timer9 was not taken"):
         TasmotaPlug(plug.ip).set_timer(t)
+
+
+def test_a_plug_that_names_its_relay_power1_reads_fine(plug, monkeypatch):
+    monkeypatch.setattr(plug, "handle", lambda cmnd: {"POWER1": "ON"})
+    assert TasmotaPlug(plug.ip).power() is True

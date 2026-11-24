@@ -776,12 +776,13 @@ def count_writes(db: sqlite3.Connection, *, site_id: int, plug: str, since: date
 
 def undoable(db: sqlite3.Connection, *, site_id: int, since: datetime) -> list[tuple[int, str]]:
     """Switch-offs since a time with nothing written to that plug after them, as
-    (audit id, plug), oldest first: each can still be undone."""
+    (audit id, plug), oldest first: each can still be undone. A failed switch off counts
+    (the relay may be off with only the read-back lost); a failed later write does not (a
+    failed undo keeps its button, to try again)."""
     sql = """SELECT a.id, substr(a.ref, 6) FROM audit a
-             WHERE a.site_id = ? AND a.action = 'write' AND a.ts_utc >= ?
+             WHERE a.site_id = ? AND a.action IN ('write', 'write_failed') AND a.ts_utc >= ?
                AND json_extract(a.detail, '$.does') = 'switch_off'
                AND NOT EXISTS (SELECT 1 FROM audit b WHERE b.site_id = a.site_id
-                               AND b.ref = a.ref AND b.id > a.id
-                               AND b.action IN ('write', 'write_failed'))
+                               AND b.ref = a.ref AND b.id > a.id AND b.action = 'write')
              ORDER BY a.id"""
     return [(i, p) for i, p in db.execute(sql, (site_id, since.astimezone(UTC).isoformat()))]

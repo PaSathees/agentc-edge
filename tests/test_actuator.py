@@ -16,8 +16,10 @@ NOW = datetime(2026, 11, 2, 1, 30, tzinfo=UTC)  # 07:00 in Colombo
 
 
 @pytest.fixture
-def home(tmp_path, plug):
-    """app.db with Plug-6 seen, its device set to write, shadow mode off; the fake plug on."""
+def home(tmp_path, plug, monkeypatch):
+    """app.db with Plug-6 seen, its device set to write, shadow mode off, a login set; the
+    fake plug on."""
+    monkeypatch.setenv("AGENTC_PASSWORD", "pw")
     base = config.load(EXAMPLE)
     cfg = replace(base, plugs={"Plug-6": plug.ip},
                   devices={"Plug-6": Device("Desk 2", access="write")})  # fmt: skip
@@ -130,7 +132,8 @@ def test_the_day_starts_at_local_midnight(home):
 def test_a_plug_that_does_not_answer_is_a_failure_and_a_note(home):
     app, cfg, plug = home
     r = off(app, cfg, connect=lambda ip: _offline())
-    assert r == "Could not switch Desk 2 off: the plug did not answer (gone)."
+    assert r == ("Could not switch Desk 2 off: the plug did not answer (gone). It may be off:"
+                 " Switch back on is in the inbox.")  # fmt: skip
     assert rows(app, "write_failed")[0][1]["error"] == r and rows(app, "note") == [
         ("plug:Plug-6", {"text": r})
     ]
@@ -154,11 +157,12 @@ def test_undoable_lists_switch_offs_with_nothing_written_after(home):
 
 
 class _offline:
-    def switch(self, on):
+    """A plug that never answers: every call fails as a real one would."""
+
+    def _gone(self, *args):
         raise PlugError("gone")
 
-    def power(self):  # pragma: no cover (never reached)
-        raise PlugError("gone")
+    info = timers = clock = automations = power = switch = set_timer = _gone
 
 
 # a timer pair, all or nothing (4c)
@@ -284,3 +288,57 @@ def test_days_read_back_as_letters_still_match():
     want = Timer(9, True, 0, "07:00", 0, "0111110", True, 1, 1)
     assert actuator._same(replace(want, days="-MTWTF-"), want)  # pyright: ignore[reportPrivateUsage]
     assert not actuator._same(replace(want, days="SMTWTF-"), want)  # pyright: ignore[reportPrivateUsage]
+
+
+# from the review before merge
+
+
+def test_with_no_login_set_nothing_is_written_even_with_shadow_mode_off(home, monkeypatch):
+    app, cfg, plug = home
+    monkeypatch.delenv("AGENTC_PASSWORD")
+    assert off(app, cfg) == ("Recorded: switch Desk 2 off. No login is set in .env, so nothing"
+                             " was sent to the plug.")  # fmt: skip
+    assert plug.commands == []
+
+
+def test_undo_works_in_shadow_mode_and_without_a_login(home, monkeypatch):
+    app, cfg, plug = home
+    off(app, cfg)
+    store.set_shadow(app, site_id=1, on=True, now=NOW)  # the owner stops everything
+    monkeypatch.delenv("AGENTC_PASSWORD")
+    r = actuator.switch(app, cfg, site_id=1, plug="Plug-6", on=True, why="undo:2", now=NOW)
+    assert (r, plug.relay_on) == ("Done: Desk 2 is on.", True)
+    on = actuator.switch(app, cfg, site_id=1, plug="Plug-6", on=True, why="question:3", now=NOW)
+    assert on.startswith("Recorded")  # only an undo skips shadow mode
+
+
+def test_a_failed_undo_keeps_its_button(home):
+    app, cfg, plug = home
+    off(app, cfg)
+    ((wid, _),) = store.undoable(app, site_id=1, since=NOW)
+    plug.offline = True
+    actuator.switch(app, cfg, site_id=1, plug="Plug-6", on=True, why=f"undo:{wid}", now=NOW,
+                    connect=lambda ip: actuator.TasmotaPlug(ip, timeout_s=0.5))  # fmt: skip
+    assert store.undoable(app, site_id=1, since=NOW) == [(wid, "Plug-6")]
+
+
+def test_a_switch_off_that_lost_its_read_back_can_be_undone(home):
+    app, cfg, plug = home
+    off(app, cfg, connect=lambda ip: _offline())
+    assert [p for _, p in store.undoable(app, site_id=1, since=NOW)] == ["Plug-6"]
+
+
+def test_a_put_back_that_does_not_read_back_is_reported(home):
+    app, cfg, plug = home
+    plug.lost = {10}  # the off timer is lost, so the "on" timer in 9 must go back
+    real = actuator.TasmotaPlug(plug.ip)
+
+    class Drifts:  # the put back of slot 9 is taken, but changed on the way
+        def timers(self):
+            return real.timers()
+
+        def set_timer(self, t):
+            real.set_timer(replace(t, time="06:00") if t.slot == 9 and not t.enable else t)
+
+    r = timer(app, cfg, connect=lambda ip: Drifts())
+    assert r.endswith("Putting the old timers back failed too: check the plug's Timers page.")

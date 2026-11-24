@@ -64,8 +64,7 @@ def test_reading_the_same_thing_twice_costs_no_new_read(tools):  # noqa: F811
     assert r.tools == ("power", "usual")  # the second power read was not run
     again = script.seen[2]["messages"][-1]["content"][0]
     assert again["content"] == "You read this already in this chat. Use that result."
-    assert [a for a, _ in r.reads] == [
-        'power {"device": "Desk 2", "hours": 24}',
+    assert [a for a, _ in r.reads] == [  # power is not kept: it changes each minute
         'usual {"day": "Monday", "device": "Desk 2", "end": "06:00", "start": "00:00"}',
     ]
 

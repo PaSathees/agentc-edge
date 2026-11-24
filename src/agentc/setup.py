@@ -182,8 +182,8 @@ def reply(
                 say("step", STEPS.get(c["name"], "looking"))
                 out = tools.run(c["name"], c["input"])
                 used.append(c["name"])
-                if not (error := out.startswith("Error:")):
-                    new.append((asked, out))
+                if not (error := out.startswith("Error:")) and c["name"] != "power":
+                    new.append((asked, out))  # power changes each minute: read it again later
             results.append({"type": "tool_result", "tool_use_id": c["id"], "content": out,
                             "is_error": error})  # fmt: skip
         messages.append({"role": "user", "content": results})

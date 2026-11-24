@@ -3,7 +3,8 @@
 Two ways in; either one is enough:
 - Tailscale. Tailscale Serve runs on the hub and tells the app who is asking, in the
   Tailscale-User-Login header. The header is trusted only on a request from the hub itself,
-  so nobody on the home network can fake it. AGENTC_TAILSCALE_USER says who may enter.
+  so nobody on the home network can fake it. AGENTC_TAILSCALE_USER says who may enter. So
+  never put another proxy in front of the app on the hub: it would be trusted too.
 - Password. AGENTC_PASSWORD in .env. The login page sets a signed cookie for 30 days.
 
 With neither set (a first start) the pages stay open, and shadow mode cannot be turned off,
@@ -15,9 +16,11 @@ a browser on the home network talks to the hub for it. Only the hub's own names 
 IP addresses are answered.
 """
 
+import hashlib
 import hmac
 import ipaddress
 import os
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -29,7 +32,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse,
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from agentc import notify
+from agentc import config, notify
 from agentc.web.deps import Now, Secret, pages
 
 COOKIE = "agentc_login"
@@ -39,6 +42,8 @@ LOCAL = ("127.0.0.1", "::1")  # Tailscale Serve reaches the app from the hub its
 NAMES = ("localhost", "testserver")  # testserver: the name FastAPI's test client uses
 
 router = APIRouter()
+GUESS = threading.Lock()
+LAST_WRONG = [0.0]  # time.monotonic() of the last wrong password
 
 
 @dataclass(frozen=True)
@@ -54,9 +59,7 @@ class Login:
 
 def login() -> Login:
     """The ways in, from .env."""
-    users = os.environ.get("AGENTC_TAILSCALE_USER", "")
-    return Login(os.environ.get("AGENTC_PASSWORD", ""),
-                 frozenset(u.strip().lower() for u in users.split(",") if u.strip()))  # fmt: skip
+    return Login(*config.logins())
 
 
 Ways = Annotated[Login, Depends(login)]
@@ -78,7 +81,7 @@ def is_owner(request: Request, ways: Ways, key: str, now: datetime) -> bool:
     from_hub = request.client is not None and request.client.host in LOCAL
     if user and from_hub and user in ways.tailscale:
         return True
-    return bool(ways.password) and _valid(request.cookies.get(COOKIE, ""), key, now)
+    return bool(ways.password) and _valid(request.cookies.get(COOKIE, ""), key, now, ways.password)
 
 
 Owner = Depends(owner_only)
@@ -93,14 +96,23 @@ def login_page(request: Request, ways: Ways, next: str = "/") -> HTMLResponse:  
 def sign_in(request: Request, ways: Ways, key: Secret, now: Now,
             password: Annotated[str, Form()], next: Annotated[str, Form()] = "/"
             ) -> Response:  # fmt: skip  # noqa: A002
-    if not ways.password or not hmac.compare_digest(password.encode(), ways.password.encode()):
-        time.sleep(1)  # a guesser gets one try a second
-        return _page(request, ways, _safe(next), "That is not the password.", status=401)
+    with GUESS:  # one wrong guess a second for the whole hub; no thread waits
+        if time.monotonic() - LAST_WRONG[0] < 1:
+            return _page(request, ways, _safe(next), "Wait a second, then try again.", status=429)
+        if not ways.password or not hmac.compare_digest(password.encode(),
+                                                        ways.password.encode()):  # fmt: skip
+            LAST_WRONG[0] = time.monotonic()
+            return _page(request, ways, _safe(next), "That is not the password.", status=401)
     done = RedirectResponse(_safe(next), status_code=303)
     until = int((now + timedelta(days=DAYS)).timestamp())
-    done.set_cookie(COOKIE, f"{until}.{notify.token(key, 'login', until)}", max_age=DAYS * 86400,
+    done.set_cookie(COOKIE, f"{until}.{_sign(key, until, ways.password)}", max_age=DAYS * 86400,
                     httponly=True, samesite="lax", secure=_https(request))  # fmt: skip
     return done
+
+
+def _sign(key: str, until: int | str, password: str) -> str:
+    """The cookie's signature, tied to the password: a new password signs everyone out."""
+    return notify.token(key, "login", until, hashlib.sha256(password.encode()).hexdigest()[:16])
 
 
 def _page(request: Request, ways: Login, next: str, error: str, status: int = 200  # noqa: A002
@@ -110,10 +122,12 @@ def _page(request: Request, ways: Login, next: str, error: str, status: int = 20
         "password": bool(ways.password)}, status_code=status)  # fmt: skip
 
 
-def _valid(cookie: str, key: str, now: datetime) -> bool:
+def _valid(cookie: str, key: str, now: datetime, password: str) -> bool:
     until, _, tok = cookie.partition(".")
     return (
-        until.isdigit() and int(until) > now.timestamp() and notify.valid(key, tok, "login", until)
+        until.isdigit()
+        and int(until) > now.timestamp()
+        and hmac.compare_digest(_sign(key, until, password), tok)
     )
 
 
@@ -128,7 +142,7 @@ def _https(request: Request) -> bool:
 
 def allowed_host(host: str) -> bool:
     """A plain IP address, localhost, the hub's name from AGENTC_HUB, or one in AGENTC_HOSTS."""
-    name = urlsplit(f"//{host}").hostname or ""
+    name = (urlsplit(f"//{host}").hostname or "").rstrip(".")
     try:
         ipaddress.ip_address(name)
         return True
