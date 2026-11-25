@@ -56,3 +56,20 @@ def test_write_sets_access_once_even_in_the_last_section(tmp_path):
     text = out.read_text()
     assert text.count('[devices."Plug-9"]\naccess = "write"') == 1
     assert config.device(config.load(out), "Plug-7").access == "write"  # was none
+
+
+def test_goal_sets_one_goal_in_the_copy(tmp_path):
+    src = source(tmp_path, '"Plug-6" = "192.0.2.6"\n"Plug-7" = "192.0.2.7"\n')
+    src.write_text(src.read_text() + "\n[goal]\nmonth_kgco2e = 9\n")
+    out = dev.dev_config(src, FAKES, [], tmp_path / "dev" / "config.toml", goal=5.5)
+    headings = re.findall(r"^\[goal\]", out.read_text(), flags=re.M)
+    assert config.load(out).goal == config.Goal(5.5) and len(headings) == 1
+
+
+def test_goal_leaves_the_sections_after_the_old_goal(tmp_path):
+    src = source(tmp_path, '"Plug-6" = "192.0.2.6"\n"Plug-7" = "192.0.2.7"\n')
+    text = src.read_text()
+    src.write_text(re.sub(r"^\[plugs\]", "[goal]\nmonth_kgco2e = 9\n\n[plugs]", text, count=1,
+                          flags=re.M))  # fmt: skip
+    out = dev.dev_config(src, FAKES, [], tmp_path / "dev" / "config.toml", goal=5.5)
+    assert config.load(out).plugs == FAKES and config.load(out).goal == config.Goal(5.5)

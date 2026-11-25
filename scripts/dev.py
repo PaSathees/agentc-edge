@@ -38,6 +38,17 @@ SNAP = (
 )
 
 
+GOAL_ONCE = """
+import os
+from datetime import UTC, datetime
+from agentc import config, jobs, readings, store
+cfg = config.load(os.environ["AGENTC_CONFIG"])
+app = store.connect(cfg.app_db)
+site = store.add_site(app, name=cfg.site, tz=cfg.tz)
+jobs.goal_check(app, readings.connect(cfg.energy_db), cfg, site_id=site, now=datetime.now(UTC))
+"""
+
+
 def copy_from_hub(host: str, data: str) -> None:
     """A consistent copy of the hub's databases, made with SQLite's backup while it runs.
     The copy on the hub is removed even if fetching it fails."""
@@ -58,7 +69,8 @@ def plug_names(source: Path) -> list[str]:
     return list(tomllib.loads(source.read_text()).get("plugs", {}))
 
 
-def dev_config(source: Path, fakes: dict[str, str], write: list[str], out: Path) -> Path:
+def dev_config(source: Path, fakes: dict[str, str], write: list[str], out: Path,
+               goal: float | None = None) -> Path:  # fmt: skip
     """The config with every plug pointed at its fake and --write devices set to write.
     Exits unless the written file loads and every plug in it is a fake."""
     text = source.read_text().rstrip("\n") + "\n"
@@ -73,6 +85,9 @@ def dev_config(source: Path, fakes: dict[str, str], write: list[str], out: Path)
         body, nxt, tail = rest.partition("\n[")
         body = "\n".join(x for x in body.split("\n") if not x.strip().startswith("access"))
         text = f'{head}{section}\naccess = "write"\n{body}{nxt}{tail}'
+    if goal is not None:
+        text = re.sub(r"(?m)^\[goal\]\n(?:(?!\[)[^\n]*\n)*", "", text)  # the copy's own goal
+        text += f"\n[goal]\nmonth_kgco2e = {goal}\n"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text)
     real = sorted(p for p, ip in config.load(out).plugs.items() if ip not in fakes.values())
@@ -92,6 +107,7 @@ def main() -> None:
     ask.add_argument("--hub-data", default="/data", help="the data folder on the hub")
     ask.add_argument("--write", action="append", default=[], metavar="PLUG",
                      help="set this plug's device to write in the copy")  # fmt: skip
+    ask.add_argument("--goal", type=float, metavar="KG", help="a monthly kgCO2e goal in the copy")
     args = ask.parse_args()
     if args.from_hub:
         copy_from_hub(args.from_hub, args.hub_data)
@@ -103,7 +119,10 @@ def main() -> None:
         fake.relay_on = True
         fake.start()
         fakes[plug] = fake.ip
-    cfg = dev_config(ROOT / "config.toml", fakes, args.write, DEV / "config.toml")
+    cfg = dev_config(ROOT / "config.toml", fakes, args.write, DEV / "config.toml", args.goal)
+    if args.goal is not None:  # the inbox shows what the daily goal job keeps: work it out once now
+        once = {**os.environ, "AGENTC_CONFIG": str(cfg), "AGENTC_DATA": str(DEV / "data")}
+        subprocess.run([sys.executable, "-c", GOAL_ONCE], check=True, env=once)
     env = {**os.environ, "AGENTC_CONFIG": str(cfg), "AGENTC_DATA": str(DEV / "data"),
            "AGENTC_SECRET": "dev-only", "AGENTC_PASSWORD": "dev", "AGENTC_HUB": ""}  # fmt: skip
     env.pop("ANTHROPIC_API_KEY", None)

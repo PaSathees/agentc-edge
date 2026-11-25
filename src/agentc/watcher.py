@@ -27,7 +27,7 @@ GRACE = timedelta(minutes=5)  # a timer may fire a little late; the override che
 @dataclass(frozen=True)
 class Event:
     kind: str  # unusual_use, left_on, automation_drift, override, offline, no_contact,
-    #            logger_stopped or timer_mismatch
+    #            logger_stopped, timer_mismatch or goal_drift
     plug_mac: str | None  # None for an event about the whole site, like lost contact
     start: datetime
     facts: dict[str, float | str]  # the numbers an agent may quote later

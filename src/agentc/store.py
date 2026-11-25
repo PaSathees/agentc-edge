@@ -874,3 +874,16 @@ def refused(db: sqlite3.Connection, *, mac: str, since: datetime) -> list[str]:
     sql = """SELECT change FROM plan_items WHERE plug_mac = ? AND status = 'not_now'
              AND decided >= ? ORDER BY id"""
     return [c for (c,) in db.execute(sql, (mac, since.isoformat()))]
+
+
+def setting(db: sqlite3.Connection, *, site_id: int, key: str) -> str | None:
+    row = db.execute("SELECT value FROM settings WHERE site_id = ? AND key = ?",
+                     (site_id, key)).fetchone()  # fmt: skip
+    return row[0] if row else None
+
+
+def set_setting(db: sqlite3.Connection, *, site_id: int, key: str, value: str) -> None:
+    with db:
+        db.execute("INSERT INTO settings (site_id, key, value) VALUES (?, ?, ?)"
+                   " ON CONFLICT (site_id, key) DO UPDATE SET value = excluded.value",
+                   (site_id, key, value))  # fmt: skip

@@ -3,6 +3,7 @@
 Only [site] (name, time zone) and [plugs] are needed to start; the rest is optional.
 """
 
+import math
 import os
 import secrets
 import tomllib
@@ -106,6 +107,14 @@ class Device:
 
 
 @dataclass(frozen=True)
+class Goal:
+    """The owner's monthly carbon goal for the metered plugs (FR-22). Only the owner sets it."""
+
+    month_kg: float  # kgCO2e a month
+    at_risk: float = 0.9  # a projection over this share of the goal is "at risk"
+
+
+@dataclass(frozen=True)
 class Config:
     site: str
     tz: str  # IANA name, e.g. "Asia/Colombo"
@@ -123,6 +132,7 @@ class Config:
     app_db: Path
     energy_db: Path
     owner: Owner | None = None  # None: no AGENTC_HUB, so no messages; questions wait in the inbox
+    goal: Goal | None = None  # None: no monthly goal set
 
 
 def load(path: str | Path) -> Config:
@@ -168,6 +178,7 @@ def load(path: str | Path) -> Config:
         app_db=data / paths.get("app_db", "app.db"),
         energy_db=data / paths.get("energy_db", "energy.db"),
         owner=owner(),
+        goal=_goal(raw.get("goal"), carbon is not None, path),
     )
 
 
@@ -212,6 +223,20 @@ def device(
         return d
     policy = replace(d.policy, **{k: value for k, (value, _) in fill.items()})
     return replace(d, policy=policy, learned={k: why for k, (_, why) in fill.items()})
+
+
+def _goal(raw: dict[str, Any] | None, carbon: bool, path: Path) -> Goal | None:
+    """[goal]: month_kgco2e above 0; at_risk between 0 and 1. It needs [carbon] to count."""
+    if raw is None:
+        return None
+    if not carbon:
+        raise ValueError(f"[goal] in {path} needs [carbon]: the goal is in kgCO2e")
+    kg, risk = raw.get("month_kgco2e"), raw.get("at_risk", 0.9)
+    if not isinstance(kg, int | float) or isinstance(kg, bool) or not math.isfinite(kg) or kg <= 0:
+        raise ValueError(f"[goal] month_kgco2e in {path} must be a number above 0")
+    if not isinstance(risk, int | float) or isinstance(risk, bool) or not 0 < risk < 1:  # nan fails
+        raise ValueError(f"[goal] at_risk in {path} must be between 0 and 1, e.g. 0.9")
+    return Goal(float(kg), float(risk))
 
 
 def _tier(t: dict[str, Any]) -> Tier:

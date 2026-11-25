@@ -8,6 +8,7 @@ app (`agentc run`).
 
 from datetime import date, datetime
 from sqlite3 import Connection
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -66,9 +67,14 @@ def inbox(request: Request, cfg: Cfg, key: Secret, now: Now, data: Db) -> HTMLRe
     notes = [d["text"] for d in store.audit_since(db, site_id=site, action="note",
                                                    since=now - jobs.NOTES_SINCE)]  # fmt: skip
     undo = _undo(db, cfg, key, site, since=now - actuator.UNDO_FOR, hub="")
+    month = jobs.goal_status(db, site_id=site) if cfg.goal else None
+    if month and cfg.goal and (month.month != f"{now.astimezone(ZoneInfo(cfg.tz)):%Y-%m}"
+                               or month.goal_kg != cfg.goal.month_kg):  # fmt: skip
+        month = None  # last month's, or for an old goal: wait for today's check
     return pages.TemplateResponse(request, "inbox.html", {
         "title": "Inbox", "page": "inbox", "questions": questions, "unknown": unknown,
-        "notes": notes, "undo": undo})  # fmt: skip
+        "notes": notes, "undo": undo, "goal": month.text(tz=cfg.tz) if month else "",
+        "goal_state": month.state if month else ""})  # fmt: skip
 
 
 @app.post("/answer/{question_id}/{choice}/{tok}", response_class=HTMLResponse)
