@@ -31,6 +31,7 @@ DISCUSS_DAYS = 3  # in use in the new off time on 1 to this many days: an option
 ITEMS = 3  # plan items a week, at most
 SMALL = 0.005  # kWh a month: less than this is no saving at all
 NOT_NOW = timedelta(days=30)  # a "Not now" keeps the same change away this long
+DISRUPTION_WH = 100  # one unit of disruption counts as this many Wh a month to the solver
 KINDS = ("move_timer", "add_pair", "remove_timer")
 
 
@@ -264,3 +265,71 @@ def _hhmm(value: str | None) -> bool:
         return False
     h, m = value[:2], value[3:]
     return h.isdigit() and m.isdigit() and int(h) < 24 and int(m) < 60
+
+
+# the week's set of changes, chosen by a solver (ADR-003, 5b4)
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """One change code found and priced: a timer change, or an action for the owner."""
+
+    id: str  # "c1", "c2", ...: how the Planner names it
+    plug: str
+    mac: str
+    device: str  # the owner's name for it
+    change: Change | None  # None: an action the owner does
+    action: str  # the action in the owner's words, or "" for a timer change
+    wh: int  # Wh a month it saves, from readings (whole numbers: the solver counts in them)
+    cost: int  # disruption: 0 ready, +1 a day it cut real use, +1 a new pair, +2 an action
+    spot: str  # what it changes: a timer, a plug's new pair, or the device for an action
+    ready: bool
+    saving: str  # what_if's words, or the action's
+
+
+def choose(cands: Sequence[Candidate], *, gap_wh: int, items: int = ITEMS) -> list[Candidate]:
+    """The set that best closes the gap: the least (shortfall + DISRUPTION_WH x disruption),
+    then the most saving. So a change that cuts real use once must save 100 Wh more than one
+    that does not, and an action for the owner (2 units) at least 200 Wh. One change per
+    spot, at most `items`. With no gap (on track), only free changes. CP-SAT runs
+    single-threaded, so the same candidates give the same set every time."""
+    from ortools.sat.python import cp_model  # noqa: PLC0415 (only the weekly job loads it)
+
+    cands = [c for c in cands if c.wh > 0]
+    if not cands:
+        return []
+    m = cp_model.CpModel()
+    x = {c.id: m.new_bool_var(c.id) for c in cands}
+    for spot in {c.spot for c in cands}:
+        m.add_at_most_one(x[c.id] for c in cands if c.spot == spot)
+    m.add(sum(x.values()) <= items)
+    saved = sum(c.wh * x[c.id] for c in cands)
+    gap = max(gap_wh, 0)
+    short = m.new_int_var(0, gap, "short")
+    m.add(short >= gap - saved)
+    cost = sum(c.cost * x[c.id] for c in cands)
+    tie = sum(c.wh for c in cands) + 1  # the saving only breaks ties
+    m.minimize((short + DISRUPTION_WH * cost) * tie - saved)
+    solver = cp_model.CpSolver()
+    solver.parameters.num_workers = 1
+    solver.parameters.max_time_in_seconds = 10
+    if solver.solve(m) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return []  # pragma: no cover (an empty set is always allowed, so never)
+    return [c for c in cands if solver.value(x[c.id])]
+
+
+def shortfall_wh(chosen: Sequence[Candidate], *, gap_wh: int) -> int:
+    return max(gap_wh - sum(c.wh for c in chosen), 0)
+
+
+def idle_wh(energy: Connection, device: Device, plug: str, *, end: datetime) -> tuple[int, int]:
+    """Wh a month the plug drew while on but not in use, over the last DAYS days, and the
+    days it was seen. Above off (0.5 W) and below its in-use level: a device left idling."""
+    rows = readings.power(energy, plug=plug, start=end - timedelta(days=DAYS), end=end)
+    lv = learn.levels([w for _, w in rows])
+    in_use = (lv.standby if lv else device.policy.on_w) + device.policy.use_w
+    wh = sum(w / 60 for _, w in rows if learn.OFF_W < w < in_use)
+    if not rows:
+        return 0, 0
+    span = (rows[-1][0] - rows[0][0] + timedelta(minutes=1)) / timedelta(days=1)  # not dates
+    return round(wh * 30 / span), round(span)

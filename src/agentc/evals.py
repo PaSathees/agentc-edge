@@ -9,6 +9,7 @@ import csv
 import gzip
 import hashlib
 import json
+import re
 import sqlite3
 from collections import Counter
 from collections.abc import Callable, Sequence
@@ -20,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 from agentc import agent, calc, config, house, planner_agent, setup, store, watcher, words
 from agentc.agent_tools import Tools, card
-from agentc.config import Config, Device, Tier
+from agentc.config import Config, Device, Goal, Tier
 from agentc.devices.base import Timer
 from agentc.house import Card
 from agentc.llm import Block, Llm, Message, OnText, Schema, StepSend
@@ -319,6 +320,7 @@ def _replay(steps: list[list[Block]]) -> StepSend:
 class PlanEval:
     id: str
     access: str  # the TV's and the PeoTV box's access
+    goal_kg: float  # the month's goal: the eval house heads to about 4.4 kgCO2e
     right: Callable[[planner_agent.Plan], bool]
 
 
@@ -327,29 +329,39 @@ ON6 = Timer(1, True, 0, "06:00", 0, "1111111", True, 1, 1)
 OFF1 = Timer(2, True, 0, "01:00", 0, "1111111", True, 1, 0)
 
 
-def _ready_saving(p: planner_agent.Plan) -> bool:
-    """At least one ready change: code checked it saves energy and never cut real use (the
-    box idles from 06:00 and nobody used it early in 13 days, so one exists)."""
-    return p.done and any(i.ready for i in p.items)
+def _kept_all(p: planner_agent.Plan) -> bool:
+    """It explained every change code chose, in its own checked words: no item fell back to
+    code's words and none was left out."""
+    return (p.done and bool(p.chosen) and len(p.items) == len(p.chosen) and not p.blocked
+            and not p.plain)  # fmt: skip
 
 
 def _nothing(p: planner_agent.Plan) -> bool:
-    """No device is set to write, so the plan is empty and done, and nothing was refused:
-    the model itself proposed nothing, not code after a retry."""
-    return p.done and not p.items and not p.blocked
+    """On track and nothing set to write: code chose nothing, and the plan is empty."""
+    return p.done and not p.chosen and not p.items and not p.blocked
+
+
+def _says_shortfall(p: planner_agent.Plan) -> bool:
+    """The goal can't be reached: the summary says by how much, with code's number."""
+    if not p.shortfall:
+        return False
+    kg = p.shortfall.split(", ")[-1].split(" kgCO2e")[0]
+    return _kept_all(p) and re.search(rf"(?<![\d.]){re.escape(kg)}(?!\d)", p.summary) is not None
 
 
 PLANS = (
-    PlanEval("EV-30", "write", _ready_saving),
-    PlanEval("EV-31", "advice", _nothing),
+    PlanEval("EV-30", "write", 3.7, _kept_all),  # reachable: the printer action closes it
+    PlanEval("EV-31", "advice", 50.0, _nothing),  # on track; nothing set to write
+    PlanEval("EV-32", "write", 0.5, _says_shortfall),  # can't be reached: say so
 )
 
 
 def plan_case(pe: PlanEval, cfg: Config) -> tuple[Config, Tools]:
     """The house on Sunday 15 Nov: the TV and the PeoTV box with their real timers (on at
-    06:00, off at 01:00), both at the access the case says."""
-    pcfg = replace(cfg, devices={**cfg.devices, TV[0]: Device("LG TV", access=pe.access),
-                                 BOX[0]: Device("PeoTV box", access=pe.access)})  # fmt: skip
+    06:00, off at 01:00), both at the access the case says, and the case's goal."""
+    pcfg = replace(cfg, goal=Goal(pe.goal_kg),
+                   devices={**cfg.devices, TV[0]: Device("LG TV", access=pe.access),
+                            BOX[0]: Device("PeoTV box", access=pe.access)})  # fmt: skip
     tools, _ = house_at(SUNDAY, pcfg)
     for _, mac in (TV, BOX):
         store.save_timers(tools.app, site_id=1, mac=mac, timers=[ON6, OFF1], now=SUNDAY)
@@ -357,12 +369,12 @@ def plan_case(pe: PlanEval, cfg: Config) -> tuple[Config, Tools]:
 
 
 def plan_key(tools: Tools) -> str:
-    """Changes when what the Planner reads first changes: its prompt, tools or the week."""
+    """Changes when what the Planner reads changes: its prompt, tools, the brief (the goal,
+    the week and code's choice) and the notes."""
     t = planner_agent.PlanTools(tools, planner_agent.week_start(tools.now, tz=TZ))
     text = planner_agent.VERSION + planner_agent.SYSTEM + json.dumps(planner_agent.TOOLS,
                                                                      sort_keys=True)  # fmt: skip
-    text += t.house_week() + t.week_notes()  # what it reads first, and what options give
-    text += "".join(t.options(config.device(tools.cfg, p).name) for p in (TV[0], BOX[0]))
+    text += planner_agent.decide(t).brief + t.week_notes()
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 

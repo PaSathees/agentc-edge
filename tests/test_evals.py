@@ -26,12 +26,12 @@ class Wise:
 
     def __call__(self, *, tier, system, messages, tools, on_text=None):
         self.steps += 1
-        if any(t["name"] == "propose_plan" for t in tools):  # the Planner: the box, if allowed
-            write = "PeoTV box: access write" in messages[0]["content"]
-            item = {"device": "PeoTV box", "kind": "move_timer", "slot": 1, "time": "07:00",
-                    "off": None, "on": None, "days": None,
-                    "why": "It idles from 06:00 and nobody uses it before 07:00."}  # fmt: skip
-            args = {"summary": "A quiet week.", "items": [item] if write else []}
+        if any(t["name"] == "propose_plan" for t in tools):  # the Planner: explain each chosen
+            ids = re.findall(r"^(c\d+): ", messages[0]["content"], flags=re.M)
+            short = re.search(r"([\d.]+ kgCO2e) over the goal", messages[0]["content"])
+            args = {"summary": f"Short by {short.group(1)}." if short else "A quiet week.",
+                    "items": [{"id": i, "why": "It idles when nobody uses it."} for i in ids],
+                    "left_out": []}  # fmt: skip
             return (
                 [{"type": "tool_use", "id": "p1", "name": "propose_plan", "input": args}],
                 ("tool_use", 1000, 100)[0],
@@ -87,7 +87,7 @@ def test_ev22_is_the_tv_on_at_midday():
 
 def test_a_model_that_decides_well_passes(tmp_path):
     scores = evals.run(Wise(), samples=2, path=tmp_path / "r.json")
-    assert [s.passed for s in scores] == [True] * 6
+    assert [s.passed for s in scores] == [True] * 7
     assert scores[0].line() == "EV-01: right 2/2, actions ask 2, 1.0 steps each, USD 0.0003: PASS"
 
 
@@ -166,7 +166,7 @@ def test_a_stale_recording_is_reported(recorded, capsys, monkeypatch):
 
 
 def test_the_recorded_live_steps_still_pass():  # free on every commit
-    assert [s.passed for s in evals.run(None)] == [True] * 6
+    assert [s.passed for s in evals.run(None)] == [True] * 7
 
 
 def test_ev13_is_a_new_tv_on_real_readings():
@@ -191,3 +191,16 @@ def test_a_case_never_recorded_says_how_to_record_it_and_the_live_ones_are_kept(
     with pytest.raises(evals.Stale, match=why):  # only EV-01 is asked; EV-05 has nothing
         evals.run(Wise(), samples=1, path=path, cases=["EV-01"])
     assert list(json.loads(path.read_text())) == ["EV-01"]  # what it paid for is saved
+
+
+def test_a_shortfall_check_needs_a_shortfall_and_the_exact_number():
+    from dataclasses import replace  # noqa: PLC0415 (local to this check)
+
+    from agentc.planner_agent import Item, Plan  # noqa: PLC0415
+
+    short = "These changes leave about 1.0 kWh, LKR 5, 0.17 kgCO2e over the goal by 30 Nov."
+    item = Item("Plug-1", "m", None, "w", "s", "", "")
+    good = Plan("Short by 0.17 kgCO2e.", (item,), chosen=("c1",), shortfall=short)
+    says = evals._says_shortfall  # pyright: ignore[reportPrivateUsage]
+    assert says(good) and not says(replace(good, shortfall="", summary="Short by ?"))
+    assert not says(replace(good, summary="Short by 10.17 kgCO2e."))
