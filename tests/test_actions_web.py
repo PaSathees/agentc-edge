@@ -1,12 +1,17 @@
 """A tap that switches a plug, its undo, and the shadow mode switch, in the web app (4b)."""
 
+import sqlite3
 from dataclasses import replace
+from datetime import timedelta
 
 import pytest
 
 from agentc import app as web
 from agentc import config, notify, store
 from agentc.config import Device
+from agentc.devices.base import Timer
+from agentc.devices.tasmota import TasmotaPlug
+from agentc.house import Card
 from agentc.web import login
 from tests.test_app import KEY, NOW, client  # noqa: F401 (the fixture)
 
@@ -27,6 +32,7 @@ def live(client, plug, monkeypatch):  # noqa: F811 (the fixture)
     web.app.dependency_overrides[web.settings] = lambda: cfg
     store.set_shadow(db, site_id=1, on=False, now=NOW)
     plug.relay_on = True
+    c.post("/login", data={"password": "pw", "next": "/"})  # a login is set, so pages ask
     return c, db, said, plug
 
 
@@ -41,7 +47,6 @@ def test_a_tap_switches_off_and_offers_the_undo_on_page_and_phone(live):
     assert [(b.label, b.url) for b in m.buttons] == [
         ("Switch Desk 2 back on", f"http://192.0.2.50:8765{url}")
     ]
-    c.post("/login", data={"password": "pw", "next": "/"})  # a login is set, so the inbox asks
     assert f'action="{url}"' in c.get("/").text  # and in the inbox, for a day
 
 
@@ -107,3 +112,91 @@ def test_the_shadow_form_needs_its_token_and_on_or_off(client, on, tok, code):  
     c, _, _ = client
     data = {"on": on, "tok": tok or notify.token(KEY, "shadow")}
     assert c.post("/shadow", data=data).status_code == code
+
+
+# the Devices page: power, timers, and the switch (ADR-008, amended 2026-11-25)
+
+
+def test_the_devices_page_shows_state_power_and_timers(live):
+    c, db, _, plug = live
+    store.save_timers(db, site_id=1, mac="AA", now=NOW, timers=[
+        Timer(1, True, 0, "06:00", 0, "1111111", True, 1, 1),
+        Timer(9, True, 0, "01:30", 0, "0111110", True, 1, 0)])  # fmt: skip
+    store.save_card(db, site_id=1, mac="AA", now=NOW, card=Card(why={9: "set by AgentC"}))
+    energy = web.app.dependency_overrides[web.settings]().energy_db
+    with sqlite3.connect(energy) as e:
+        e.execute("INSERT INTO readings VALUES (?, 'Plug-1', 2.4, NULL)",
+                  ((NOW - timedelta(minutes=1)).isoformat(),))  # fmt: skip
+    page = c.get("/setup").text
+    assert "On · " in page and "about 2 W" in page
+    assert "Timer 1: On at 06:00, every day" in page and "· yours" in page
+    assert 'Timer 9: Off at 01:30, Monday to Friday <span class="muted">(set by AgentC)' in page
+    assert (
+        f'value="{notify.token(KEY, "switch", "Plug-1")}"' in page
+        and ">Switch off</button>" in page
+    )
+
+
+def test_the_switch_goes_through_the_actuator_then_back_to_the_page(live):
+    c, db, _, plug = live
+    tok = notify.token(KEY, "switch", "Plug-1")
+    r = c.post("/switch/Plug-1", data={"on": "off", "tok": tok}, follow_redirects=False)
+    assert (r.status_code, r.headers["location"]) == (
+        303,
+        "/setup?said=Done%3A%20Desk%202%20is%20off.",
+    )
+    assert not plug.relay_on  # a reload now reloads the page, not the switch
+    page = c.get(r.headers["location"]).text
+    assert '<p class="card" role="status">Done: Desk 2 is off.</p>' in page
+    assert "Done: Desk 2 is on." in c.post("/switch/Plug-1", data={"on": "on", "tok": tok}).text
+    why = [d for (d,) in db.execute("SELECT detail FROM audit WHERE action = 'write'")]
+    assert all('"why": "devices"' in d for d in why) and len(why) == 2
+
+
+@pytest.mark.parametrize(
+    ("name", "on", "tok", "code"),
+    [
+        ("Plug-1", "off", "forged", 403),
+        ("Plug-1", "maybe", None, 422),
+        ("Plug-99", "off", None, 422),
+    ],
+)
+def test_the_switch_needs_its_token_a_known_plug_and_on_or_off(live, name, on, tok, code):
+    c, _, _, _ = live
+    data = {"on": on, "tok": tok or notify.token(KEY, "switch", name)}
+    assert c.post(f"/switch/{name}", data=data).status_code == code
+
+
+def test_a_write_device_that_does_not_answer_shows_no_switch(live):
+    c, _, _, plug = live
+    plug.offline = True
+    web.app.dependency_overrides[web.connect] = lambda: lambda ip: TasmotaPlug(ip, timeout_s=0.3)
+    page = c.get("/setup").text
+    assert "Not answering" in page and ">Switch off</button>" not in page
+    assert "no reading now" in page
+
+
+def test_the_saved_card_lists_the_plugs_timers(live):
+    c, db, _, _ = live
+    store.save_card(db, site_id=1, mac="AA", now=NOW, card=Card("media", why={2: "night off"}))
+    store.save_timers(db, site_id=1, mac="AA", now=NOW, timers=[
+        Timer(2, True, 0, "01:00", 0, "1111111", True, 1, 0)])  # fmt: skip
+    store.close_chat(db, chat_id=store.open_chat(db, site_id=1, mac="AA", kind="setup", now=NOW),
+                     status="closed")  # fmt: skip
+    page = c.get("/setup/Plug-1").text
+    assert "Timers on the plug:<br>Timer 2: Off at 01:00, every day (night off)" in page
+
+
+def test_before_the_logger_starts_the_devices_page_shows_no_reading(client, tmp_path):  # noqa: F811
+    c, _, _ = client
+    cfg = web.app.dependency_overrides[web.settings]()
+    cfg = replace(cfg, energy_db=tmp_path / "none.db")
+    web.app.dependency_overrides[web.settings] = lambda: cfg
+    assert "no reading now" in c.get("/setup").text
+
+
+def test_the_switch_needs_the_login_too(live):
+    c, _, _, plug = live
+    c.cookies.clear()  # signed out, with a real token
+    r = c.post("/switch/Plug-1", data={"on": "off", "tok": notify.token(KEY, "switch", "Plug-1")})
+    assert r.status_code == 401 and plug.relay_on

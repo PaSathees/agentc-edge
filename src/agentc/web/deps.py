@@ -2,7 +2,7 @@
 request, the clock and the model. Tests swap them with `app.dependency_overrides`."""
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from sqlite3 import Connection
@@ -14,7 +14,8 @@ from fastapi.templating import Jinja2Templates
 
 from agentc import config, house, llm, notify, store
 from agentc.config import Config
-from agentc.devices.base import days_words
+from agentc.devices.base import Plug, days_words
+from agentc.devices.tasmota import TasmotaPlug
 from agentc.llm import StepSend
 from agentc.notify import Publish
 
@@ -60,6 +61,12 @@ def stepper() -> StepSend | None:
     return llm.claude_step(anthropic.Anthropic()) if os.environ.get("ANTHROPIC_API_KEY") else None
 
 
+def connect() -> Callable[[str], Plug]:
+    """How the pages reach a plug: over HTTP, with a short wait, so one plug that is off the
+    network cannot hold the page for long."""
+    return lambda ip: TasmotaPlug(ip, timeout_s=2.0)
+
+
 def known(card: house.Card) -> bool:
     """Has the owner said anything about this device yet?"""
     return card != house.Card()
@@ -72,3 +79,4 @@ Say = Annotated[Publish | None, Depends(publisher)]
 Db = Annotated[tuple[Connection, int], Depends(database)]
 Model = Annotated[StepSend | None, Depends(stepper)]
 Tok = Annotated[str, Form()]
+Connect = Annotated[Callable[[str], Plug], Depends(connect)]

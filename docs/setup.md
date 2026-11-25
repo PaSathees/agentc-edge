@@ -81,7 +81,7 @@ At first AgentC only asks and records your answers (shadow mode). To let a tap o
 2. Set a login in `.env` (`AGENTC_PASSWORD`, or `AGENTC_TAILSCALE_USER`), then `docker compose up -d`.
 3. On the Devices page, tap **Turn shadow mode off**.
 
-Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A timer goes in two free slots of 9 to 16 (slots 1 to 8 stay yours; a disabled timer in 9 to 16 may be reused), the "on" timer first, each read back; if any step fails, the old timers are put back. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
+The Devices page then shows each such device's state with a **Switch off** or **Switch on** button, and every plug's power and timers. Each switch off is read back from the plug and kept in the history. For a day, the inbox and the phone's "Done" message have a **Switch back on** button. A timer goes in two free slots of 9 to 16 (slots 1 to 8 stay yours; a disabled timer in 9 to 16 may be reused), the "on" timer first, each read back; if any step fails, the old timers are put back. A plug is changed at most 4 times a day, and a device that must always run (a fridge, a router) is never switched off.
 
 ## Every day
 

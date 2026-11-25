@@ -25,3 +25,7 @@ Option 2. Schedules stay as timers (ADR-002). A one-off off is the only direct c
 - The same write-time checks apply: access *write after approval*, a valid single-use token, at most 4 writes per plug a day, read back, audit row. Shadow mode records it and sends nothing.
 - Never sent to a must-run device or a device with access *none*.
 - Option 3 is "earned autonomy" and stays later, per device, after many approvals in a row.
+
+## Amendment, 2026-11-25
+
+The owner may also switch a device on or off from the Devices page, while logged in. A tap there is the owner's tap, like a tap on a question. It goes through the same Actuator and checks: access *write*, never off for a must-run device, shadow mode and the login, at most 4 writes a plug a day, read back, audit row. Why: the first real write showed that waiting for a question to test or fix one device is slow, and the owner already has this switch on the plug's own page. The page shows each write device's state, asked live, and no switch when the plug does not answer.

@@ -25,6 +25,7 @@ from agentc.web.deps import (  # noqa: F401 (re-exported: tests override these)
     Say,
     Secret,
     clock,
+    connect,
     database,
     known,
     pages,

@@ -35,6 +35,11 @@ ul.plain li { display: flex; justify-content: space-between; align-items: center
   padding: 10px 0; border-bottom: 1px solid var(--line); }
 ul.plain li .button { flex: none; }
 .warn { color: var(--warn); }
+.device .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.device .who { display: flex; flex-direction: column; min-width: 0; }
+.device .row .button { margin: 0; flex: none; }
+.device .state { margin: 8px 0 4px; }
+.device .timers { margin: 4px 0; padding-left: 20px; font-size: 15px; }
 .login { display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
 .login input { font: inherit; padding: 10px 12px; min-height: 44px; border: 1px solid var(--line);
   border-radius: var(--radius); background: var(--bg); color: var(--text); }
