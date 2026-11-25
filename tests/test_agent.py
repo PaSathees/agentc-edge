@@ -152,6 +152,9 @@ def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
         (decision(), Device("3D printer", access="none"), CARD,
          "access: 3D printer is never changed, so only ignore or note"),
         (decision(), DESK, Card("fridge"), "must run: Desk 2 is never switched off"),
+        (Decision("note", "The 3D printer idles, but its access is none.", ()), DESK, CARD,
+         "words: 'access' is a system word; write for the owner"),
+        (Decision("ignore", "Normal; access none.", ()), DESK, CARD, None),  # only logged
         (decision("ask", "It used 42 W. Off?"), DESK, CARD, "grounded: not in the facts: 42"),
         (decision("ask", "About 5 W since 01:51. It is late. Off?"), DESK, CARD,
          "format: 3 sentences; at most 2 for ask, read on a phone"),
@@ -223,6 +226,17 @@ def test_each_enum_holds_only_values_of_its_type():  # the API refuses a null mi
 )  # fmt: skip
 def test_sentences_end_at_a_mark_before_a_space_not_in_a_number(text, n):
     assert agent.sentences(text) == n
+
+
+@pytest.mark.parametrize(
+    ("text", "names", "word"),
+    [("Is the box showing no signal?", [], None), ("The SD card reader is on.", [], None),
+     ("The power tool charger idles.", [], None), ("Its access is none.", [], "access"),
+     ("The access: advice says so.", [], "access"), ("The Planner will look.", [], "Planner"),
+     ("Its card says media.", [], "Its card"), ("The Card reader idles.", ["Card reader"], None)],
+)  # fmt: skip
+def test_system_words_are_the_systems_not_plain_ones(text, names, word):
+    assert agent.system_word(text, names) == word
 
 
 def test_the_times_the_prompt_gives_are_known():  # "it will reach you at 07:00"

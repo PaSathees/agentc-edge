@@ -36,7 +36,8 @@ flowchart LR
 | `agentc answer 3 2` | Answers question 3 with choice 2, as a tap would. "That's normal" saves a habit; a switch off goes through the same checks as a tap |
 | `agentc look 12 --at "2026-11-02 02:10"` | Runs the housemate on one saved signal and shows the tools it used and its decision |
 | `agentc replay --days 14 [--look]` | Plays past days through the watch pass, and the housemate with `--look`. Your real data is not changed |
-| `agentc eval [--live]` | Scores the housemate on real nights: replays recorded steps free, or asks the model again. From the repo with `uv run` (see Develop), not in Docker |
+| `agentc eval [--live] [--case EV-30]` | Scores the agents on real nights and weeks: replays recorded steps free, or asks the model again (only the cases named, if any). From the repo with `uv run` (see Develop), not in Docker |
+| `agentc plan` | Runs the weekly Planner on the house now and shows its plan: each change before and after, its saving, and whether it is ready or only to talk over. Saves nothing (costs about USD 0.02) |
 | `agentc learn` | Learns each plug's usual week and standby level now (the jobs do it daily) |
 | `agentc policy [Plug-1]` | Every threshold: its value, where it came from, and why |
 | Devices page (`/setup` in the inbox) | Set up each device by chatting: it reads the plug, asks a few questions, shows a card; only your Save writes it. Talk instead of type on https |

@@ -24,6 +24,7 @@ from agentc import (
     llm,
     logger,
     notify,
+    planner_agent,
     readings,
     store,
     timers,
@@ -57,7 +58,7 @@ def main(
         if args.live and model is None:
             print(NO_KEY)
             return 1
-        return show_eval(model, samples=args.samples)
+        return show_eval(model, samples=args.samples, cases=args.case)
 
     cfg = config.load(args.config)
     if args.command == "log":  # the logger: no app.db, nothing but readings
@@ -69,6 +70,8 @@ def main(
         return show_policy(db, cfg, args.plug)
     if args.command == "look":
         return show_look(db, cfg, site_id=site_id, event_id=args.event, step=step, at=args.at)
+    if args.command == "plan":
+        return show_plan(db, cfg, site_id=site_id, step=step)
     if args.command == "questions":
         return show_questions(db, cfg, site_id=site_id)
     if args.command == "answer":
@@ -166,7 +169,45 @@ def _parser() -> argparse.ArgumentParser:
     score = commands.add_parser("eval", help="score the housemate on the eval cases")
     score.add_argument("--live", action="store_true", help="ask the real model and record (costs)")
     score.add_argument("--samples", type=int, default=5, help="tries per case when live")
+    score.add_argument(
+        "--case",
+        action="append",
+        default=[],
+        metavar="EV-30",
+        help="record only this case live (repeat for more); others are replayed",
+    )
+    commands.add_parser("plan", help="run the weekly Planner now and show its plan (costs; saves"
+                        " nothing)")  # fmt: skip
     return parser
+
+
+def show_plan(db: Connection, cfg: Config, *, site_id: int, step: llm.StepSend | None) -> int:
+    """Run the weekly Planner on the house as it is now, and show its plan. Saves nothing:
+    the jobs save the Sunday plan."""
+    if (step := _step(step)) is None:
+        print(NO_KEY)
+        return 1
+    now = datetime.now(UTC)
+    model = llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, step)
+    tools = agent_tools.Tools(db, readings.connect(cfg.energy_db), cfg, site_id, now)
+    run_id = f"plan:{now:%Y%m%dT%H%M%S}"
+    try:
+        p = planner_agent.plan(tools, llm=model, run_id=run_id)
+    except (llm.OverBudget, llm.Unreachable) as err:
+        print(f"The Planner stopped: {err}")
+        return 1
+    if not p.done:
+        print("The Planner did not finish a plan.")
+        return 1
+    print(p.summary)
+    for n, i in enumerate(p.items, 1):
+        name = config.device(cfg, i.plug).name
+        print(f"\n{n}. {name}: {i.why}\n   Now: {i.before}\n   After: {i.after}\n   {i.saving}")
+    for why in p.blocked:
+        print(f"Left out: {why}")
+    usd = store.llm_usd(db, site_id=site_id, run_id=run_id)
+    print(f"\nTools: {', '.join(p.tools) or 'none'}. Cost: USD {usd:.4f}")
+    return 0
 
 
 def show_look(
@@ -435,10 +476,11 @@ def show_answer(db: Connection, cfg: Config, *, site_id: int, question: int, cho
     return 0
 
 
-def show_eval(step: llm.StepSend | None, *, samples: int) -> int:
-    """Score each live eval case; 1 if any fails. step: ask the model; None: replay."""
+def show_eval(step: llm.StepSend | None, *, samples: int, cases: list[str] | None = None) -> int:
+    """Score each eval case; 1 if any fails. step: ask the model (only `cases`, if named);
+    None: replay."""
     try:
-        scores = evals.run(step, samples=samples)
+        scores = evals.run(step, samples=samples, cases=cases or ())
     except evals.Stale as err:
         print(err)
         return 1

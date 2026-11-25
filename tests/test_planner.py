@@ -17,6 +17,7 @@ from agentc.planner import (
     before_after,
     check_item,
     check_plan,
+    ready,
     relay,
     what_if,
 )
@@ -167,7 +168,8 @@ FULL = [Timer(n, True, 0, "03:00", 0, "1111111", True, 1, 0) for n in range(9, 1
      ({"change": Change("move_timer", slot=2, time="00:30"),
        "device": replace(BOX, rules=(LATE,))}, "rule: The TVs may run until 02:00"),
      ({"refused": [MOVE.to_json()]}, "not now: the owner said Not now to this in the last 30"),
-     ({"result": WhatIf(0.06, 0.0, 2, 14, "x")}, "used: PeoTV box was in use in the new off"),
+     ({"result": WhatIf(0.06, 0.0, 3, 14, "x")}, None),  # 1 to 3 days: only to talk over
+     ({"result": WhatIf(0.06, 0.0, 4, 14, "x")}, "used: PeoTV box was in use in the new off"),
      ({"result": WhatIf(0.0, 0.06, 0, 14, "x")}, "no saving: it would not use less")],
 )  # fmt: skip
 def test_check_item(kw, why):
@@ -177,6 +179,10 @@ def test_check_item(kw, why):
 
 def test_a_move_of_an_on_timer_is_not_checked_against_latest_off_rules():
     assert check(device=replace(BOX, rules=(LATE,))) is None  # it switches on, not off
+
+
+def test_only_a_change_that_never_cut_real_use_is_ready():
+    assert ready(GOOD) and not ready(WhatIf(0.06, 0.0, 1, 14, "x"))
 
 
 def test_a_plan_has_at_most_3_different_items():
@@ -214,18 +220,18 @@ def app(tmp_path):
 
 
 def test_a_plan_is_saved_once_a_week_with_its_items(app):
-    item = ("AA", MOVE.to_json(), "It idles from 06:00.", "Saves about 0.06 kWh.")
+    item = ("AA", MOVE.to_json(), "It idles from 06:00.", "Saves about 0.06 kWh.", False)
     plan = store.add_plan(app, site_id=1, week="2026-11-16", summary="A quiet week.",
                           items=[item], now=NOW)  # fmt: skip
     assert plan == 1 and store.latest_plan(app, site_id=1) == (1, "2026-11-16", "A quiet week.")
     again = store.add_plan(app, site_id=1, week="2026-11-16", summary="x", items=[item], now=NOW)
     assert again is None
     (i,) = store.plan_items(app, plan_id=1)
-    assert (i.plug_mac, i.change, i.status) == ("AA", MOVE.to_json(), "open")
+    assert (i.plug_mac, i.change, i.status, i.ready) == ("AA", MOVE.to_json(), "open", False)
 
 
 def test_an_item_is_decided_once_and_not_now_is_remembered(app):
-    item = ("AA", MOVE.to_json(), "why", "saving")
+    item = ("AA", MOVE.to_json(), "why", "saving", True)
     store.add_plan(app, site_id=1, week="2026-11-16", summary="s", items=[item], now=NOW)
     assert store.decide_item(app, item_id=1, status="not_now", now=NOW)
     assert not store.decide_item(app, item_id=1, status="done", now=NOW)  # a second tap

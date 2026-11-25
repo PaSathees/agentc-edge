@@ -24,6 +24,7 @@ valid_from = "2023-01-01"
 # [llm]
 # month_usd = 3.0  # stop all model calls for the rest of the month at this spend
 # run_usd = 0.05  # stop one agent run at this spend
+# plan_usd = 0.25  # stop one weekly Planner run at this spend
 #
 # [llm.tiers.small]  # the housemate (and chat, Phase 5)
 # model = "claude-haiku-5-5"

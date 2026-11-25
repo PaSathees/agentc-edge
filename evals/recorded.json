@@ -1,28 +1,17 @@
 {
  "EV-01": {
-  "key": "a492c2fc4b75d36f",
+  "key": "920d6af779129518",
   "model": "claude-haiku-5-5",
   "samples": [
    [
     [
      {
-      "signature": "CAQSpwcKEAgUGAI4AUIIdGhpbmtpbmcSDMm/jDQ5BuRQzLko8xoMnGiKiYpWdaI3TfWOIjAvuDbiBGl/QcD/+Rx6odoV/k6CFy/r3IjpYEG2osNiu0gAJc7Kpu1ea+3VsrSZAIcqxAbltg9TEEzsl9ZB+hsXV3sswOqYtFrULG+/Wq0dPLr/cVHAcOsHfDO4UR7peGZjhDJ4qveugfsPYK6NnGNjGfDwDwOC/QWggFFzp4nKZy1zVY39KZLLDVb6vmADnaqYzTbFxCrHiSrIUWrYnNgJbHMovjnO9UTQiJHIqSSdTj5+1bOx+fHDRl0RC0Z5HPuo35qXUNl8tU/ExoToyoVVHrCDXh9zVX0sA+y3RChjBMVfGgtnxf/lxR1e2a8V1FhN12YB9xfUmoZBzN+xrA0v+1EjHbR6e9wcwSbwl0gt8k/mJgdpldj/GhSKgAAO9u2KkCl4UT4ZL0TccvPBAbFgGBRTUhS1rUmplIFG/tYmZxtG2AZQh2d4lvaXk+iHA8Aw82FEFbTGBbJbe85VvG7LPRGulagsg6KaS6qMm39R/9wnoDT3jK3Vqw424QMYTmw0VfQsW+UL+PywsexK/BzWo9sDXaU9rwKgnyQhH4c1bn1wXFzq0KLeFNh4Vi2CPUwudR8mwLsJOP+2NVEUIR+Egg7wCdPUZVJ0T4n5cbVG+BTwSgqGhTz78okTtVF9+l1qFd6U6GRqsLkzge/ZiWSZPmCP1zQwg8H2NfVoaYoRYGwuHxk1M5+OCv4OdOVjgHlwjPWl01mTqG/iFhIzj2+2Ghy7YRyF94EAQREym1RDcZkXL8xOdChQ5VQu9UI1Sd3dWiBzQNmlQMhP1cqqf49stbKUeBBSZThrnWm5fqKNpLCrW+GTNGjvrLIifzL3l24QzX0wUaBenuTdrmebgMlFh8IgzpRTGoDENVROt6Ki91pwjzJqH29Dn09xsjMceC5/zsv80Bqm2bFN/n6/4CHoR1qVE8csc5EW0m9eEjotZ1Pc+8sAb/jPyZ3Lui+VjzrThmSMf6N/BWWCApv3leRKkEc/cK586RJV4Rg0FZNqQh5ggjC1322cXJ4xERpRztGnsYzFpqKXkBj2t52M6p/vPbMXJHESdBWOhVVX4pl/nockUUR5XUSTtWIG2U0S7+Ajg0GevJ6dx/8YXxuAhP4CVnlQoGS/lYXiOgmKCQeL3OJgqpc8JVwGkxmBv5Z4VuLXa7TaxTogyxEFcusOnDoTIJVi4d0jhRgB",
+      "signature": "CAQS+AYKEAgUGAI4AUIIdGhpbmtpbmcSDE3w2aEl1ZUZ/JarexoM1ZN0cO8ku6Sru3ChIjC12bT1hx6xr9nCwQ8eUzk7Bcr7sBS8k/P7rNzb8yhOedzKwCkz+Wz2a7DMMwZo+EkqlQZaGU6girGiSoMOvaVUrMrq1QxFtQqnV3djCb/+B1qPprA4JWR7C2WhM2V+CGQivNi2EZ1vet7Be5zDFr0AKb6lyk45g9y/0oFPykfkCmyf36dEF8mZSto3W2+q35s6YivrtiSP3qye2ijRLuYMlzzECFoscl8jMSwVJLciK5ZWZnTYhoqcHpqjboP+j776mYLyAyamikHBQwl16pD2uWl+3dKqB+W4RheHKKLuCOd3OpvZajeoUYsv9awKVrTULS6N4K4u3CoI8slkeHe6YNHuXmUcuII3GudlFvgUqXT3eQUmEZhYmzSgFn44VB2sOx6p7eLU9s//ixAim3y8ua9dHnIfBp4Lp2F2C36O4g6Jbk050mzUpm4Eph+ePUsY+KLHt9y1OvdJ4oRY5j4AB6paxYGf7ftTb33pt6V46uEFwBqxNkqZrDmzON8Aabvz27H1OEjORtxcYcnhm2xca16BmGO4veFrRszrI3Qcv26A7JpldQWpUfrXeys5Qz9H+UIVxm/iGfbfZbymS7j58qXXtcSsJJmB0fh/zoYD8kZQRGFoAK1v9JgzgRP3YBuMmGIOg77XKSzn/qd5tQUQSkaa2AKJEvF4YUI5LS2cZnitHRQNit7m110pASa7kjNoAM6ADIWKopcMTqsr8zi5TbmudMV9dqO/p+iVWCcLlkeHYecJ9FAYVvHrn6mDyaPXLvqllsCC5xdCnXQvxE3XcKg6iqJycqaknEtluI298eA7JJExudi/e87+4749xkOYnqrC2aDDhTBoh/rQY6CnJaJHyEoqay3aRoU9cw8ZvM63aT3Jkq+v1JrqRXOP6kdzu/ONnTK2kWcMqf7n/w1nNKjKmoMmhdBHLuuR5KDAr3mgry+E9E00VQAbMJxyeut8Ia48bIr/NJgXLtdtumVPM7MdagUd2ezdjyI0Ab1vLTphWyf0Uqe6L6AXfwRz7O57qIW/C5kMw1nAIXRdGbfEA+cPCK3SazhsS7qu/rhRvfrXsgq+RPUJvLCk4qsU/l9L1PeHHTeSAf3Cw8pRgYhKknA5EVLL5WwYAQ==",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01GyZr92vAkky1AsCsAPXCMj",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "Desk 2"
-      },
-      "name": "device",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01RM4hqcZhXaXPNAoNfT3WLG",
+      "id": "toolu_01FZQQkMYzEEqmLMmm1Xq8zR",
       "caller": {
        "type": "direct"
       },
@@ -34,14 +23,14 @@
       "type": "tool_use"
      },
      {
-      "id": "toolu_018p1BuVzvi7GUKdh3LQ97fV",
+      "id": "toolu_01K6MDsvEvGnyzbirNqhngaf",
       "caller": {
        "type": "direct"
       },
       "input": {
        "device": "Desk 2",
        "day": "Monday",
-       "start": "00:00",
+       "start": "23:30",
        "end": "07:00"
       },
       "name": "usual",
@@ -50,34 +39,18 @@
     ],
     [
      {
-      "signature": "CAQSxAcKEAgUGAI4AUIIdGhpbmtpbmcSDMmVGJQGoA83znVsORoMHmpK6UCI1ZviZcQiIjCV+8VsH0po4TO9VVeEMox/xHKREXcNh6R4Q60Q7N2K4wCRZJPcigiXQVLVy874Rg8q4Qatgp0SiTJb6WeaNv+PMJgm2Ep17A33p8cMOZnF1IzhzKpa8QLLu0jLUxSRDedUl4pM9Mfn45xi1NgjctKDlhv5+F1E11xBf0gslstNChEgZ+DI3XXGgEnRSDeWRGSRiXedhhAeNvAtIidIAwWILUQZ37tmxgK5tGm0f/QMRKqhH712BFY3zPuErNJwyv5swWIFPRBpR9wBbgTUu5YLCZOSRanGQskN7gNaTe92VAVCKF/8+tsxXsXUmpzasz6R7OIa3Ut/MHU5MlEbRV+bQBmA5qAz1KcDrqF+nHV4vuRxpLhxPLRDfi+OF71VmKuo/RyyvjLhGHD97J5LVrgGq4bOFa9eCN0ftVgiYKQkuPcFKurJaPtfU2K2M/aXmw6UWPrWbvXC9PU3QqvZr/25OwEX9ankk4L4Dg8jA5timJp59cnemehrq26LswXCscBuBSnlKOCR1NiuIuo3JpF9vM+uVWqpdnOC7KunggnW1w8teZDhY3t2sUXpRKMUAdpxxXMqfPpbT3IdQBh7Ki1j3ZeBOBIwXXBNQcdRd5XZGelW0eGwLUpxUed5IR0UPV4LQZ80X+U6VLz0gCGS/EXYn5xy6eIPj4aWgLzOB2ZnzEfmy/XcvfciGwhItB9dVAphbHhcobTaG5WfLZG5Jn1hFHEhJwIioQ9lSwVgYHYq0fArHt8nGK2kirscssfQlKxMV9IAfqnn8aQH+9Eg8y2idzziwQ9QLFbj2p3m3A3Htp9DRjwFE6RDFlziGxtYeE9q9g1gIx6IVCF4y8thCwfVvCrI9Sq0cp5V2JUMOTFHs7xA/t/PzjtxJOJfAFqKp7rC9Yo90stYEJUtC0X6P0IRcbAfEAMnlRMVnxePu/t/ASiIfe/7xZr4qMtmtCg26NEyNogbBfJFB8AVEjkH8qUDRx+91Y2zEm5eah58ZuCaGWjjiNguxhO/L35uhSNHvR9yyOEe3k16nBxD/24temdrXsMHLk79fKWtK2p7f4/VDvm5PRCA1ahJl5nocEa9S/GCw1TV9jUHv9n5fZzSpWGaIiiaaYFXGVWJ5PbvWUmV3QKzbHoPtucy1SgXsw7pfFr7+msQOWtKjwrhygs7K3f46FBddU2jAzeXJ34NIcRYq3wjrqg7zyByWKzpflwc5jWIhduvGAE=",
+      "signature": "CAQSsQsKEAgUGAI4AUIIdGhpbmtpbmcSDNbjPNxjWqPV8EtF+xoMkXcAPDHZH4kgampJIjDezn4XYglk0GDsOEbgrSkZnGTlSRGHuV68lv2NKfczqRorj5j+9K9WucZBwpNOvVAqzgpI3mAlSSns2thF4Cm1cMJd+WlLKTMeERvSCNrPOEKJuBtHR0xStd0Uwg7UGbQ2OTnOKd9wi+SE/ReBYE2RwJBkXfUCp4Ip0Nw8NInod2w1kQ6BQGoWm9rr2UyMxKPBke5xwItNIUdVouUxSvVdef6igibZwzqJIrEexrZXHIIdZzG5Frf4fsOklLps6gddMJa3iH+r6EJhgfMcQJTQnSO3VTeL96fQBMZyKjslT4VbFxylaLW5t9U0mYac/wI1MR1K9Tl1hlT1FhG5WvXrSWfu2xOv2YJa+1ypc+RSo5YiqOzUIZDeoqEbThTPtEVArVLcVwq8cI9g70Crjh+tLDUT6+rEbsZZ+J602ZeFHknU/LmFDMa2SuEYiZcOyQ74cHF8nOUodE7uxKDlFbLTu7hMZ9Lam7Wsy/IafzSN4bhQ9S9aVeLad4qdoLEpNedBH9HbcEuW0QhAmkQ6HzKM+t+8RZ9J9rQ50Gxdn5glbwCHIiDPENEciuQOiJscq3ip8L6X/tDONU1oCUobSGuIk71KfGlzZGBEJCuWtAvEp2NWWVSLpfR29apPlrpWiXhLJrV6OAiyECpBU5KzqCCZrSGxKFfGWy5xwdzviqBjup3Qtz923mipx1BFu6IVbHU4JdQNNw7FU0H6kgf1bDtReh3RI136iRb2597eqeVwTZgUeVmAa0hyc958PrmqZO9svsrRs+jF3f94gnzTU2YvbUl2dHpop/MZZQNoRCl01CYVUAu6O9vKewx05/dqSi8O7VEtFWZjz2icR5erTCT2yKPFAMkWvCK9f2FxR5ncrcL9YvtM/TBLBAjeeV0KVuHMfdhR6BBRh01TEzS7E5uJgrHnwjc0QX16NbXF0n4IbpGyTsOC6kCpD5L+zohmstDgo6q+Qa4kkg6QF4nRB2MWfbjbI0Nssy67cnKq4DVje7DuX8dpCr6dAQTHvfusxF2k93aHEsMCM49hVe/Jph5BCiRtKGMHAdZ5yJCAJEdGwW/4+3PWNukoCUE2814GFfOwD+o2SZKEVeMT5WMnM90NZ3oOSdz4+RdZAFbvCPneoT7pu569ugkpRV0KaQXFgW02Lvaqdd5HTYCmj8vEvgILUHdgg/+A1hPmNXpg/FceQqMMvFTD7GCdoEP4F+zP3uhfovlRsz9QMtyuAhuBVHY4fL5t+5lZSUF5ovyoj9J2KAQWvilrgBwWG3EvfsTxAZBz0A9FES0WHpvYY2abO5RcM+f3JfsY+Ilq7NwX34WOZO1Cfk884d0Nl4eUQWuNVLQG0cOE3ueeR9lXHPSpEZsQhl9+xVu+Sp7RLbAVZ1PLB1z/sNoqQJzZh48dOzXzzRdhuFnRljYx3UvSNeqtK5wOwg0JuuZkmd8wPwb15urLC+ZrxSZvTeSog6PG0loDRtw7p0VIKG2n+M4fP+UsNm05TAfr+ffh40y37a1SSXq5WcGU1E80qk7i/yX9BHiv7lau8G+maxBpiW0xtCL6lXtHA+ct4+HP1bZLXiAAzd9UCBi6fbr6TNuro3bUbrcy3+Jx1bjvTFb1Cc1klMRwlNAI8aa0oG63wrcopX7cP4uM8o/Mx4zHw9OK5z+AbBhdRGQSB+8+qZzKtpEPxrZSp1mv9ESJ4Gs7qRM2Wa/pudWXXJLkxHe2CzBmWl57dPtpeAHWKZ1L0ovptonavvZSbBw9JAZc4aS3/oOL3aEgPW4RXXUef196P9gxOls8KftcKsIRrd9ZKXWzcMuSOCD4tsFcRXAIArDIHIQCthSbnawuYSOQsBk9cxgMYw+rAT8jp9bwx6SqJZhIbsRwB/X5+U2jjxgB",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_014qhHg7d6DKAiZi83wWohH7",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "house_now",
-      "type": "tool_use"
-     }
-    ],
-    [
-     {
-      "signature": "CAQS9AgKEAgUGAI4AUIIdGhpbmtpbmcSDNQ5B3gwxXptFUB79BoMbOmWMAr1ZV/PgBGEIjDK5+Y+FGDa3lquPDzMmgfpkmlVAipY13sepSPzTk2IKVeXw1Lv0SLxX6O9zVxnANkqkQifN3bjwTa6TxM8yYjSfuH475z4ODMD4YflBumEBFmwaULlAbG4kH9f3G6zY3U3V4kID6L8WeRcke4B596bK/Yur2BMfWyzas5k+ATgxIrXLpl0eQHqUsMD3OxT82qWb4IsObov/A2/nBAylWQYwrqHjTvvHv/7cvPiPTmL7mlsHadRdH57xksbELbJaQIZF1sL6kIYb632rH8MF/VzRXHAaFEjTKhtwMqsInT17FNDqsAMlYEeJJP3DC3E1oO9p5UlCJr6t8QH5FgL53mHYx8YrMvLt6f/P3ctYnUcrXJC/G8KgBx9wtpUSi0eOGFqCuF1fBXCmcvEnXY/iQwx8mNwPx0VX82OaIjQaTPrIN15vIhHuoNhBQdsXzDXO18FKLxBlLlmUlNlMLYli7mQj2aGkP8jMOlAkjiIuq6EtEdnd2SiUZAVNgel7cnJQN1qxN478OigQLKqC0Bz/PqN0S17VoICL4Y5mdtKZumaaXd5FfVF9wJNKyWWFhzOU3/aVSaQsLy1p+rjNVAJ9o4bEZ16wE8R+6pBQATgS225EyvYnBcunFQcCQUUfIAAVe4/xqBGvqUO84M6Yhy7PDOgovdS77UymQntQONgR+dO8swLx3awsYfl8/tfAxc813f8lZulhB/qZ/AdEaZxjPJZLm7px0ZWtPovIEQojX6neoit3msOGNXW9VatZ+UD1f0GuODQXkgrZrxhHc7p7V8e393Y1hA9kCfRFLgps1Bxe98fCu5ojR5ZsU2xVAFlfBx0KcDS1KnwgRSSu0NfVzw1z9CYTY3+dkyjVpr14CLVQX0aTX2SxYHo4JJ0XDxBwEqI5nQgZsEu01LZrdf6FVxM6J9cqhC7REciRNVhtbqQ0nHyoXcn46yPwuVlTYVR/WxxTAizIfcduysw23AZL5Ng+DSYE9XqZPxu4wnIITjx+TorUFzF9bbenKthAREangBpzBZ+JtaX1dE9t/jkt3nDGjkk3T3JN8o/5PclXt73C/iWXaczrYSLkg2XKx4S0lnvLA96nlxnZ4ySd/AG8IDh1wlcQA1bH6lESiP5/TCNmbK0y9DZsiudX0OFoQXl8BjOSv4VQnTGiyGDihEu/0ccjRsu4E9ZeN9E5+JNDF4l2V9nmrAFmlCk/vw6J3GfwijvJS7CY7QqeRNPVs96OOuH7LBX8OI1LBTBFG3i9CUkFHeFj7sTkt/24gMzxabYatI4h+gl6g6y8VbwawwR1/kwi9NL23WA81RzUCLTnWKCOImRt1nfNxs+1Xw/MfT+AZgCLMOLjB8fKj0u4Y+V468dfBVuT6clr74cMoejJif/FMjmnawYd7WmGyN6P46FV+5XSJAN7jIt1RWUaQsH57fncltr7Cc+oV/0ZLj3wxQxt98cFsUYAQ==",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_01CnjD1GxUEfy2WG1GGfFfiB",
+      "id": "toolu_01C15hvpg6wypeykE2Kxez6n",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "ask",
-       "text": "Desk 2 is still on at 02:10 and draws about 6 W, at an hour it is usually off. Switch it off now?",
+       "text": "Desk 2 has been on since 01:37 and is still drawing a little power at 02:10, when it is usually off. Shall I switch it off now?",
        "choices": [
         {
          "label": "Switch off now",
@@ -101,12 +74,12 @@
    [
     [
      {
-      "signature": "CAQSwAgKEAgUGAI4AUIIdGhpbmtpbmcSDJ+XJfTQAvm/+kXCIhoMulKepGP7cecyPqQAIjC0BA47EuaB/akGFCWfbIZ3EREmL8hN6wlBsAfOE4VuAQPyn368Tvhk6RA399qxTaQq3Qem4sRa6pGIWBsuQaH2VqSYVj/2YXnXZ/KNzLQA+MvRkjuX87m1IgQrWK7ZJ5rWKQwwcfKFmIdomcrRVPLwBWxTb1xjMFSFYNMzNUL+3OfTk+z4dKcrvsh5KCvOb647ChcCpTOCRcpGEl35nZW4sYpJWR7qPV0OI9/um9K/9j58OwhQU+y4KAtVMkfGkRXPbzPHkmbjKGAXABNqmYNEPde8kT6J2Lo/q44psMEvLMIJk/699pcyj4Barr2yNC78NTTZQUWLdO5CTrrwf04RPMeGlw6Clv6tKyxdK9N99KBLGIRy6XtiCTm69d+mrZVnZwto1gq+aOKfbM7cNiP8OEkIHOWlhsNL5U03F5FcyrZwtEICorPy9WmdUFL4LPsBzGoaQIJVD9njZfHxkoO4OHUteKq0GCUOFDcGqEoBq1epR4M+WL697+iUeWLFBQ55b/IdyFQLqxj+QKUGGtKW8KUUegYJs935rzZsqCGSQKTDrmqCrngOZP586/t+wJa59DyXwyT+ASO5a4APkqoqG2htGVPmju9hus/HbMsWLvP3sJWj98UFBhCW4gcfmaZ+wLmx8XQqMV6UnE9Hyj1qWc+DJjayf7hPPcD4ITiHOycTJ6w/2F5vv669eii+EOGTLv8zmFqEWWGI1t3gYxBqbqgKwJjQuHfBh0anbuPjRnkogCZjT1Ae6DkXtIXGaw8lgS/jbOHOiXV3AtOmh3hRq6nsMGbW9pjEGk7mMrcAbCAj0QGeCn1RTn2ygwDsEZQufQ1/KvYq66fvFw6tgHXcx8c+tD5W21EYQwJZF8bwTgi5/+xW0sRu9cQ5hCcjZA00hAvaNc1m8hA4iyWpJIAWor9kPoKyoLugukrVS7XkEM2gQYnR/kefEJFYskmJ2odYcfIowb+uuNOuATo3nl/ClNc0NcvInhK4D/T1CnWjg3/0blLhTHpmJUN74mTCMjtBYEWl/25M6IjUpmqXfSM4sUFomtiEUs7pMJ56PGMrlOpVkXd7gBsRpUHqfDEsFVE7mfILUVYJGHKC0BaTSTJTDitCdj30Xk4qBSBKTjBSXM1hzaZT2pYl82cgwQapcyKh0UBdH0RHIRzyGpLAwYV1O6DMVjH65yACP45rbOgb1/FTGpI3iDpL+loJTJshk2qT2h9KoD1J/SqkscxVLk4QpU66WFY/kIvtSwV8OfoTeTbu/RirAOjS2s7xldw9xIc2JvQ1RYrj26SxUgPQUjMOXpbKcqIvzlwKJxh9F3VVTDr0N23i90SVBW7i521CwLLvQv8P0nVKwEdLUjgSwK9lcZfFvI9TI9mDG39PyHiQ1hgB",
+      "signature": "CAQSvgcKEAgUGAI4AUIIdGhpbmtpbmcSDKsiEuKYsMIKc3m9thoMoVQe73aUbwbqjElHIjB5ME0en3YNQ5NJFDNjYnp3FR/SLhGO/v6uoL/qNfAdrkJDESDCZkm9crWem1Wf7vEq2wa8PqqK/E0xE1m96wJxkyvpHxNuWtTZznthOgIYNtSOAdXdwGTbGd8E/9wEjBwov2ZhL7T2fx4aIYQGKK5V8ig976rdY+X5Ga7taKjQeXjIQwrjuolKrkxqqlNwDUh5fUel1YDyMxYuqaJguPSXYKw8j/5d7H6ddmF03HiqTXZw964MvwFRzYB1fFEnfTh1ZMbPfIenxjScLYaa0dVZ+HhJGf+9ZUtY7nfg2C69WsgA/r0oAh4iIlyBiMLl2oThXcvYRksLYC96JW75uWtdKgTr+7otWlDWXMW30D6uOXFCPQrwjJirSdBmLnZz/5hcZlaHqn4S3xx4AQHOATRYIJ2hQuqfC094T/YncH+6mgYZ6YQkQxcgVujd+Drx9FOAukXNo9PDdnbjsW1Mxfr334tTWjvcWKqJrm+YgkXwwrn8EyxBlrSkyuSFO20e4wEaTZfp6LR8rMY06qQeqIxAhnYjdQuHTsnnVqL1LFuHFLcRImxq3xXVXr2Vvo9xOaOeoMU0o7X4IoqLuRyq+XR+BkVyCNvmV4h6q9bf1fRmqQ1wnMkctFrShfaiETMqjtZZNZpNDgDgNbaZJEeeaJvRhSAL2krC1cFMmU6MkuX920g+HHapvBqE3rHwzfVbsftbr2h+iB4u1TUeLw+CRAkNzqf3IT6ue/jDpTXdlnLLPaSx92GbaL2c3DQiMpenBaS5T/NsPK1iMxPRItVjZ7XA7w5usR8MzRjjmLP5YqYYFplQOYQMYQXNJMO3WVetm+Kmo56OeVLW3zxlVeMOzkgSujpec6Zo8Wlb7lT+XODEOsFzYpjFriOdvv7iPuFSeZ5pEEZv04M2mfa9v9MHQWGtdwH9gVehiRvJDV/a/EStY8z+ZwjS4kECJ0awvBk8ern+8HGffvVGQR5G2LNsGVkpy7e6sOQ4XemgoTufuVTp/vz4aeNeOqANfJRB+sDtO91iGpUzLl62CsXIEeVyxXl6+7ZVLZwdd9qL9bUdErNLrKR9Q5zBl2zFq/KkEhoNMPCriiC4obG3t1weWdF1TuC/zOGrIzVWhHkhNcMgz3vYlDZ02kMK1M7enYaAIL5bOxyR9yMJxgIUO4Ko298tUoVkXatZ/FEXHTaCS3Ik65X1buxIJixKio/KwC8pRFZZGAE=",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_012usFWDCsR6HSJQpwuAUVob",
+      "id": "toolu_01NrJLiAjFZZJ5bt4cfuJauh",
       "caller": {
        "type": "direct"
       },
@@ -120,7 +93,7 @@
       "type": "tool_use"
      },
      {
-      "id": "toolu_019QhfYhQwJit1NFmzRQwHYw",
+      "id": "toolu_01GPpjRBEEcPEasRr6K4FtH4",
       "caller": {
        "type": "direct"
       },
@@ -134,25 +107,60 @@
     ],
     [
      {
-      "signature": "CAQS9gcKEAgUGAI4AUIIdGhpbmtpbmcSDFJ7h+x/Qs8AM/RbyxoMVcy6NSrCsJFepkxjIjAG507koeIgXx6Wm5FXDS5wzIDgL0RVzZnTxZZnilisKE0+ccGTMHSMKUFe3hiq9gcqkwc5SwMxxcLSz6zZ/CsukgLQvdV6rJmEJ+vJE4GKrCktWi8gn/Iq/ucXQlCigf9eATOxUxxzFZdnFKwNwTXo0rLaAVrFIgxEg5tr7hqqKj19jLjpPR8Hi40W8GGYqSqbkxns8n/VreTXUmS8wAPdYeiXL7xlbs29TwVDwO/ADeR9Mo8Ed5LDlWqjzvFWzsPaC+tJjAWmFIYWnqUI0cSnzRnO7HUW62pIJhqocRRTUT8dI6f5vhrIjgq5ziUzk9qH4lIKwWS31oQ5j0ylWBF3if5LgkLyoytlZXpR8/YjWHM3fqp5wJgCQu3CemSOZmIwOe/yv6mnEROLd5uFEpIdB0tnV0IHlFn7ZQwqh9IEiusZbNrJuVIBstTbsoFn82JBQc2EAxwY32aRJ6+RTwpDwMOtEGA/cdls75nGEBn/kW0D0iyH9WGSWzvV1/tM8Me7cmAk9duK/QQzmtpNN9PuAv1M957vrgjYS47I1VxLkUY2C+kf/1UBTLJve/Jt/cErqpxS3zW5dinWhqXYPOUwM9cVijm/QAiCOQ07vuF13U0gas0lbMJ2zqlCRaPQ4TMWhfPD6AJhC4yznUTs6LcNWgxGuQ715jvQC/Znjo1c94qCkgOgxtne5QQpQQFzDBy+Pd3AeB46YS/7ObTyAyGzC7VvsJYzV/Ao0ij1knpEcbY7/4N9hm5tdaY+MRvo3kNjwnVD3x6MQuxr5JK6jGw71MzLaCbp3ye/kawa0mcoKreNsjold/8yQnvoGCSxWblM+FXf2oGHAE8qEAMkGkhgVNowdTvV4lPr+DMQ0nlGJKZk8Z0v0b4kbHeblOSWgy1625Qx3lByjw1HKZdaktG8jPCVLNqqDZPv4vARTKsXvTiHyxanSqbOGYH5TaazqqdD+8GcuDWCCGiMuGMHJxhe2GPc/bZU3A5D67vJMkNR7aXi13Dv426rM270ljMDrvZZAj1csrn9K3cJchcbI6EzjvEi6XyEqXlJx/q4KfGqhUV+8dgQ/d0T04H5w85+FzPYsRGmn2ajSHXe9B2BG8YSBunhM1Pnq9Kl5Xdt+ga7RAhNV1bHPfiP37w8Gnlj9TPadT+BfQAIiPJYN+eqxr+tgBC/lL1a0Gczs8OHCl6+n3D2aqtmMT2aHw58xvbz96esYAGDROzdTGs8MjtpnrOr5ajwJdxcQatOrJBT4MFUlFttbLcDAfCPPH62yBtarSfKN4iMVSYYAQ==",
+      "signature": "CAQStQoKEAgUGAI4AUIIdGhpbmtpbmcSDI7ZN1c7sxOP4M/mCxoM6JNuPRaGU6XSkdVaIjBeNZfNU8kJkZs0CxH2QTWwgkyUPrvnMdZkYY0BnU/ngIoatw85IClQergaRAqZ30Iq0gkAGFFaGwLLjJgbGB/A5IY0y2uzuVpTFHbnQ21y7TdddT7XmOJnU3Gs37u5M9u7gPV2EKsdcF3jPhcFiIoroRjpuZTEt2BNpiVuBBswx1bY12skQRYcN/N/KH3UWzFUyctvrd9WjvkM/LSFS3QsHJ8HvbgQtwKiL5QxtnTEALCFi00Yc5yf0s80rQmOyqLvNACDKOO4kqmB/d8tupUyPQUAo+TTWefHPDMjeWdDEvVdClsnwVuvJ+62D61cLY6cGbJdk7W3XhgsN2w/SRMIO5mQLuAGNUPXu6C0wegZPG4AfKsXiFwG/dEGpJ1953kz7/K9S39MG3/F18NhyKSxfqzXYSZd2ZC1Gv/6c9i42E/wKVufbtz8wowr/NmDIL85Mq9vJrZS/JLfx0Oh26EqWUYgcHBRKhZMrEcwYpyqqulQWkYj8NDxE0OfaagZUqdxT1nmPvDR1rHK3fxKsHdAOfLTKOIyKZYT3ChtCXCBH11zjtc2vt5bEFX0vXI+26BfcpPZuZ7DQltxtu8lj5wG0V2Q26jE87g+D5a2swQQ2IGFwUa1stE1m+O/+PtDCRsTkvNlJ2pO16pdAlrPd0EBS8lYTRBi/Ezq6VBCtgBNGAIb5lo9lQ/tJJHNzpayIgaucXxI7bNSYpK+0pUaO8fs8mj9penP7RakyJnIF9e0gUsUrp14tttwFBGhPgPdvEwgk0LY1RG7YhzdRrSmVzPZHy5f6QwO27LIMJRT/aaji0jccsr4X3pXp8yWFnvRR3UOGbsVpE1ULu4aezZoBtavNBo0ab4pT+R+6RiSAt4AbzmzXs4G5V5r7gYNJ1uVzgkgdxoExXV+o67m88S2YU3T8syWsHaD1KKSKTD691BhXhAeQ35EmYR5KdRq8JcK55iQLiCxbD4QTCQFEAhAOwgxEzXCPHOQsk8X4nDYxmWZlgUz1rl4SwT/JriYv13KJgeDukYECM9c5ddU3DvPJzDvMaa+c/PqMqh2kdhEgA3OeJt4ywrxZlA8n6wAXWBpHWBfYM2/Z7WCOpP5cEeChzTd6fR/MqyaYvu0RrQQsh1nJU4jK8A0SrdVb4fmGCc55lQwsGUKfwsOuzYXUlfimru4sB6sgZ4OETY37r5NWLcRbwno9Mf2TM1aZSp2efDrq4bHlahKCQo5Ev34TPexVOhDtNjf6LQ+uuaZiC1yxX42w0Zf9agG3cXKlWg0MzIgsFcLtHnIdda40M5OVN9HOMbYc2HDKgWdpqD1zC9byoNXQ6pSE7nvOcw1XXIYXAtZEsCCssljxkAltDjiQpzQwg8xdE8JwIgwqlZkHYPq7k0ydTqorYiygzCdYh6momLHjDpxCePZdIWQwsQMpwuDcRveXWrc29xfe/TAnIskm6rO4p1IpgmlAjsREi3X0ndHT4dhyAb3oO6+gNQEjijHM/bXr4H7ck5cvSh2oSmzqapkezDmsMH9az/8A8qJrTuPNOOWVobPIqp3DevH8LCtbC/HM6FzH9zKk2hxjlm3Ry+lEJKosLAWOiQ1LrYO/5gz43iS6BJAJhkfL3L9pKJ1/Smlqju6GaRHfuT/RvVRWUazMGD4k32Bf2KjPxhALlNEVWdovszlkhFzxtyPogv0/b4RHtSks9tv4sws2W7DGz5zOoMZdSsxGAE=",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01HGKrbbua8Con4fU6qaeq6S",
+      "id": "toolu_01DhgsGspDYtCRPUXMFWYv4i",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "ask",
-       "text": "Desk 2 has been on since 01:37, and it is usually off at this hour. Switch it off now?",
+       "text": "Desk 2 has been on since 01:37 and still draws a little power (about 5 W), though it is usually off at this hour. Switch it off now?",
        "choices": [
         {
          "label": "Switch off now",
          "does": "switch_off_now"
         },
         {
-         "label": "Keep it on",
+         "label": "Leave it on",
+         "does": "nothing"
+        },
+        {
+         "label": "Night use is normal",
+         "does": "save_habit"
+        }
+       ]
+      },
+      "name": "decide",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "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",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_012PUzDFVAytwpuys1L358Yw",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "ask",
+       "text": "The Desk 2 computer has been on since 01:37, drawing about 37 W while the house is asleep. Switch it off now?",
+       "choices": [
+        {
+         "label": "Switch off now",
+         "does": "switch_off_now"
+        },
+        {
+         "label": "Leave it on",
          "does": "nothing"
         }
        ]
@@ -165,18 +173,51 @@
    [
     [
      {
-      "signature": "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",
+      "signature": "CAQSoAgKEAgUGAI4AUIIdGhpbmtpbmcSDMpKqcLNgc/7UiGOeRoMGzHPQrOPNlj/w79jIjA8NcLBAaOEtr8BaqnE4oKxXmxyW5EvHKOYxJzyuDKXLUMQlEV6Ng3ll5z45IFWNPYqvQfPIURgPy6UH85AYlEBrO5d6MJYDr/PjMYWDREnn1wLEmiogcbUlhyIcxqz8kwOVhN5eM39N4pwwvjFNdFtLJRIQc4E93k+icdj9hnd09PttoA/Mk0uNykt+XkvL38/3KhfOoqEPRtqxJVlk9+oauJN5hgQBLtLAsqfHXxs9TmrP4Wa0I+IOMg+Xxfzmz8ZLWZk1gE4etVggJWTDb9iY93Ui10OHlzmRtDuclM5JLWksYtkYTv6yDRxUqMILEOV+9JOFfP3XDTJyld2Qsjnd7IAmM6tNUEAV/EOGnbFWdtE7Dyq9mrDgmUSUtx6QYuyPCkqNeuThdz2eg04jBTllFA1hpRXHz7sgH1EJG9yaA/0iIi9nfU3sz4TfK1kygNnsePzc8+Sn62kShhgAP+i2SY6VTpTJs3RWUBQmn7oGJ+w5W+mjCgIhFSsKd1u6QngcgpLf609HtAWsK0b2zqLULrbHrI6DyPptHEC1gWwOXEeMdvC5AvghVPreVx7A/ZXZcx/FaieznXNx06wvu2/hKWmaAdw5wkS+c5NxOZV5bg5DnZOgur/roZ9Ivyg5cb9qcEwizZcuqBgfqG6XOMs9E4u2AfQuGMd9Iue1B7GXxRwK8Yb7j9wigpTR7+Z69f6aGPP8NDVhBLdqUnvF2Hhiv5Bnw/ZziSt6rxDTdvetvhYnzZSWpiPHmG4L8QSUwPxpKfb+z3rh3EyRPMumNkMOftRF/LGzNg0qqz1lK67O3AtfRXGjw6c4X0GziQsoTFxyx8jUQIehgyKWOTHb04+bWW4oI0YDwnxb4jrdaGc6VWA2u6FbUCxG/mkgHlp9VwJl74yS3WPiNHkdsF+4ov1lQKh50LNj+DYjQqs1hAr6ltgd/9j0YZjcTu2857Lby2s/vi8sFvd2xHBsULf5aYw8WVUeS6lxJ/QM075j+/6e8NKyVq2BBWwPVJ9+r3iN28P+Mo3JnAR4ZsJLdKfYzhO4wG4sLI6EPYT6rb/5CLO/t5ICM7eBFOGnvl3BG1v0c6uBmfxnKR/uYdYjbxi7SfnSj/ooXocQTlewhVck4fg2+a+vlA8o2fser/yHuDe21XQu/K9Tr3jjPdz+QOrVmpgxFhRPVdoO1bml7b0Nm3gqxU8suXnk++6IrylDRK1Hwo9beVD/3QpibjyQ0m6iRD0Hcowym9HVQjMeXlPFyUhzJjJ/vMgw5dMYuivlEuxOkuTyLrDLhIpEiTZpjyLogthl/ETaSwmfOldjpzxSYbJ7pxHYDY6oKM6wfm96bFP3kUYAQ==",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01L9rRTEhXjoyPaQ97ufHroT",
+      "id": "toolu_01HHv9SQo98e5K4sDVmMMzkU",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "Desk 2",
+       "day": "Monday",
+       "start": "01:00",
+       "end": "07:00"
+      },
+      "name": "usual",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01WmGEcezie1Vdy8WEwonSBK",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "Desk 2",
+       "hours": 1
+      },
+      "name": "power",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQS5gcKEAgUGAI4AUIIdGhpbmtpbmcSDEChiEQXahkSfuh0vhoMO0OBlAvMWayFD6EBIjCgP5KazNfD07+cy3PphCe/z3108iaTaZAzUb+wQf7r2tLGXzmTUJyqhrvY3JgbVUIqgweDdi/TPU46AdWNY6x/UVVf+GTXX5GekkMwLRM39QqMLrtHnqtDK8T6O5eM5nXktZ/9Ikax8nMDPwHHdEDv4I1UFvjAfcJqD7cwYgWO3tcEZZsa61OMiLCmopYuiBN7034WTxrwxyCkJ8AlALQpF0Yfwe/pG7eCyBR79cRoZJIYdOZNKnkL67vIJJ4ZHA9oFZdwNCzgQO3c7T6HLPqKBb5cgGGTafmCDQSSvwdR0ySYM48VBVZJ6OkSHhBcOWq/L3YlyCOhj6SmDSSTBhpEttect7doq6cPCdgR3yxSY1ds4Dq2G0X9t6cYOhtVQ01ozANgeCiQDILyYvFVpyGsAZgkp7p+atOLDSoPMQO+ckI+C4ctSbSuW22NNci+DqMe614MP9rouMkBrx3HDotIr6OsFfvps7XtL/2i4gSVmtfjRr1hblMh4ZWru2+47gdWRJtf+xrz4IEXwi2cRsAHTl1AqOsQXzqSr/fZvjlbzx/K8XLUWFW71mmn1BQhagsLf0vKW+CNJlVIN7XFZ4wenylUDcbXGwBlrjZRQLTunKLaItU/X0IsIEVpcL4XmNELhhrZAme+yP1kkvwxOqL50jZQwFBofEHMApJ4N9A4yO+hmx/XD5KbwKxC6ZnET8q4RUugLIhegbDotCW6kWKEewJUVnIV85A0NbHBTglBPHJFtUzNhEvVSLIVik2MeAUPfgwaT+7VX6yj0ZXsjbIR0qzbqlVWj75NWymJbtX6AkG4pd+d5HJU94XLD+W7g8P8FXLz90Plwj9zifrAQt13IJCJD4mr8uhT1mEvrfIYTg4HJ0ICQTakDA/EZaLHjMIof0Nlch9Mqp8KgRXa8WBQQbCZYgCPB7x/AZNQvKgniQiPKFd60hK7wpbnAP3MSYPgUZJHmytm8H/sNL9IoYQCOP09LidYKfCv1vX4HdsOOfy+CNhE1VI4OhkS+qZ8Bp2qTkRhy0L/tCl+1+bd0Q5yfPi6ZW5vGemlCKI6GTpn7MC47fmtVzTCKcirJVOIQIkk6KEuUT42DON8QChdramlwWQkrQENTj1vEj010IbwPsZNAivlNijebzMNcy36SStdsU3uw+HCwaUgN37BFJ14NYyQb2QXOg2fjfqnF3KG/7SdoDE/DTA3miInrLFKhK8u1X3Fw0fglROXt9ULhlsLnysyHi1q014vTF+rMdER+rR/msj7jRgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01Q1DQ669ZWCxSL2htR5QQZT",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "ask",
-       "text": "Desk 2 has been on since 01:37 and is drawing about 37 W at 02:10. Its night shortcut did not switch it off this time, so should I turn it off now?",
+       "text": "Desk 2 is still on at 02:10, with the monitor and speakers plugged in, and it is usually off at this hour. Switch it off now?",
        "choices": [
         {
          "label": "Switch off now",
@@ -200,85 +241,29 @@
    [
     [
      {
-      "signature": "CAQSlQsKEAgUGAI4AUIIdGhpbmtpbmcSDJGDUbSTTWgD25eJFRoMyGgBbbAr4suHqNy9IjDQfo8UJ3tC83aK83wQkRMvWj6UmKjb+xTNMTEwAyjVNzRhdGlKNw5hslq5LrD1uyMqsgr0PlD2avLM//EzdMJM91w1QnD8fqS7XnNtgBvGmG8Wk2kb9Sz0tW/ziMeoMVNwYH22XvGX9fjBO89JIgY0fEkxh46Idb3gtXd6jk5xqIFW06ALy6x4BGeOz61A0MBwrvZ346sey9LX/VYy3GJCAi7QQpdIzhSfuygO21oYstI/ofiFBkiktK16mg02c0h3TaMgNI1TwMJeeWr8lyZjgl3+C/TKw8lO1A+dqZlhLMK0Ln3NDW+93U5Eqsf3ZuqxTkovjSaggj4u/+A++mbL81aMYWAnEwu5PKo3OaJMCbOsqE9QsVTb6ucyUuwG5X9J7QR0qVNadBHMoaqbFD8ySC+hLk8wuMsT+VMxpuILMj7YpRMZAZMSSxin9ywtJZEGRCGn7mllXlk+qxx7tgAtRrrGm0+nUx9O8MMRknvMNJVASxBQjwAkq+wF/4MuvQTq0Vze8mI7XfzMINX+oYAXz6Js3RKkGI/9JKz4vp4WkhfPmGHGJ/kAwS2IA4yV09oKZ8VlWyuIXfKQ1BnetXoJs1k8Vp1f6XBL5msFQ7rMgs96lZnc6IuX+H0yGUu09moBMCwNuqiBE1Q/fc01cg3bu5xBV5hcxlU+cbgR7ESbyvoUyH/RFdQ4VCT9vKjR/UC4mQewScJZ/KAHisMg7pdcSSHfxgdzRdEkec3/vFy9xEMGH79IoOrHe/Q6y7NHouFx+bHk3XGnjVTBv6Mng9UhkQHuYKjVmuJfO54B/imH3gARtkQwqLkIJbsdkwUBCAt83BhFjHbSbuVHLPBa61YQs/SvyR8sEJkUS4ZXBbX9agR5Nw16XhwyzIWMEAINgN3oXU7+rD/VF4i7ZN/lyf0WvkQSs3cKM9pr6LXwNEKtRg7UNVM43g0MJAYHE1kO42yQhhuW4sPixK89J6tbmSADEvNt0jR7oNYfTcl5jMih3NiTBj8V3Df4UR3d/HmGKQS3oLT1zHxrgOSco7TvSZSVBbBDv1GiJ2nxFepD0NYCuprmNMC6HLG1Sllg3/Ncb/H7wpTzTkkanKuwXr0mTVItMj/R+GlhXQa7R/q17jTRR54wf27pXd2K3pB5dgUkZgU0mvg7OcMdUnMQyzArByo00wcoeBa7PbiZEiauvHgGI6uxdgejR4mb6SxJTdZYauEE5hlmK0YfXzJN1APAAOY3hcCElMM4z3TINCJYtt2Q1F3/Oqkq5Jj0m627lXDs1A3MJJbdHXJroM3N/sG5NJctmeb3YEauZnynieyE4Kuo16HBkZKL4EFB6oJV8bgSoTS94S/WjAbMJPfCVIEP6KZuLE15DChItZZP91AkLOwTKBs+SMUpnFcLU13OrzCXJhRGqrknH2qMFAEHZnygjtpOXhYQicGll20067IZDd2tt77cLIhDRX5GEpktaVjkxmA3M9HVuuTRHKjbXSHEz9A7PqfstQX6i4fnRSHdlTpzxGE98LhGO9lEHOQZNK5iwAApGC30VYRGVK+rpiXa+MLz+2z/XJQHLRd1usELExp0wOJ1sWBMnidIeCQ1Qn2AodsZjLDJQ0UdN9EfWb8Qf+vYLu2fd1UmmMxliOfngRnXmwPIQtYLCZR/7NbNMwGYqbGSUyun8YaZGXk7QyqrI/I4VKqW4wulShLQWd3otWizw+Hhi2W4iQx8x56gE0FTL0MmiGOIDKeSltbhVUIorSyhVz7otI5swDTzdpKRBnB6j+Xp+m7A+IDpoQ4YpAbN5aD3s6qfGJvrhm37JfsO8oYCzsq7pNVUB2EMzLDMArCNOroca97zGAE=",
+      "signature": "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",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_019mjisuBbuSj1bFvDUPmamC",
+      "id": "toolu_019ZGXzomP9xxCehXDr1yEvY",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "ask",
-       "text": "Desk 2 has been on since 01:37, drawing about 37 W, and it is past its 01:00 limit. Switch it off now?",
+       "text": "Desk 2's computer, monitor and speakers have been on since 01:37, drawing about 37 W for nothing. Should I switch it off now?",
        "choices": [
         {
-         "label": "Switch off now",
+         "label": "Switch it off",
          "does": "switch_off_now"
         },
         {
-         "label": "Keep it on",
-         "does": "save_habit"
-        },
-        {
-         "label": "Ask me at 07:00",
-         "does": "remind_later"
-        }
-       ]
-      },
-      "name": "decide",
-      "type": "tool_use"
-     }
-    ]
-   ],
-   [
-    [
-     {
-      "signature": "CAQSowsKEAgUGAI4AUIIdGhpbmtpbmcSDDmI0PHLcdqmnHytHhoMLNlg94LEr7lYzqTWIjD6ZIMCHtT1RNy1/faVa/4YWsXmAV9kfFcBVsNBkU16peIrGFbN1fmB/ABzxu6o9vgqwApjXW+bjzhXWtJ8yTho7n0x3VVwmkeKPmATeP4MWo5V6PKhKb9DMZVqB0MT3wHaAMGVuzbt9vO/MGlt+40HwM6xs2aBGHroUNlyHhOlEvQ0dnrjDD12Pc6QVX/QVJ5IhvcB7cSD18avhroh/KUS7TOai3FcGDJ7rQuhHqi+w2AvCiXuv1iFhC/J46xi5s07oQGhgvTtJ9bmUDgEAGGd/uHyG6QZmiYFGrE68UZJsSGuZkDz/MW3d5357FHYKjtJuh+3yZOeGXJTuMzdDCJs0en87caSQfn2MDUQXNtMIjw6Cd8DugdzTe43cQhVrtFCH8Cq5wmRfxuuiGjZVy4g9jFeRAVoGCeWH1KQ1xNKEUv11MVrwMuXurkZXWLVzshr6wdNf9ifLCMIQUUktnQfOICZ+CQxVbhyKgMzd7e+xm0OrhhKc2nsvJYkglDFeDzoMkYZ2/P5Ru+r91R2TOwToAcywJ/32lWpjmgI+p9tZ3Bzh6ZAVTRITkJ9hJFeq1cVHLW0u2Xa6nLkrF7Sz0fxUtPg60cKpY0rGSh7xU5MfQkCcXZmIhtru9zjH8xSLuBF+JToDGqiLqeInHFKbySqwmZzYSQhATz1oaUT+cy0nyGFA8kKaKopXdeSUfbtVAUd9E1IApKyDYuuO6fo5u7Q6S5vhYrA916tqsVeb5EnUMCO/J5CtR/VSXdkPAiqT3X/8flUBoD60gwyBb23iszehMO97hMsq2KFuy0N3182CwFRRuqrBjrb2ej8aZPzSl3pCjms4ebKo/DQdyB9iNU66skyVghY8fiIX990J4WCs1BhnP5ufal+/k+HrinTPm1Qo+1ijoW/RpRH1+bDAFAeGoqHlvXHTDBsX/U4miZIQSCCoRAMbRUDgufStGRi3RCk2k50tIVZJihxoikeR7Se8ppzL7Unt2MUmupgddP0zdGNz0Ve8kKgEkHghpTK3CzoSxBfZ3VCM5VvnAiqDQ5yQm3vUDGcLOhRcBq5d2bzg2N9Rqvvz8eob9u5dyBkGYNyvyoSF4zAAOSgVrSq52d1z0S37+McqL+UOG2QpqtZEsoNLSZfAGghdxrO2sTQr2lru+WXFPWoCpd275+G19bWjjBVRpcCYh7FQxhtNRlaNamriNKGo17m9O1VxrXzBHl6RH/s37B3yFs/9kHxYb/08fgKi/X88nV7kQfkM62dhBbxlfDgKiO0t6g5UCa5uZZYVdPjGNonVaKsSzl/YS/QwVMxuVPLErxa2niUKA6fsFW/wqT5X2SVxD60HxyJirIID+eErz/JWTBhN84UYteSw6AVVsoWiYfaAe87j/aHs9tez3+mIwkljpUl7NR7PT5myoqV9elQj3OI2IyBMfjthQLxLUEkcm/G+c87Hj2/MbPUP7KX6Mq88ZTtc6o1v3GpFRylLZIv+jJrnozabEhUPDQuINKCk82bWkqsW/zbj3NBh7hOfxVw2zwp1VXySUhHmEXHTmzMIdCYVIjH2Id71mx2ukqpoowtzFCWBt6JYaOKFFjVnVtEv0gzTjsGZkhMVlI0ePKZQjCAO/LAbYMXsVrb6RSsslkfa0A20UuVYjkD0aqjadATkVuwZYNftwG0ZcMx8XzcKUBwy/V9SHr1fJnkJU2pXku0nGRPivGuyIKXasymdYpWGFvoYgxtNxCIsLwbwcOiDHH4ofHgIkdlGjlEhoWzwNVrd/rxHKBzOBCdWLDYVQzkhD5HXb0xbF+m0nXlLQq+QaBAHZf92WOqq6wFxCobRnKzGCAhogNOiXXqfNcThPt+vd7UPnWJb4VoYNAYAQ==",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_01DHf8nc9od6gz9bFfTynztz",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "Desk 2",
-       "day": "Monday",
-       "start": "00:00",
-       "end": "07:00"
-      },
-      "name": "usual",
-      "type": "tool_use"
-     }
-    ],
-    [
-     {
-      "signature": "CAQS0gcKEAgUGAI4AUIIdGhpbmtpbmcSDP3jmNyuxDZ0rXw0LRoMGA3as657YdE4Js1IIjDcFo+KuQLan0cChGcutcqxaD/ZataZyiM0TREHWmImce+JFVJT3qrC/WOj/SuuhEoq7wYxm79HgAp5sgdaeZJGt0GyOvoA2igPV8jByRLoO8pJVIgG32hFrdmMafckrpFsGyOUzCGc0fi5D3XYB6K+/1ePtupKmmr33E/iUIjq1sPNopuRifaULDlfQNAmWkaACayUvxQqAdFvhha3eCXaZW10/LkOyxaYJNvRLqJNnQRB+B6Wlw/ANERBIFYSCZEJyuUg7vvdAWeJ6vuVtURmeIMvk9g2Y1RCX+11enDQjfdAWDEZbpbiD3sKiclZ7lBPn4qJItySQws74GO5OtzRwgjGqYxblJEv1YYOUlOHf5dJjNLLhTeVqamtulh5k5Ywwt44hel2qdncu12eL8BOtoRURkXv7jGDO6V7DpHUkRNi3m3vqy9rQI9YJbyE3P6hv/OaSW6BLvuZFiI/aSEgTSCMikhfrzXGn/E3n1B1+2SfaAkZyxCaprgHEuqYrCsHlBYdrpH3t72a5wxz5NNyz2eL7w3rSRe12aOkzMPD+0FXLUx7il57Ob1m/LDXNpIKfDnPVsrdU6Nj2NzPz04c7IFFAzWFHCKFRBBvaCzUQ/6Ah2zNDJtpAysxOMONmEqkDVDtH+M8+9bkXAnf+4+aoXdGP2TAk3yT0IES2HNPyPwM7NULjLa0FdhO1k1leqsvhOedYszUqw/CzCrS736F5jK9ko2mR1G/L2U/CZNPHs1Bg06Wlv3/fF1XoSW5lByeUzYOn0x9G4s/dzIy78cN+B48Yethp5yuDOUTpinyMGUydhcnWy7BwUHqrVRNyAv45urvd9XHiheju57OC9f/5cKBvAzwiBiD8wk1Ft1dMVhMTgy+Nmmp7ah49Hzf6K+2aAzsZCeIrYvM4AGINdKd3i21o5VNRghlKgXtlGbyVm1sMG5x45Z5tVMwWrTqwJNZQd0zsyjCCVaIpH7L0Jsn7tyDkf6h1dvuOVFhIc8XJXgrbwJV+PEUWZUxKy0lrFe5FLsY6gSTV3hC4eKa+JlcCHVHPGZmgp4qcCqW+oBgj5MFYLCZVBgL8XhiVEdQ0DkqtNcGVIoDjPDz6ESjA0dt6tUi00EI/I36awhC1+dti0j/D0eeQl/zeg3hfIbMUkpVOQ8CLuTjjI5EHrUGqd+qhvy+VTsRCjYM1zHqOLfSeXFbYE356Oy8XVUwagVlyiXPhzwmSkjyqo+JNdQrI1hblasYAQ==",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_01SmAohSLaD9LYvDTLhns41t",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "action": "ask",
-       "text": "Desk 2 has been on since 01:37 and is drawing about 37 W at 02:10, when it is usually off. Switch it off now?",
-       "choices": [
-        {
-         "label": "Switch off now",
-         "does": "switch_off_now"
-        },
-        {
-         "label": "Keep it on",
+         "label": "Leave it on",
          "does": "nothing"
         },
         {
-         "label": "Always on at night",
+         "label": "Normal at night",
          "does": "save_habit"
         }
        ]
@@ -291,24 +276,24 @@
   ]
  },
  "EV-05": {
-  "key": "c7407645db6a4781",
+  "key": "8c2ae26c81144468",
   "model": "claude-haiku-5-5",
   "samples": [
    [
     [
      {
-      "signature": "CAQSrggKEAgUGAI4AUIIdGhpbmtpbmcSDGjEMSMOp2gjE09ZtRoM8ZTILIuZIfmOvCYtIjAF/+UHk7jczlI9rWWB00982ULgLmLyC+3Fi+drdfPWJxlOtpCVkt8F0N0ejiCRfsMqywfvGf9lE6hgEkA5AFi3gV6U1eyHQ+DTmIrDpY7ak2VlnR8IPDkzy+eko1eyL5nbzZJN5/y2iVKzm9QTz0KWksuiJOccgnM6S3cLjV/AmGlvY//qz/q+BFVOdEOrIyBJmA+4pooSMRyO1E6Hn97uGuthHLsvq307vZ7wjpcJsAmrUxWP1HklPSSys5qHj2kp11R/ObkhGz8rhlMVpLiwIBxeji89qc2cww9851zo4O0TZvHapd0f/Fztl55TdYcEen8qxYx2KxZOgWSI8zLfigaBj0u6ZrKUz93GBFKZd12skdNO28Go/L8qevsSjgJP6pkhWwB4EDYInl6M7lBiHZIkz/v0lR2+CAke/ox23sCNKwpz678zK8pPAc8SkdTTyYqpz3Mj1xMNwnyb88h4oJcV4G/ZNHduua1tAe6FaVBjb60XvcmVLru+KF2ZGgctIjK9cDQBdWqXrEUa+XqXWI01S1ITcTdZJkYF7NLN3zzfa5QAG+VIBFEFC/rs+4noVw8LjLIu7jykN6bSzzJiOheW9ZGvscs8hepwf3SjN+9SIgoAmwmysG8d16I8pkKqt/OvUl/REAvyFkaBXNOSMRjKc+/3x8/kxKJRSTFh3KVXt+ZG6MVdHEgKKNbwRn5R7LrR33O2GWbnF5nf02o3ezvT9Xh/QW/y4OEEWvkTe3BsPfSHeftLFJzgaMYPMI0cTOEcFJJ6QQ2HDBOM7fYipYLJjXHLfJxSvv9c4BLB2uXSC4P7fBz8uGvSoo1jFCyTy42vQaLHTwSQVJbUMs86+OaqalTTCcPKp9QB5rH27GMShCjht3gGSdXS9kNObiaTvqymcpOVi01LZZeYg/Rpkmc2BHSidNSoIqt7KbrMQYSJ/QnAozGMYBMVFmQkdY0872Wgwke5rsU535xwcmvx1ZG9yM34Mkv3aYS6eKSe5tDVyYsPHYY3HY0OU3SHa6ipY3BdXArhUjTJPIZr1tgpFirp3gIXy54T1D198+O7nNmfd1uG+UUwqAZQ08cTbsLrqAGHjR200IfbC9smqSi207aL2XBErNTlS7bbGcxyuR1FdxISiu3HtXtlFyysOE3Wur5olFCeC5GI73PC8/2oNSfSsyZa/EN0woflite8lbZoQ74orsaPA03QK0Z7U4D+VG6Yli63c/IQZUoMRSVixmg7KwSMHDvPFHviz0AE9q/p9m752+AAgELwchkDbBkE+iInMyYA2PburC1tEp5xr7KU7ixcw4HieH3hGb1sOu1BLhuennyTsOdcWGP9NonUzGPA4CPbqrOxHBdKphgB",
+      "signature": "CAQS1wgKEAgUGAI4AUIIdGhpbmtpbmcSDLtqQrThqCckeIxntxoMQBo8pzNdNE1FFmQhIjAqJt1MwLTlCELIGJpz927irOayMiNWEnw2seKLeIXvpFCEhps8ap+pZ+Ui3ssbmywq9AeZYQHFvrbi/X9cPf55EE9IyqioDS8nKYXxP8mroSaPP1MXL63N+89r+a6aGCw361WZOqg/trQ4IEGpis7izVEeqhoLi4fRa/Zx6D0pPLJbvf2EBaAErbrFi16voa7hUiyUL0p4Xfyl/D83cv8Z3ceJhoVWNn+TyAKTrOqb7KC2hQeqjAiCnl8OLUUKanit9Pt6bhCztp8d7CVDBbhDuq3HDtpkkmtqSCQ9iBFHSz/WIwMgGOJzxQeM9clk3Ie9ZEgqfKdGpBsgPJjyoIFl5CODi8SGP2yJMwv2v67ocEhPb52OET1AQukjDe6d8MWHOLQSxFhKUn/Bsx6LMgJdEKjjYqwOtTC/HHJ+bIjPIdupVRKW0z/0LGnWmanSknubYectYmpUMfBhBfj3Rrtj0jd/y+GJC+S55j3s8MLk2vqDf+dlBapEbtXdfxqcCUP0WkZdyyT8SL6N1aDDzLvSSr9c7EgqWtXbqpBIyunnbCJKkCUTYYNLInt+5FP6AnptA6gxuj6eqU43Kcw764RNTV1tItBAMftb0lDjsmXXAqER4A7lTnnNIZby20GWw0YeInNQk6nnZ++y78q2C/NkvEMe2fHxXzKsNybkx4t85jycAUZlj0GMPatf+oEmGBQxiq8J3LbDT8JIl7xu+aVN0v2AHn68HXD9bQbRho+m4rRA7bzeObcXnx+Z3dHY1vbdv9TeP3VOjGm07giedHpedLBt4vW8/yB4VaVjToX8ZbOkGcC6Ki7x/IQhDuRWK2vlbw/CISDUzwkhYRg/1gnYBmBNIKO8NeApwTB7rC9hU7jcNxwiQ8mbZS7ktm3d/b+03Y6z3HFqDvGnvJCshjI+hZK9kmJaSThMA63iKoqwDShovogISpxoF3HC8/XRXZnt9rrwv/xb7FStd6fJsCod0hIbXXPm6YwR9aOJb7ydumjahmFVVt7apAV0PBf4rONEFpT70LIkZ5ZvuZxUpkw6JBXIveU/TPTBd60bYnXzwaaIJO/aEjle8/A8TPFyXRXzQixJZ0po5cu4x0hhi+8AB5x9C+cNW3QBwRsETtBBbngj+h4eSY/wxw8GkC8Q/Hf+g2hEcFExAu+lZKpNsclV+2Br6K9+m9xn0orL1N3haeX/PcZeMKyT2qOcirQFVPB35UDl9lg8TMZJpADM66RyCf0t0Vg0hopJPYEtTPpKTroYdyVkL0fLSMQUh/rDjs6UKSvKbOq+tpEPrye7bRDLFy816dCYaauHRWulup51UCGAp9m0cQ/xSpD9MeWvMy+qcNUwHgODf35ZZvGkxlnWppeI5G+tYQMaFCH4IQmVCPQsCEqHW3gsiCDTYjHQE1qGzyi4kQE6GAE=",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01WBUt6RxnY3j5uuX8rtXrj9",
+      "id": "toolu_016GRbmfESZ4863EazEnN4s3",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer and its Raspberry Pi have drawn about 5 W since Mon 01:00, which is waste at this hour, but the card says access: none, so I can't change it. Worth checking the printer is left on by choice; the Planner will see this note.",
+       "text": "The 3D printer has been drawing about 5 W since 01:00 on Monday, when it is usually off. It is set to never be changed, so I can only flag it: you may want to check the workshop when you can.",
        "choices": []
       },
       "name": "decide",
@@ -317,13 +302,13 @@
     ],
     [
      {
-      "id": "toolu_01NC3C3yEKChmnbJNnXz8Vvz",
+      "id": "toolu_01WwheATuSHSPy575YJTJxMd",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer has drawn about 5 W since 01:00 at night, but its access is none, so it can't be switched from here.",
+       "text": "The 3D printer has been drawing about 5 W since 01:00, an hour it is usually off, but it is set to never be changed, so check the workshop when you can.",
        "choices": []
       },
       "name": "decide",
@@ -334,18 +319,18 @@
    [
     [
      {
-      "signature": "CAQS1gkKEAgUGAI4AUIIdGhpbmtpbmcSDPyOoRIcbTy5oFF3choMHyYZVGiDP3BewzvNIjDzBPfLUDHvpm07IG9hW7Fl+IqRdgW1mAhHZxm/IQlzg0Iep/Bi7Ki3DtLp/RsRypQq8wgSPaBQe+ye0XTYKbKouiZqWqBhvMDTUfsMMsuJj5KwVDFvM1guWYv/YiBPje64RUnBBHj2JMQrXxgv87dYklR+AojBR1868nTvr9enyHRBK3QHMEXwjwYIumNxslTzO/n8dvEMKQC56Z/2wTh8Az2g8phBejHtTCwPWuywBuG1hIwdq1jfJYAHn7WbVwza0LFxiGrAALO5NeygBp1vWKMoZz6yATAYrvhLOkqQHiO6N99rE5doa6cwMqZF1Lfclb2hAGJpftQjEiflYj1p1RwnJX+vhXgEin/3mVd5C1+OdD9nmpDZoya/hLBOQP03mrjYpgGAgOvYkeVPprzTJxEsCGtuffNaLT3bHM6R3TV46ZWcdVXwDj/gTv6XQ7FPGUipmShHYmHbFcb/SJq8RRsZamcxiSpDQsaUu6Ck6SyrKGgPFmU0C5eyiEj6U94s7V5JqqMB/oYwjLCat9dAyii53MMhSR7aNoQ0Vlp+U3y8jCXbfqQA70XXlhCxlquP97ahxz72FXFrmkiyxUlaciGRjMPhCk1yQQYK1A8Ftk5hM3xyhSySagaT0xSGLHnEbjV6H+YI8jk1ocRIzPPjOH/dwYWrRJCQf61sphHwl6VxQKXr+7YMmX3f0tBtIo0p0jGtJNOr4hyB6ZP9GVRzgM7JsXzbis2SN92khrtvhGsKtnajXL9pCPcx/2LlV7TKV3UeeWZ9/7SK9P4Zmf0gmC2o+vdf6d9fxQJpRE0u8sWta2mKH8PyazZix8QhOvETObd5Q+e3p8D+Ckizo6E2BeKLKYM+ia5i3mxcxgOZdEGmjopZ217n2SKQtm7tEnVuoeMBoWJ4BSjaAJQjHFAs4THC4Ij/BiG9/A6PPhoUyHWdVFmCWdYQQ1uzAlhpBBoiFko8iPyA/YjyXoFp7knQR4l35sCq6XgeGWwNH+eA1QJahi4YAroUeWx1IXH1auANA4IjywIONiYyHBjhNpg7wSnTyJWsJ1C1ov6aj1ckxijUJTHP08+N+s2vvTTUnuC8YoceJ1eZZV0iW5bpE6lJ4MoPyBA9PN8uj42UgyPugx8ppE9AHV39xXuuGo0hrIGiIkD1CWQFksx2NHEmdgnlHcvX1n7UuIMvPeguTRgj7JZyXY+lCNeWNM9Zd3UzeTX4jH9YHFalQ51Hd9pvmaK/Pp6fHeuSEZF8cfwpLNrTdW6UQ86sDivE/ZsXdkuCVdWFjUqsDE+laCbNHxmH6X8/WTkUofj3+hbsDTAJnyHXvSxLwA+cAozhkRqk++f9GYONfYGMROErkEvCCmDQodATvOukikpQSqguaiJirHmV1GGOBfXuR8sG2YWj+iMxv4oyqkIzkPLwDTRRxm0kHHDfYp0GXjtSjVx9W8uuG9nhpLeTRx7+pn5Eyguk27DgHkjQf9BRKtEUNxsaE9v4DmiG5eqmnKV3KnJtslVzb0aeBaM7tjZQSNePtxah5gV/afQKH7DALkZmXggyCZ/imWHFrVZ8BO2YU5mVGoGZldm5hiy2IpcsARgB",
+      "signature": "CAQS8wgKEAgUGAI4AUIIdGhpbmtpbmcSDG4lhxDN4GNqWz5TOhoMuHEKsuhPBJAyT15AIjDhFyOcX5m0lICfTb56trsGTT0w3nnqRPz5aXtn2ZiUfOMzQWM/l26PfHTbHWwYaRgqkAipnvgDD9dYx8+UyXdpxPAIDFdubDTypw1I2eOt3s91huSGcNHSsOzXLadmy73acpthk7yF+XYiyEjPqCPl5/TWLZArzQx5LtBMYhQC5XZfwWtI6JPxg+Kr5tN/3Mq2/RZeOCqeN6uSqDNi9xXxQ1oaV8pchddF7luM+R/nosXBSHQOD5loJd9J6BQHxb4/PGckm1VBluvv0s4Rm+jLYpqHsYgqeROCwrr+HXrKQlucjrVDeIJ023hnMCiVUG+MUnx0cFPMjx4NPh2/dbXOEALIyP9bfNGq7yhq18B73BDgEByEcKUSFoumPktixjNd98bSYXBOExIHew6EF0HdAQdZMyEySd8/flV7kqMVKGkVnujDgdbMe71X4fEJuYv1uJkxQAe/EOCO4Tbi8uQk9QBO9VP74AJ035ugYgaZyGdgEhJQA/DsNeCUKdal2Cry6C9e25hS1KlzV3qfAJBIDNCoJU+4bgYkVarMz/z6KVDXFyd2oM26qBnPGw3lTmEQd6sH4yNAD9UK27wWFFQVL11SYWYc2pisH/at8+Y5zKob+9kwqLMEBt+y3kFm01thFo+UHPqM4D+iiXEdimfbAbNWWBcYetXHLOXZeemXsTNS/WqJrhDq6DTaFKPcJr3gZ/GHEqinMODN9kUHjuUOb+WyBp9CEkZOVJ0fZKKISqHOrH3t11cD+nyr68ViI3NFFtjh4HaNy4PFAqImDgvMi+PnkhA/HbQm6bs4kn/VPykmyxYCoYsPBUJtIdY0kxlHvMml+xNQ7Ss1yDMEq0trbSXU+l3HlhgcOh4WuK8fopBj4XMh3xVSanBownREt0ZyqD0otL2POjDfyoVN/2j8MrMnG9zpzuI5DcDnLx6+bdXnd1he/H0fhLsGmsT4piHxsfABkZTeBYUkUEOU7apj348Xd6h1+vS2IJFiHLSmsubvV9vR3ofmorPMN9yUvB4XKfmJBd6w86uZPwNPNl/GoRu8Cg10njEZ+R7lKo33kW3998hijSPNWetIEutulW1ZomKq5sntLAGl8rkIYFXshidQ31R8V+yFo1MYceoiZ/KqEZWf6nsMCAZRSqlB1gxW34Z0tMeJOIC17m+/l0wCERfuorFLmIbY2OlvUZpe5fdoLSlHKuaKbQzQHVTBPZGcNNmA7S1G3N0NRYtfS3T06rfj8GDEVqPfb6F0QaNSsmfrzpniEaBkhmo9ZNWh/OIBdIgVoWmjogXHamtyqfGLu3IvVpi/CWBO3ZM1S10aTfPzk8ZTC8seBKxAWuOkAOe41ywfeMSpoUBGVb/AnR8V6GlQop7Uj3ePlRmH8w4ahmbmHkHGhkeYRtslu6spHWW66xutkvmeU1WZE7L2PACudi1JZnCJuAy2xOWYJQiAopoUYxgB",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01AEXUYLi7UD5eh6dX45wL1S",
+      "id": "toolu_01MWpBfQbzLEgC6JqdE5q4ha",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer and its Raspberry Pi have drawn about 5 W since 01:00 on Monday, which is overnight standby, but its access is none, so I will not change it. Noting it for the Planner.",
+       "text": "The 3D printer in the workshop has been on since 01:00 drawing about 5 W, and it is set to never be changed, so I'm only noting it. If you want it to stop overnight, you can switch it off yourself or tell me it's normal.",
        "choices": []
       },
       "name": "decide",
@@ -354,13 +339,13 @@
     ],
     [
      {
-      "id": "toolu_017dnvSa5oXeBB2xBy1XRw1A",
+      "id": "toolu_01B8mRorcUEbJssoUwVYzZSu",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer has drawn about 5 W overnight since 01:00 Monday; its access is none, so I left it alone and passed it to the Planner.",
+       "text": "The workshop 3D printer has been on since 01:00 drawing about 5 W, and it is set to never be changed, so I'm only noting it.",
        "choices": []
       },
       "name": "decide",
@@ -371,18 +356,18 @@
    [
     [
      {
-      "signature": "CAQSngoKEAgUGAI4AUIIdGhpbmtpbmcSDKclPpTLb7rI5Xr0bxoMY6PNlQSm79FQ/EXLIjBMVhAk1Yk3C3yQcMf13sgKdcHmomJk+9VIFZwaD/6EV5ZOxYVaNk7tSQMZbklNpF8quwlhd3NkzjVtWfP5V6Y3XzAt5VgcI2aSMXlQtLwh2vHP6ydU8tKoL/WlEwHGO8U4iu3tYEMsb1rh1SaqGxMlPYbG1wnGFe9+mnskqjmjV7eUsGmHU2x+M9k0Q9De+hU7CC7CPMhllk8p1XQoNiVhme5qA1T2ALDyFvKsJTEibUf7N6drzW8QpsnVt32GEEoK3sGUZ5q3G/vqDnY2jBeHCOhaGXWBHJF4agOXrTmbNLwusHqBSsuhljBUsXjmi0LGXiBsTg02oTDbhhtmEg51TcQnrl8spes4mlKcV/Wc08D4s6o7PiKG8kWdaYWkDXkr+Qo5WOTkfb7C0t4gUZEg+1T71rqEwXNIDAQ8QTFfSz1fiImBbTYdVJ+6v29Ap/Y6iwavsjkf7zFpq2PCo1BE0V4grMleJjNvDaINbzAObC30edg3CYRsyPMm6BUZZj19YVyQUBe/FQ44SldzagdfrJhh7D2Kf95xUIuOzMdzWJZUL0qvsX6NoBS+dZkROEFmUlAcmFUjwmsFUMiL4bqw7NxRABB8OziOAU0/LhRx1djckEI2m6TnEPluoBJXN+D0kLxiWnxLSKg5cvpdixa3LWXmDG05FcuRS7NXAoXtR4qJ8stdwTzh2qjk46DiRPuE2/4YPxYFmYlLPklY69uCxYVh6IDf0UV8esoTki5BD6msWPfqH5Cz45P17j0TeJ4IF7KpRiqxzvYSIBYpEcjIdACbtfhNbLMxx9Tl601PGl5k5buU4HSY7uvwegs6j2OCE1yapCwQFcAkAs1sgsalLMaFNSvX0quSuBELtZsJCQZ0ud0bGDII3Jdz6Bs2aPoBhxsbh9eHz7bn6gVqYNRUJv4zGs2p1mzodcfKWf+uBpwjECCojhCnkDjBnB2eLfxDOY1UEOlN/DabCnoGVCYGNd5Jwv6p2EUBfG4G4/jTd8HqLJgFHldmSn/Fuk0tZMbbOW7SB21LgnRTGZeSkR4u7Lo+ZdNAUFD8s8joXXdLHhy+m5TrR/h930sSSNBcSADYGRF7rS7JPPHNE9ESopn8zqRPxtkIT51ZnXCRbtFnBjvf1w8yzChm3EFetl0FVq9lZ5gS8+HgwwEcWZcMMsNvGswIEqthB/JFz4GJKj3d7t5UIJgjbGUzH9LI67LnZazdR180QFiNBUl6tuII3lP0Ck+rAkfSSTguC5LomEsMxBxNXSQGcDrZOSPl96gOxxzgE2IbTLlnx/vDItGJyFjML/uJDL5MmxjIj0jh2lyZFA2ddy1CCSnWvBA8nWr/ky3AyiN8JFnJX1ymhgA1heyXtXWgllrT4yDu/+G8J1iQxL3cIiAYlVEyEq7wodUIyDoto64r4jJ2nGqkXHL2xGSEZMRYipWAkeRCMP64ZhKq3etlxU+i/lU+bS0QPjr7ZqFOqcQjzFeboM7tczgesve8egaZCcQq2iC8AiuQ/o+jXAFyAdstAifDcnSZ8KgFQWSaSKynPRJVh7NyiKQgXiv2/lUZpeBSBvSo4HGqupGU+QE+0jMRk6VS6KZBndyf65hwtP+ncc+KEBmm4AT64/d9AVSi5iu3V0Fkc+XaLrsijnCcH6A60Qlt1LrrXGigHXM5RHlLTZSxRJxnuF4fuBgB",
+      "signature": "CAQS1ggKEAgUGAI4AUIIdGhpbmtpbmcSDIv/eK/uCPHeASdOmxoMq3drzKb4Rh/4Nrp1IjBTEkjboga0MMGQhavjfUdGGY+mwdiNlBh6gVpLUIrxxP7UyjWRC8J2VJdxgJr6h5kq8wfk/BNaOgpTMOoXHDYhNvLsHHxRPSOgd7m6TNgrOI0hoAmQjooKXIL63BNH6Q5BziXInEe3yda7xGBfF5UCd8TvCa2IoN+SoXqEhlHYN6J58Flsm6LvIWWsZs7R4KFKatd4UAtWEPzq6yWO8hryqK0Oj7D9e5DdHf3y0S4IVCy7NYcXDhUyEkuSj8hNAU4b+OeaPWzZk3dBbInGKeqB+gM/ZbVm69oc+XE1bmWegZWd7eZB/zmD7mWVBpa0NpKV8cpWMLYaGghShnGbNgpX+k04Pnd8+/stSHtwjrQlyxPbebuWcVomfeTzMZnPbkmTtSLoI5WlOo2ZhdIFYIuJCfHnHDLVHpFdL4nUZXWquN86QFI5wfxW59JjldFOYBvn2IaGziBm3vRRJnETDItvdkPKrzzu4wIVmVFP0TyMgfDaf/tBPKvyciNmlDZwTWkE8V/5R2A4Ifp4kIHnpbo/0osP+2upeN7ULnBMVIPpxIqYy7OZHOwadMGmxY6JmoY/KpRsD6+tlzx6Li5CmmB6QNESoNIvRRgvKBQZDpNvCYDny54hTyPdThGD/u4QAgRy1Jr1RoPAqAXCuvDxW+GrCi5nWSfTMrEuthIOyHZ3fqRa/hKjEczejC8v+tCxZX5Pq2krVl7qdHLHewH3zfkzln/4P4NMC13VJ30v+TAAkZ/l1VOYDR/N9QlIjE91udN1+54MXVpAAdOrlizrg1ROzBrbk6vLbSJELwTN7tx8TBR26O9rN0oo1OH+iEE94HiAgahzmmk5hfHZGl13YvVzyL9HGFv6xzrYmRlCYtGO6Ty0jCy1UgZ1qj98FjpTID48vZDybHzmGJ+Mnd3ADiO1EtJ1C9zdoQemS3BT5fDvT3O1jrEeYf0NrVHz88uW8QsjzdZeuNENoZfcJWKr5zVvjZqVFbjIGivCizvVM1EIJjBAzOfvDFjTD0g/BJ1uyi74NcIEKLI7nLoqiBO+9RbpujB5rglIEGe8nowg9CgAxkrbZi68Vbw4/DWlDkH+GXA2R8EbZB+kJGClvkgOzogaw6k3SBX1eGoJEsW7QcJjsAQeE4eV08auqhr4XO9Gu4qQOzoVh/KtIeHDHlG9qj4BapRN0VIhtErD6UnBpd1ZiFq5ZQ7DDnd81rvdkMaHaDZ0xe4UEZn1aC/uXn9hL7w5+m9jfziTgAgfMVFu3BKN104rUIvujGtWvoEGjhqSI4jMLO5BX3aRBzX8HR/nsLPOZC0o+MddmMqyLKv59njmjPAgJs3TWsFfX01LSpUWy1NldM3lTgDvrcocj6U5WyF5n+Cbo9k0g8/nYAHWIhSqs2bVeAXUv3vwuQcRgPE+E+WcdAFmpUwYAQ==",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01U5r9gGrWYSA3XYpu87hhSJ",
+      "id": "toolu_013yLCCnENkeFcamySxM9SEc",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer has been on since 01:00 drawing about 5 W, a small load, but I have no access to switch it, so please check it when you can.",
+       "text": "The 3D printer and its Raspberry Pi have been drawing about 5 W since 01:00 in the workshop, and it is set to never be changed, so I am only noting it for the weekly review.",
        "choices": []
       },
       "name": "decide",
@@ -393,18 +378,18 @@
    [
     [
      {
-      "signature": "CAQS0wgKEAgUGAI4AUIIdGhpbmtpbmcSDMVjKLm4jwXjpMdd+xoMWXX7ofYsyrfzGSFoIjCI+LdLpkMsSMN6F6bN88Xr7jWg1yN1ElJRVdd9M2SRtVoW65fEB9MjqTWFkVNXOowq8AdXz5CLFBOpv1sm5tuARcGJYMUfRFgGuuPqL3fyBR6mrtwuJCJuroPhxlg8RpJzRAul6AeVAXhz98S1n4ys3CIWWn7iFUA7kh7TiYc/EdcS9MTCeMGwxDWeS96Rx2JZSenAJM/ghhxKzrNhSMh33e+5Ld99Emf/zi+FbOkHBReHe8Ii9u9TK2GWLb4WiayBiGB1EWkinhC+iQlib+T9UW2nty3eokn3d3Z8SHN6TtfMAkmmz97ETRInxmZN3lBcIMW2+aREAXWZ4cJaYts916dOwPPN+N71JeHfvaaU/uNfSv7s7eeCdyvZEn9ZTMjZ35UO5qEOyvNpfAm/whYXyggH+r5bYidrO1uS9P8DgHM5OVOBC7tzXCFT+hMO6fUYBOooig8e2kQPE24q2hCfkmuYQ3PNEC6Ojb5eRlqqeEpqX7CVXl4IzYtTae14r/d0D8nPFYEfmLj+H+FF3TLN1QbJ7HmvTOzO+PkEI4TlpM8quLIV0KeKXJUx9XPrDv6kOzNPbbnv6vAUcapjoLijbG7GZcGtScZOxo+S9uBDomxGe6KtsiMmysSzOAhHN0NZvnDXm6AopbnYFzrmUx/40NCQT0JIMpudji0EJnl2Dxj/gtNh7zVcl+V5cLEc9wQDVqDGJJcS7zOJtISwakt0V5WoapExH2ASRnlmsg6+sEZCFzynrVgoKGXNrWbKzqULWbTiz0ju6vcBEp3XE+83CRSZE4+s94WcOMbax9Gls0UuhYpPmO/9h6s6Njx9K9wSo+Qx1VBxd4FQ0wQc46awuyr1hODbPU1DNRG3xkkJbOYnvH6ncQCq7A8l/JHieEelLa/Bcw1RoXH5K7hxW/rg2Sq19tjxcho6HG/SgVk7v0egg1cWKmVeO8+qXYyl96VQ1AraDTkBLBlsDfCiqmWxjlk3+OfrkVlkmTwPKVfWzdHfQGvUQIDy0v+zJitf6lbKmaRKS+dOsl2XR9MQpricSwx1lobqAomZCHjMgboXtd8Dyvq3pXZ/BKbQsD+7IxLW2VCEzKB3Afc//0zmtYVXQ2nqCFdB/QdVZznWkAhEYX+k3+3tTrEti6WE8EFOy9vT6diszekvQVReX24MYO5vC2SxALGZHb9r29uTFKXU8bOmf+gsssM0s/+cLsIJXmMIWuTPmBdYhNambwWti2EPBGvhPADViQCDvkNL6QzVKUk5mtt1mORTC2wJoeAfvZZoYKaHQ8roSjS2P8LOG+9WQZk57wHDy/Ub97pAIBoKfxdNG1+ZCXRQdHih0rlLUaX6f+LAcCvdyQUzIAr+1FYnRmx9+4UH7jrwXaU7Xb5HKttQOK6KOdWhaoQM+XJgsMjpCg0YAQ==",
+      "signature": "CAQSrwgKEAgUGAI4AUIIdGhpbmtpbmcSDDv9QbpzT+RodUh+ihoM3KjqurOXxAZcwmqXIjC/ezeUWpGaFM7CNC2R48jfTrEzS61gddaI4pMGJDX0DCHY2mN4TUW9XcFyJ4Lj5UgqzAfdo42LSQswzz8guST6JUGIXL9H/4lFNVGWI7Fy6BZpadw1jnAzRN5o7mSScnYripC3vGxU1//iiNAcxEdMfJ5dIPz8CR/8bQ5/K0t0BW7+NuCViRXldQ+I+kHJLnLnbo9FzYiU6aRX5A04cGh1CiTLQeTjGpddMQyMqFEedK3z9+1SJNQnlsxzo3z5aeNAmPPkVgXJN2UTHUJ5kblE1sbPdISMAZaEEFqoqKRQ8QeyNA85lp46i4sPz/+fPYNzYJdqI5QpakTos1KHzgY+V93lBZv+2IDLdgKA9MIEgto7tDQyCwan8DJUKlEf4QCnH8GfRPtNeXnQVxV46T01HoKgWFjlyragVE/eN32GCnhBxVkU1FSGiXMJDTeYnPCtPG3jNSM+G0XEZrTY/qRcCd7SVHos6eJNObk+kGJ98YYaVhcSMz6XKEVMfnLO3vazARcnH/FENJSTCkhCwu2D5Mj6x9NeldhNpbx7NhRpAZuqM4s+skm30JpDW86nFZud5o10q/t9AQGqfyW+0QDLmKa/7XzCk3EwVWur/QTIA6gKLqTqEOXIakf+GSXQHDdJursG264aMo4LTrOEyL4BREREBz+uW1pBh7swXcdxxCU6cPue+MOFlAWj8BVE1DazKBVZxTMdwjpyz6L7wjpN9+r5Ed0S4ZsNiNvbVQmz1QGIwinQwHyz0AYBYGIwR1kkV3wmf++HecgSe8J4U05K9GGn6pl7o1BgfYjxsw42D5E41deDcUIUtl/4DLOCoWiVa+ZhwaAuvGE/uwlbfTTEJEEMsd+c4U4gTwwvkMgqBfCGaL4XR9lzHin1y0BOKUX6e4EdnlX7mSuUQbjb7AoMbaWqhaXzgfJVD49bCuoZ3tCnZIC4cV4NCq3EhV6+KkSdkTFwoIDl85OEUiNLP2Eqlsfe/oPSad3KKHFA7CJRqRkYrPey4pMlh59wRYeszinEYdkaJha9WC1x2Q/soCykFzMtflCm7ZINmbHeC2d+IrLeetUJZqTMvNmmoCpjlmk544/StaOYtMeZZRkVpxLrZonmoLePtLydxI8mqftLEmDjDE+dxtraWUgXEuEBwiqtbBLzXkfKygMxzEiWKgl4FOFp/VWdY5bSjQjWTfN0o5j8gZRmTV11Sa1mz52O9vSw4sTgU2eLepu3OseQHhhRDIiHJD07rekVKusjN6YhRue1qYgEO/DMIjGJc2D8hmGTvNWkzPFVdilhdZmYjCWGZ7JK6kiKsFwiwNWOl7KL1Gcp+HZ77j36DpFGG6L2iTNSZ1dt2VVCoLmEtxpmQRcYAQ==",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_0135QCgoJCg3sRcca1TLMoNV",
+      "id": "toolu_01NqwbquYufJdhnKVWUJeWMH",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer has been drawing about 5 W since Mon 02 Nov 01:00, which is standing draw overnight. Its card says access none, so I can only note it; the Planner may review a switch-off routine for it.",
+       "text": "The 3D printer has been drawing about 5 W since 01:00 on Monday, 2 November, while the workshop is idle. It is set to never be changed, so I have left it alone; you may want to switch it off at the wall.",
        "choices": []
       },
       "name": "decide",
@@ -413,13 +398,13 @@
     ],
     [
      {
-      "id": "toolu_01UnF9LEJvwfBE1nxTeu3kYE",
+      "id": "toolu_01SerYr3rJw8Yv79u33s6UEH",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer has drawn about 5 W since 01:00 overnight, and its access is none, so it is only noted for the Planner.",
+       "text": "The 3D printer has been drawing about 5 W since 01:00 while idle, and it is set to never be changed, so I left it alone.",
        "choices": []
       },
       "name": "decide",
@@ -430,18 +415,18 @@
    [
     [
      {
-      "signature": "CAQSyQgKEAgUGAI4AUIIdGhpbmtpbmcSDCzS8mFvrh6cX4w8AxoMMozHrrBAFyGgidbkIjAuXuV3GV/wQDjGwWA7ZTffS6rERB/al0/oFcAZl9CQC1y7HMVZAona182SZXQekMsq5gdZeJftkvy4PcAcbiddnIBtQ7eiDTmx7Li+Gr2OVH6p1zvMNDhGDn89VHOEwtCJSfkYySr5zGLpbz7BzpX7SCUK2QpVknMPukbsS2YfY1fbCZ3k9MfZ7MXp0Cv1SSi3MYJUC+guRrdd+TU76aT92RO2cSlqQBfNc1iOMryQQ/r9Nje3z7Gko4q40JFx3L71LXFcyvWDrgYpL8y9qYAYQOgFH3dyq3Ytp9jCiWNno4yfr9/yLOn3+lKj92ILChOdvjjCJLt3/Sg6WHjuDqX47n8zHL8gwl+wlmBTDzNKnZeMZTj4rvdMMPpCBSepzN0D4Jwi9U+6vthCA4JKd0qetqgwnS/UBkh6MTTI/L2g07T726yNk2pbccJBgxpHk6UYzfd9EXDsbClhg8QBuE0pAfxSGESsgi76wquthrIL9RzdMdroR+oDN8krFR/zdfjyyOzbgNgw2JO1vrbfmJIofrGUCHChp3VxRYBTmA2QgsWZjtO78OEsFNDQhARXtWnTzMzhkBcqrr+yFobbKay1q0q/99GKRb7YmKvwBe/Zt1PqK/ysknHrHhyUKDRK6A0Y4d7VodWInCIuMEUsbfbzR34tPTXWv6q4mA4YwijExF78igCBPx9A0w3RT477he3/qzNMfp5x7bYzFPi2Gz+zLxRREJORS5HJB9ITWfKWJ/7g6HwHQbTVN1uWg/JS+wb521iyZj0PEO8istmrb8b4f3xHLBJh4skGmngWxvi5YGnAMOPpcWhheTlAhEPJ0tEgPTw+/Y+LmebAHviRR4JSek/5OFwIj5mnGZFLwxz1ffwkGFQh2+zIVk3uA3SSLnlTSDRppptzG5C2HhJB8TYXyu4B+LR9U7T+KLhOi8zbgap46Ov0Nn2y9Jk5ud0NC9FJ9knjWK3C2he5OgcbbOENrELxwspiyYXcCbaItyRqQR5d6Gjt7Rt5+CFb1PfSWw3rihbzyDX1P1+Cz5rQ0V6zh0K6Run897XhGL38egw5gdB93oJVb7Y5Z56cqQ8zHwc+56e7Zc8KFVEHtrYliJ0kR5+Om//d5iMJot/mbj8g1k5IyJCHYPVjwar7oAvKuSO81hSsfAw5PSHIWr5gXcdtFhx/ZYpcmKhwkDkmkNkze9o7plgdAgTHtgUi9b9JzyZF/fRhl+x4fBptC9rQvfGT4pgFrFJO9yrxIrEZj8ObBmyqR8WqizeGjDq5JRjyz7p8FvbVU+1reUbm+l2+9B/cjEJBc5KohPOBkzO/a7lTiit2L2uxQghlRWQq8D6ToeP2IthZnu/6vE1Ag73MIVwjJJA5ECHNfvFImiydM5CUPId/7By2yo9b4BgB",
+      "signature": "CAQS2wcKEAgUGAI4AUIIdGhpbmtpbmcSDJAZfuBzqtpAWbb8qhoMrY2FeyVG8HGMD1sMIjA6Q0XNk/KVQobVITEkMsFHS7FEVjGen3/l/xndQPuX7Hcbq9et9ewjpWndg5ZRcS8q+Aak6p+nEY6vsZUIjNGT9JVw2U63YsSxd/CnEz4noi1G38PFRDYzsovRdXJnw8BF+6CiMD5ixjfOph9iynbxeBtENSGcNhyGFoPRkCAnPRkFiRD+qHXkUyWeyw0E0SktkXrXAkZ5dQrbI2CGBkSefG/qmGf4r/MjLehoOmdMxHDKcu7tDJwg+T8+sGJJVXOVDsAlcqMM2vLmdbUEkZW7MzNjPDF7RLSJhpAFH8BRyhrOueihuKfOXcuAX0vt5fWPtrxmHtlHUnfIjajcfkm5TyMGL7QFjX8cmWNQLhymJdsMAo3ZFwR0cQ6qqcLzhLUHpoNZ+cFjpiPXGaTV9A3R39aC9sCLJg8nYmQWM5kfzTeTpnGHZ2sRorIMwqWgYLzSBg+9hBKpBee2RwSRVS3LBe9HKEtSR7jr1imls4PffitfKWMitjUBpFQ2VNalvGeFQ2yz+IfytbOykJKxuiKYXDZwTKLR+gWIgy2TKpRIMKDpnPoNibUVm69n6RWXrd61Z0gcrLTPHZ4TgHDNw8KpXUV49xQvEDRr4aa224SIXXCy+F1BkMF+qPZXbIibJ3B+goL9K/KRV3i6AJz5p3QVaEdO1ESZXDTsP5IxGx0U0xJVW5/H/El9JBuhmyXoYJSURygAldqwc4szoiAlk2GpUzFx5rs1VPCU0boYRGW9iRmHp/Ff+hrxRVnQ8hWKxi868oK/CkGnxIYcScaNK6YUNW6VqOrJV3cJACF++5T+8PHL3UHG/ccnAoESSnQ81MDs1UvIFZfN6nzNq2veVz1Phq4nlQn3Yi0FOiSHwX77IRef7/02yX0CZnB9lCYmaXmqbeeYVb5kd1lZ6Fs7G7R+/9bylRXIOOZ2QNcsZ7TNVxnXijEYTyZT6K1W+xWIkB63sRVlM7GOMDbO2JZAeolaKrZX2adGAKG9wA0UixUPdu0sAlQ89RcA5i2YH7QOBrcW0Ft0BMseBDcQ/9r3hH4lsALzF2dOBi0X5cGCKiV263D010Je5VPimGBhage4uUEQHhcvBu1D6WDrxiMSOlTH42j/2vS6ojS3luA93GctOV946j58pt6wRSFveJ+pXAEufwJXV8EwhT2qJnuKD2qbjG1vCSUJHfbwQQiXE2idzSz+EumtWUZkZlmkzHMIxGxt9sv6VXWYZ1rd/HNgnjyaYtW+Cr4rhPw+fKoYAQ==",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_014yG1wdYt6HKyRVwaXB1jZ9",
+      "id": "toolu_01HAKLXUJjH8jEkeXpSH3ziA",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer has been on since 01:00 at about 5 W, probably idle, but its access is none, so I can't change it. Worth checking the workshop when you're next there.",
+       "text": "The 3D printer and its Raspberry Pi have been drawing about 5 W in the workshop since 01:00 on Monday, 2 November. It is set to never be changed, so I have left it alone, but you may want to switch it off at the wall when you finish printing.",
        "choices": []
       },
       "name": "decide",
@@ -450,13 +435,13 @@
     ],
     [
      {
-      "id": "toolu_018koW5CeL3gqMvrWn7V1Rfw",
+      "id": "toolu_016izJfZR9AZaTT6o5earwCn",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The 3D printer has been on since 01:00 at about 5 W, and I can't change it because its access is none.",
+       "text": "The 3D printer has drawn about 5 W in the workshop since 01:00, and it is set to never be changed, so I left it alone.",
        "choices": []
       },
       "name": "decide",
@@ -467,39 +452,24 @@
   ]
  },
  "EV-22": {
-  "key": "aa671e326a69cee2",
+  "key": "f18d3b2977e08e57",
   "model": "claude-haiku-5-5",
   "samples": [
    [
     [
      {
-      "signature": "CAQSiAgKEAgUGAI4AUIIdGhpbmtpbmcSDCI82jxUx/QwpXd+AhoMn4/hYKhAKiStsNzoIjBYv0XlOysuNq+9PZ3xF2xtI09CSkk0ABjquY5FgpIlB1v4qUN22w/WMVrulmFXfzgqpQctac4lYbqcSfMV+2ILZtxJo6HVOWvkL+WZ4S5sm1xGpAGMhzCa/YYTVPvQXMoyUqVciznb5ipApvE50E+i+o3J1AkX2aMmOzKkfsbnpTpEJFVlZqM7uEDeOtPYFoXmlQ1gWHuqibomDvRRaYJ78Kvbd9SznYxYYzPK6GdDPCYM3mCdvCok0vj65136VyiuL3L8hH4B1mkf27oKYRt7FAPi+lq+nE29ooj2w1hfYcWJ6Mq4HPo4MPHMHfoMKLEHHBkTV++4cPGOIEc3uAPtn7paizCAEY/J4xYCBa0TwYTEZcr3RF89EZN45GSsYIKhiQ1gF429ouuNzCEO/+tTVWXSuzc5ixWZ0CEnhdIhjMB04Rj8T22buM81wSuYl3Ab1gtnPA20/n2IGEg0iA0WaEDdfsCkIrCXpJ3gPyZepYb79zrOOZNh/PLZ9fBoKQUefr6b0Tk4Fd7iT/o5FbAJ8LpGBeT3J9GLcO3mqNnQ9fV5vx3AHEdZGXfJf5XBPI8mh9anGzOL0blASjzB63Fby34+nMuaC8ZH0cTdL+key2XVAc6hDiN7uWuRoPg/C6BJ0IVb3pZby0rRWg2D6J682uDQNmBgxOTssbT0eGylg5uhtbGluLStM8RUVT5CbHNuTiYP87VA/oMIvGblrh1wRaA2ZnTlPpRPOw7IQLHq94IIkZgy2CdPThRJnJuIs+Fm5nxGhdtHjN1vzFnZKsgd7Gwb4Z8DGNO2dvxVESegYAdPtxTClSTgy8OFrFRlBeM6xOuzk1t4meIurstmEJnbIDhguuO0N3b5w+ue6+AxPRonc2a3euKiSOXbBo+JYjkRCwqvWRiZ+0zTFK7JlhXfetqd5t03m6IaNpxsdIOswwrKxS88L/fZJRUfa487H4aVMuePjcULt0Q/RRIhBb4jwMZBkvzJZjf6JbgY6JmSIoXURxOQOW2GY4xqlaLzspYFRpTThSLhXEMt0Xld26SV75DdpN7OgtIeLMKX1dOdCZrEHSl/aMEYCD4apkKgImvneBYSSaeR04Do4CDsu63sIf01lj1o3cqmpvKTrbXobtjtvgw2Dx9KZNDi85+QljpNIDsB7H0hlq9MpnA24emEZKg4O26eb1gLN3M/X0Z6HAzRgnLN8z++E0CO30qbM8zMljpQJLxFfhdvavIxOp3VOZTwdXPznKAO6WA6fUacsQ9YeptZlj6yFVfEkjiIAEz0+bhup9mbndrgYoHWJ7Iqg6MaSH25lgMYAQ==",
+      "signature": "CAQSgQgKEAgUGAI4AUIIdGhpbmtpbmcSDFtIVxRQ4VN6UH+llBoMxljgMHQ5VLWbC7KbIjBKAvIhRwgnj2TgycTopQFdkxEIsH4E+vDXXJH/4v6qRC4P5n4R/8KJRfEOGlD5q1oqngc7VK+NAfBZ+YgeWH+mcDyi0hZQfm8pc/dZCKDTD36amA0IFZZUcuf4DFJAWszsrUNYEaEAZwm+EcRTVsPkMMgntIngUJax7cvgt1OPPT/JIVbhTOZbKkl64Wrf1XWMrViUOjmX5EueckQ+gSEnhK2fJ2CUj6EY//WhdQo2d3vmeeD+4B00YpzR5AeWFa9qFk5/IaBEhqzhOKwmdcKKsfannjSTscGw2CqkJOjdbq7sZ5yn1qXT/tSW6XnDe7xhlNajkKsiws0hUXRwiIVdh4y6xizpONNkshGgipBLcb0c+uzrgZaimgbQty/7G+2pJmDGHUy3kzZJGaQNWUsmc2gcvoMJ4y9VsgRmIskA9HeWKt71YnjUx1u5lwX7ArlBm86KaV8K+VsVjUVhiUfxWrC5jHRxd2H8rygTBtYCdtoQHSey9PZg9RBmLTZEpOfK/lN/Xo2F9kIo5By2rqHPVaTVYokqTyh3V9pthBzMwuURf7xCzSoyc0qOcAuTH1WbziGLP0UBOmnoE5E8/btpoDt6soVeVhEIar2x0od7rK/qN6j1EsBpdHDhHskHKTnSO7x64A0lNJalAZiTxNZm1DHTZ7hExqOVHEHc+pBpBcKrRDv+1rHbPDi+5vGLiJ9hhKB4qFJezWxBnLCbL1MbPaE9ATGs+XCJJ4FOGiITGMlgjFVR5gr0slarrIPmUcxXn8qXlh91JoYF5ekYb042Ws7pR1GiiNCgkjbugXhVjqYzKQlczFaWcwCEexgDfCXcsgMMLXdbWBdYweOsHyw7wKATA3WYsgVGIHkbK53Pc0hnEJLvvFYnWuiZT2jgm/Hs6Jm9c09L0VBBu9Jcu1RCKBCseQPY5o+u97KUjmAOfHWwmSvna6pTtQkcTp18Y8AwjmrKB89i3zSeSXJn4EDnBVbJ9OEkBYhVAgOYW+38vWRiYv3QaYwn4YUL97b3zviuFMfoavGT241a1LT2T8WblcNgY/a3GpigZaB2cj8WCKVYUKrMfjjU20dX/1OCT72+7F5EZpSIzgOCOfAzKNtgSOwtUeznSUiYOJAsyAld29k9u5VZiwtLgDoNlma8OqUwJtDM8TjHhucL2ipLi7Ypv3FiFnOh9HfzdwSrLx0YXAt7o//Kewa1LTrJaJ4rgEmfSSqjGRAsEPG7VHXmoOG6VLMxBzHyHNYSH0ZmzgmAcGxtp1JAp6mKnl9rnTMuNXp4bA0yLnOxVSXSfg/4ekSeNRgB",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01DxfXk2VTj65AthG6rDY6Gd",
+      "id": "toolu_01M1UemC4had96i8z3NtSBbf",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The LG TV ran for 44 minutes from 11:46 today at about 29 W, which looks like someone watching it at an unusual hour. It is daytime, so this is use, not waste.",
-       "choices": []
-      },
-      "name": "decide",
-      "type": "tool_use"
-     }
-    ],
-    [
-     {
-      "id": "toolu_01YMzf8vmfZALBTVvaZMJEJS",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "action": "note",
-       "text": "The LG TV ran 44 minutes from 11:46 today at about 29 W, likely someone watching during the day.",
+       "text": "The LG TV ran for 44 minutes from 11:46 at midday, which looks like someone watching it, so nothing needs stopping.",
        "choices": []
       },
       "name": "decide",
@@ -510,18 +480,18 @@
    [
     [
      {
-      "signature": "CAQSlAkKEAgUGAI4AUIIdGhpbmtpbmcSDOt+lsqkAhiav3NiuBoMeG0cn3v+afemVFuLIjBDiS12pEhRcjZjxPkb4TxmmrCvi1j26XI4HqPq6OoKJrzKlWLZt7/o6isWp2qMhS0qsQh24btrYeub/bvXsgiMYVcDxMmujiqEJHmkXoNgzEhP96VaQ6R4dki4yc95HDsU4/x9tDnwB+keoZoAQm/TdMFFQnZlCsAU6YsjWZhkd+pPxnj8qdZqj81uTlJwTkfAXrjDProTKyHbYMWfSfauqhOL43fkBeojJuH8VptxqJIwptjD+S2hvrmDgoY4G/5YAmAaOaLzAFLxZWtpwehXLDExp7rTpATDLrMt70bmJjUT/ljHH0JJHOjuWhX/lEeScEvSLXairKNjQ7++Z4iKZUuqmu5KsdZArkzQkimajIEkFSuGu/Yf2SaLfPw4a5yttnpRlRfkUOZ+nkFCk4kwre57LQL/abv3a8RaRqpO32xka4Y8Fv5V95nadcqGDMeIw2JWqg6Oim4ZJR61nXUlaY5YifkT9XJyGHksbzdVp7u+32IP1gUIKVHrHMlKV2LSSYqvosMdTxNTm/Ynza0gM7a+0WMewKUoEOPov1FUzIiyl0XUCFHefNFpNuWoBnwxHbN3r9E1VvM5c4h2Duo9G8/y2FuS4eG4p/YtH+giOwZg/Aos4s20DgkIrYf69+LXYLJinQlAUgCKqrom7V9TjICu8aKBG2VXn6bN+4rdZNrGfzSNXgpSsilTIwvVZw5Y7gNamF9xbWAxqWd4VpZTPLNO2e6rplxD6loJVwmMeF3eY5DOprKNJ/DH0kwFftykvq4UtlQH3kNnodxSAFzQheUB9RS6eNUHTn+cLgLv4y+5IjR4Bo7v3fFJyQgM9LisPsD+CktoySc5zAeFWfHH60/EciN/YgHu2Rqa9FtKf4osJYfvdiGsVknnOEpyfGFSgQQTyQYgyw3TdA4bEuvLEZxibBiYIJvz3ryiQir0W7rFYqe2WAuiZ6ca2muiZQgsLjT3K2fX4qptTYk3zn7Ky9Lfk4T0iYURB7LJ09gohVx0pUT19J2rtnA6Xxc+92y4dwr9nDJTbjh+EbKmo+ZYCbAEQGmSE67Gr6HV2kXfEKnplYDr7aGjXeBvTr/7dAfCgk8Nui9wXe2QgUkvnrcRyXV35Zk8DpvzVCzwp58k9ha+qJLykCMzE4uVbJ/4JSmmaIf8dX+PfCbyzJAux9tp4dvL1Iav8O3hgmCn8Gw87SbV/8pP4LbbggYF5kRTbqds725lM0Ba2etwqavl+FyMUJFWjBVwnI23j0e03s7kj3Xqnan/3hcTVEbvxwgNJMLLlKWvjIiq7nb03Y8FFj44hjDyPKdQIOBAsjXmJJZHF9MKLUz9ylc2+qv5ZVSmkpvmiast+R60MJ7z/exRZBz0ShheoS2n0RecF5I17iwE/IrtHPDKP+Ru9Po0aT5M4zgu8Zfi0RRaT8/tzD1VlRnQ2merkcf5AvX4qf36LF24aRAF+YVWW3RxTs2J1uQHme62UxX+00F5KN/wC8jtZPrxDTQubBgB",
+      "signature": "CAQS1wcKEAgUGAI4AUIIdGhpbmtpbmcSDLRYnh8Ot12+Hr4mVxoM+fmCpghw0E3bRKx5IjB1pqGb6tdDrtDCM61kJu4xv7Oy2mJgZrToc196/pYiV8Cv8sTKDAs2tb0NDRqQkpUq9Aayjq00Dz54X4DiLSlWicev0l32ZaYWQmwtgv1nUtpz/N0tuLoE/43Z2OLkCWulYo11kVZG1TyHD/+1McLyYtm4cgEVa6Rwz3heSVqwqTVb8NqOJMh5YfQO1QroK6FIiPgPv6pGTy4kiJ8UWmPkC02PnNnlAXnkqlu133foxNWh0iap0BnsDHvUhWqY7DNvhSW6JWjR7Kd0sgJVE/zoQUMh+sh8Pbrc8AhIhe6Y9HixSoS1RxHC0tWU+gTrXdvqvJCL8IM6F/aryyqOoJlswALnmVI78qIQvbUuG58pLg4pjODzDUpYPNJWN66w1YOw6i27jaZhDYvQ0o0/YOhVYN5yg31ZjsTbI1W0iW0wnhOpMdFoniFv0rjYRnoeVNZZQI9Kpq8xNUSGhHV9VBpzyKt6gTsTsv3iLPEjKfS0jVM39dpq4Q15ob8RxsuZlUUyvNClYiMwPCHrhVXbkhfGG8YQJes1PA1dCucnREHUaJXM1W2Vn0A/ER55QS1sMaLkNBB+CFLeBA/nrT/Tx+DgKphPGsw02EfGfunbLrjTH07OH4h7VpNXC/LlltR/sStoPsEXpKONvh0hRnTPGZYkZWwXvJFkzFzXkCcc+jRhSBuoqlMUXtuVTGWOfA6X2oOlvWcNjUGUHnmryQTGtg/5x33vFI0qL2vCBtSBWF6lH8CBKJ/jeukcHdTJwsMuoD/a/TRlyaMKqGqEDIxfn58BiJkDdJ6tUIsEAfM9DXe6Qr3szcpF8DmytRi0Q5HmeC6+SaWpGS4IPExDV1z09TGb6JPzKnbF4kTl3aXS2TGdzN0SNwcs2DSuVaJGw0239pZBZidQ6zeBazirZKgCIPo7tjMIF7s7DZew54GjnWvOPTF/Ooj54GrKoOt/UCSvurIVE3vxBh9VegnXain+rFaurGMZCDmYSuzuMCumtWQEXVkHA36HG7shPoB7Y/T64BnTlUTQYFbLCSBTlBbnytnIZMWLB+5LPAmMdS6W3eMF/kltkpubs2XGYnH8yDw4PkbKOBxhYiVCOGsCma4klbstVj9gzBxfel8mUH1FNBB7jAt77LsXUk0Lr1bzLa+tL8s92NaXBHOpr6+c4ouVz39MUCK2V0M/i4in7Bnng8JgYHOQAYVPPBJgk1c4J1C07+/scDwiZJOf9Cp7aF4GfsNyKDa5m+VfKBgB",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01WoiH9jVJKoKmkxBPp4AVQ4",
+      "id": "toolu_01E8cCjNyRKz6yNw2Jma2Yw2",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The LG TV ran for 44 minutes from 11:46 today at a peak of 29 W, which looks like someone watching during the day. It is within normal waking hours, so I have not interrupted you.",
+       "text": "The living room LG TV was on at 11:46 today for 44 minutes at about 29 W, which looks like someone watching at an unusual hour. It is daytime, so I did not interrupt. If it happens often, a regular schedule may be worth setting up.",
        "choices": []
       },
       "name": "decide",
@@ -530,13 +500,13 @@
     ],
     [
      {
-      "id": "toolu_01JmsoQn3EfXGiyLh7vFz9jj",
+      "id": "toolu_01SqumtiWJprnkDBXchPSuKQ",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The LG TV ran for 44 minutes from 11:46 today at 29 W, likely someone watching during the day.",
+       "text": "The living room LG TV was on at an unusual hour today (11:46 for 44 minutes, about 29 W), likely someone watching, so no interruption.",
        "choices": []
       },
       "name": "decide",
@@ -547,18 +517,48 @@
    [
     [
      {
-      "signature": "CAQS5QgKEAgUGAI4AUIIdGhpbmtpbmcSDI0AEt+GClsYg0QxqxoMSxxFVzyl+oRdSvfqIjAkmsJWkKIdcc/YOeGZrXmHgjzQgKczUGI7JmDQkBlIGen7LI2Ey6xPeXH1Se4ngVAqggiI7sAv/cTiB7numkzqF5YzQBbxZSLJv+WCo+3/sTaUW62qaUtWrW0CXRtBhau7yio09O3HhkecgPpBPy9/+r6YRBsPt/U+yXgZtQyZHdMZ+JOH0KvMOww2AqHCJp4KRejR5apqXbTObAhRHteUGuZKOHhgJdSoQ4aP1RfDoNXrBHVOzGYEo40FQ0vWhauA1pPWFhVT4fcKQcZJot3+gHfbufIkzlBganKwlaXeIuNAaxJteAck9yXegJnBcEIDhVW8TcSJsQZTG5W0wPv60wfdjHtg+iiaU+UsSKa+VchaeYVGk1kqTwYztjc7Fcylvzu8TC4+bbqiuU8efozncnQvG9VGT4yPgcVoUkVHXXuuC00sEB9RAS/PLoW0VxwpjN9Ri8hEiTITv8+tgSCIX6pKYcKAZZJXksw51Q6/sBRzi7i0qixM5USifM0dVzjr+whkYdwqv2gSEPmHEbPPOTNUv91K6zdwU+C1nYW4ksDwu830aR7CG7S7Ih32lKj1ha3RnVHbnZDFowznL2kF7mYqmv2eCuHsCOA0KbiHOrX2QZQkqyVBvrjRhkRtJWVRrzDJCGqoS2RZsaal3Imdbk0WeusZfm0bI5Qm3GyoTi1AAyQ8VL7dKTfPnmVcuDm99y1pLIkAnkQLRUK3310ntgAkdIawnEhPwwJTCrU8Ruv6zJzaFANYOjW/sXTsaNVitYi5g5vw7ZKqC3fIFi7ugX596KHI5wKmE108p4raXxtihb+1DGUcqaYNvFPcdVqvMzfQPES8d/iZOLmThv0L8obWc2b0ihcCPpEiDcpRDSIm01Y3aVO+W3PTx8eR70FJeDbojA1HtayT3L50M8iesmQYK3TxlB/+31Qk8uUSfSiGR2m3r88egzJE19ErHZmcnh3D3WqoI5dY/F1fSw2hF0Ki31XV6R74ou3xMKPTaLuPz26LTtNKp8jhc/pOMCHOStAoqizcoWEJDm2r1mTMwYVODPgS260LnaPDcQ03YvKGR5+1KnBkLgE1do9FcT/7h6ANIuqsxZmEv81jBcks6Ci07zNBBYj2CYvu9Zj8fXTCypOhBTz0fWEBILzr0MbVjxLOy9VlAimJaRHtIhGvsqz4FPsmYHU76aFQbz/NPK4Lsj3NVFJyovs6Y+nGr9Ki+568kkQ9C+dp/0GQL6pgteZuKwvsM+gajcYWESVcMj1FqStpA0+2AmtxnNYo+A+Kk9JGdFEvxMVCestvlQED23FmzaDBphL7y6t8xqJpuguaNC5h7c/DB9SELr76xVoKZEuLMCCi7H+bFp7jCp20MZfr7gMzXXkEoCwqTLTFmXQfapVHsolunNW21vm/02J949rc+eonIPpfyl4piw6KmoH/jfQYAQ==",
+      "signature": "CAQS8QgKEAgUGAI4AUIIdGhpbmtpbmcSDOfB4RNcaafmCxYpxRoMoZLRlMbNr8HTOo/hIjDuCt+YbPV3zRhDpLkFIge0UvJBV+kuXgW3/b6/h2WpWblMgvR2B5phyJvjmKN52qIqjgi2E3cQV+vMclKQweP8+P8Uiy+OuzaISryNKpuIHxhJFIP+kJVOlgcO0QdsHBEk9kByR0FpkOyNzi4quxg1kpkC9CV0EdJU1EkT58xzQsf27HB43QNWA/2NHqwe998On462o8YHKJOavWLFEDyelVefwTQRAckfgjgM9R0a8qfwaKvB62z52Eh/W2iTRZFgZ7RXw5n215gRUTreCo8WcTSt9p9bEkfrfT13YQGnw9mIpqX9BIAIiePSpG7sCcSE3w2yzvPuDwpT3XSdF3As8s8mZIamyrIabLTFs/o0aJSuRbzVJTzk8Nkg6Sp902WjjRE6MVTUoNOJcH0Pk6jhgnxKlNUQbxN7IblyRujKZ/fY2LpIaR/XHmfxZiaGJjaRBGaTVPA1EyYkWFiKKD/LDSdJBNHhXsY2VgJKnXNr2pH6nrmFxmceBFYr94OK9/xdbfkbfLt9q614SWxx9Xa5iZ/5Z3VrxnawPoB5kjSoZlw2NB1s+ny9a6bmtiN0gmsWY9zG5x4Nszszbqf57qCRvvV7rfeoEPK/F+hARJce5lDdRA5mDnYfhVxUP6rwpup/HNpaZ6t2lGyXR7AMnd459S3zGjx0yf3BZadRDYv818hA5FY8eXmF3pi19WLbIlr7bBm3TKcnzW854QqG2y15eztJEC7+zN4EYC2Rfw3r4P16fbcuzMh2LJd8QsGG8+fTUVpvYWDOaHyFlWRU+2EKHMkIJvZYIm80h2ZfhZpBC1+5l+XHR4I158cUB0HmO+5MhUXkr4KoL0avbQozAz0rc2GBb7RPiWzRkivkVMwFql9mh5YyYJF0E6G2x35B3CadkStu7/tc282LtrWq18UvrRmrX/ak0JQKnP7bTF/NQizx0LZo5t4Ow22xYSGKyeyIOtxBgT/8MTzJx3d+w4XocvGMGA2YpPl8RhgOpeVvRGa/K+seqjMBk1DSG2RtxAoUqKre7rU2gsI8KOZOBzniA4qnSxNjrvwKX/67T02vCKfwo2z0aRoajXCO/aHfqxPAZpA0zL6DsYxpkc8y2nSuOnOFaMFw1sf6kOY0l3cKu20BV4YsjxFS6UO38WXIcs3hXaT5vqVqi3EGg0zh9XrVLBJJJFnyvNhptKUx+CPLJqlmWmycyMRSIRjSI5FCfLIbx2Jr6j1hyHkTHE7kH8fC3Uy5YA+8ASNEIyDFENJgRIcRiX+eae8yjffnj6Wvwn/LQBGR6ppSmZZOYtgjzSuoemZgjfaeqaAAIBTNbjqCzUCZB0Ksj1xX9I59/v/QVjfuYXnDOmAqy2sVtmCzKZpxO+wygEo8L+RAao1hItzxWvOmVvEYfA/SyGUQKC2ueeRiouu/FGpiZM5l+v9ryGF5hDzofUEGjYHq7Jor+JQNWxsYAQ==",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01LVn8aVD3H1ApiPVfhJGcND",
+      "id": "toolu_01QT2RkHnYA39LrTVBXYZUdR",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "house_now",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01V1aucvW8Pr6kh1sUuHm25g",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV",
+       "day": "Thursday",
+       "start": "11:00",
+       "end": "13:00"
+      },
+      "name": "usual",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSugYKEAgUGAI4AUIIdGhpbmtpbmcSDJBQOlIotgIkxL18PxoM6/raoOjRzbsY10jzIjC8J7riJ0kP9yPX3qaj82HF12hoXM+8sxa+2HDHWsgYTyFPc4hYpntG1ro9P9A5Uagq1wVhqbAbEUy7iosd79vA7Vh1nWf+1ft2MCF7Ldu5A/GDGjW1m41gQK4QVmFUzrSf+nnzwSBMnIszplqkVLaxQ++NhoiHm3m/EDaosHn5iH0BRCtwirpAvqvQ4nag2GTzTewoZhYYDZ8vnLm2kfesV+8h3Ve0PIefyZ8wslZgg0vMLAaH2IOPD/04BXhO5BC56sUuMU1N7EA/zr8/RsTArgK6z2Z2blPjO8amFaISCE3yqp/LJNAAW9Lz/6/6Fwx14wwuWHwsL3FIDP4N3xfIg5dgMqN31SVKa7M8XCGzy7THDJG8v95JSS4kSB25VUVfSVqO/UtA0NP3yLfRJA1jIv+tLh3HqDfIBDgPGZM5j1B1+SQbI3rTpHZxMdyActEny9sVBQD//rR1dRaRkbwcVFjNl/KM8a4C6hjr8JJj7aT7BEnUdWA4sZCUWhVhzxSCBX9w8quEwNpTS3GmvZO5m/5MVXSLW9YJ+3xsl9R644X8uJw1GtA1rg7KC1GuvYNGbum1VH/es4KlXnt1Mr3Ad2ltNv3dpswNipx8jpOw9sjBeeHEHHpEZBpDdQOKOLiv44ROEsU0WKeYqvhpZvoDj2QpAwOi3/ceRYqd93OyIEQRZgjWVx/W/ZDGovnNm/h8abcg+NhSQUVFEwaOrwYptmQB+cVpwOg1rfR3cnQZ0lqmzKcGSUJEQa6Gs6kwAVTag+idiTNjD/rZVIGA/Q7iqR124vbSs/iduJXXUDFy1m6/IaMBwRZeFwc1T/oI+YrviX/ZHhwFrgZ8jrSbDcpdf2SXyGMCQVoH8MLE8f6jbPkoXwvF38g/BREcJjQy2O6BhdV1t6fcOvdMGufOzRl9n1K3LusRnt4SUmtf1X1ixtP26Fnv+GB8UXt2OtJjdLm+hZZAg4QYDz5Ta0J3d/cCgV45kXezvuZeoDJqRSLc/dftem/d9/rWr1LfFd5kF9ndJy+AN0smL+rYGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_0138NKjKUqLapyPacDzA3o9M",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The LG TV in the living room ran for 44 minutes from 11:46 today, peaking at 29 W. That is daytime use by someone, not waste, so no action is needed.",
+       "text": "The LG TV came on at 11:46 on a Thursday, which is unusual, and has been drawing about 27 W for the last 44 minutes. That looks like someone watching during the day, so I'm not treating it as waste.",
        "choices": []
       },
       "name": "decide",
@@ -567,13 +567,13 @@
     ],
     [
      {
-      "id": "toolu_01EPjjzZCbxfHGck8xRBV2Pn",
+      "id": "toolu_01T4zK132AZTnZEyUxE9mw5U",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The living room LG TV ran 44 minutes from 11:46 today at 29 W, which is someone watching during the day.",
+       "text": "The LG TV came on at an unusual time today, 11:46, and drew about 27 W, which looks like someone watching during the day.",
        "choices": []
       },
       "name": "decide",
@@ -584,33 +584,18 @@
    [
     [
      {
-      "signature": "CAQSjAgKEAgUGAI4AUIIdGhpbmtpbmcSDBwp7n3DXavQycKphhoM+4Z5Ur7xC9udOl8+IjB+mMrIc5+59CSbpjmpyGtzfgV1sbZ7ZglCmW5OU27imkcZKEHT76sOEGKOnBRBzZ8qqQekINkhyu5othKOoPNZEBVb9VOo1JIkWdnVxy1kGE9wPpy+9/tP9r2ui1VH9ZFgMB+pWOmXIu4B4+lLupYXX5kwGIWk1RPR2y9PLbGKZiUkbY7OwU4peQGhzx8SnVaWRPHoIVNoY4WFVx7qAmwDFhKYxpIfsL0DcOJXPvyhiGFWxum9jsqHU2rguejA5lznnoY66oI+rdERQoj9EA4fZz3LP//qhOGVlq7HN6aBhCSXMy1Gnmq5Zyjx6pNCARBe5qxUndBuU/7yiJkx485o2ehBjrmObBMOAgjFrXGQjx/KSxKCk0NKOZ0TYP5Na9921G0XOr/NCU+wJbdbUqMYb19dOy+UdiUWgg5/OIEGZZZXWR1ALn34vvtmx0zDJ5CX1h2gTPWTKvpyOtPoYZ7zdM1uxFzFaYwubUb3gsq3TXFIoVUVCJuvMEDXZW+ycD65g91RDTnKY3cE3aI98aeLKMmzkxC8mMRu/66LttT/ThJ6MXgxq+MJiNxW6hy0+yEACyDDIBTMssACUcA8+apNhwI8Kwom+UF4BHhtsfAbbU6HekoSDY3m2lb1uXqcezFBan82opO+Bn3XEfpX12iYXEjwH0H09Oiw6nq0ypd7mT1Ic2lCkuifk3ENXukgsNgegrqm6MbqnZxUGL58NeLBffBY+1E8P1Q8L83w4/R1PqwNJUanjnSmRT54zFPfnTtrBhipGqznB/VpJzOmwDRyweTl1VYfzGPJ+aQkozVigg/c8BGg9myQ1DiFxyacFA+S3NhsVb/KcJLPFWxXBqI6wk2b+DvbV7AT9b8igB20Rk1voH4YhcOJJHRUafBC9liKx4tjFZ7hqQVC0kxkHpd/pHWGPANnpWvwEstJyVxT4xwK+ozYICsciqdbOPOb6LhOS+D1btgU9eAUhClGHVJUmWafgvaA4TOrDUUQVVnqZ8D37hW0SAJkAYClCLiq5ytUfJBRjx826HQ+jeKBiRQB4xDQ9K/zE0OwW11u5OAZX0OY8zfuELpT04rq6ji81NJm1wfalkk6EXeZZ+jJMygokcQmjhY6JpH2GYdKBgs2OxiydynAwFTf+xK7RCAlkJW54iqTLAvjbAobhwwjeFx/IqdMay3mhP7ZYzflf50ezoSWufSRTw2o/mOqlRh1eCY9szM1HVn81j+O3uT/Ap9mdgMqwQVwy9Rtym8pjnfjbv/NoYvGz9dkCS5Jn9Qf5qdgQ/6D8DRhqYRT/rcPWGEiPgplgSppX66wB6mKGAE=",
+      "signature": "CAQS5wgKEAgUGAI4AUIIdGhpbmtpbmcSDH/eTjuAj17bk6BgARoM5NKyqiezxEIEPTBGIjDwoWDR9RN4Oxi39v2yMvmJzTD7+LnEoOdNk2FMXTRAJ4Iu3XKKrZ3fv4a7YCeLv10qhAiOntTPHfN82G1cPdAS9gHvy6KlgzfBvKW/cLrgkyrLGbWTlEb4Oekd9Tz+NXYJNEFmL1xApKtMWiMeXuY0TOos1yEm36IBLO0WoSkjRqdd26VBG2e+62X6DIsoRlbVJAd6HeCZr+XnWSs/cesTIS/OlNNR6zLzucWTxOCUhI1OnIoz7QzJBseFXwKMb0i13gjRd/BlwPjzHCVNmr6b5/Q0bq7BC7zb2BQiJX7wvGXmOhrOT7whFzHYmUNBm2RGm/NCSVzX/g7+F+4Dtx3kd36CmYvXp4wDJuOBEJfa7s07KOefX7TiMDMzzzoBS/hpZHYMvL8l/bTU0rK3y2TjgyI40wWo8Mq2cgLlJJREIK/6nmwV4A4UvynPsUY/pvHYJ2gGkRyh6N7fMkIgrVxQO5431FSjSFS1zsSvWdzI7AvTLGc8CHMHYJKJwQ0xPOiNVokIPkL6pgEc4lGsWt9Rmpa5QfCu2MFhstCFUry5zlKnf6iyfu2kzylLM7suzISy0Z8iIeb8jZmUC8xusyvBR6bkPm8x/IfbnAcaf5n2YwmXvwAIMDS+C8tMW3zggakWDyC7OK2Zgp91TAH1731M94XURqevmGznyzJ2sKes+dCr/EiUXzSdypc9YoaGnG5fl7ihZ/azbJ/nyMN4mQNUtMVFVvQHUpSAzOTF4fwTBoBLiV7YoGuYGTcxYwLK1wohnsM8/xvj+nv/mO2bCDr5ZMhM+K5geiJQw5hW9BKgTMf/p7hhT97ayWh5Au92tFdfm73G94z7Pl+m6LXMywQwt+gMO/uUXbtVDYDf+DvrdbynNyPRj9j6/y8dv7MIA7mHK/juUeDHN6t4g31mR6K+L8ZGmhMGh2HrT2Mz9VbJxV03fAwSId/6yyDGvTlz4CuM0/v1PAGkg5nX0ivvOBmgkyzJP8fxErBtZrBFdSWJs6Ys5trQ2vIM0jDBFHbj6rBtAqkgBpLoxxmUNmA286X9tzWUTqK0sApi0GHhlC/h73ZkGd6FZcnalwolhcYwkmybGbHQTWwLqG18rAunJSzpjQQeZ9fezcSnZALvlzZ9q98B2pu5+a43leQROh9oW+Z7grBtL/+F7ratYj5fLkHuY0M6YMZsHFanfHkWmze4eIwfrU84lpiCleLbo0LmqIwSWWnxfZT4aHo83J//2afzenwN1VbSM6Pd6LokCP60pQDiL+vuMB8PmFGX/d7vtW3P5zqQeGijNgtLmAI+mi1pEl6TaGUa7b0kekCfZSKPMhmNBgMGVtBNWzHT8LN/CPlnlskHrOEodDxYRd4HJqksmJmPUFUq4SShcrwiZZow4jupjzwXWNsR4Mx2TDTNJcKFKo2n0dDTlAbzrgmhUx2u5CBh1PNhzRgB",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_01YCBrZrJgigZbngUswqLwTs",
+      "id": "toolu_012ErsshiFP2ZsMsf4ssZ4mq",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The LG TV ran for 44 minutes from 11:46 today at a peak of 29 W, which looks like someone watching during the day. It is not waste, so no action is needed.",
-       "choices": []
-      },
-      "name": "decide",
-      "type": "tool_use"
-     }
-    ],
-    [
-     {
-      "id": "toolu_01H9E82cuUFQ6YELGfSypSQG",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "action": "note",
-       "text": "The LG TV ran 44 minutes from 11:46 today at 29 W, which looks like someone watching during the day.",
+       "text": "The living room LG TV ran for 44 minutes from 11:46 today, which is an unusual hour for it, but it is daytime, so someone was most likely watching it.",
        "choices": []
       },
       "name": "decide",
@@ -621,18 +606,18 @@
    [
     [
      {
-      "signature": "CAQSoggKEAgUGAI4AUIIdGhpbmtpbmcSDLc++lJ6/LRyLxCs0xoMMhSoBn0NPHMgdXT8IjAs/eijae6Bc7+l7tsskfp7bD1cihiIXVGKeY430sgxA+UeB9xDzE2Zm2VElg5D+TMqvwdFOi0OVLmpRtiqy7thefnC/nSTvb44oyPyPGWT4UCgOvmQqdsL++xAu/H123rir/C2eJlTeLmF8oFd6N9oJpt64sNZDRCnFCvynljkl+d5EDX9R2lvIWpW1RSP1YOLsSYCxGcRoC7wts/d6ZBkTrUrvxcYLBRsEcFFYSDsOcTXd55zLohjsFX1MQlH6fljsG1HlecaV9NMRV2OcRtdHJR6h2qgvltAS2jxxCUt7Wh54e4MDExo6s9CfrIeJayUuAl9auaaO0rMP/56MPZRNTXMDCmiliyV7qu1rekcByJmMmobGKILTcvi0CHJKvAxJl6+w9wD02rvXIEXxq2S7/xSh8WiAR1WyKdFVhQosKACVMKqF9zZ9ciG117+js0jFsZSBbhWvXR/fvp891wLaRmPjxsV60/JhgyUkJk6/KaFGypiwmG/dJvVUPa3Zm4KvdbgEivAWejSJrWTenewniGcQaQR/8GxfNzP44kPv1lBwEcPe1QPWFdH4dFLgjGnF5XsqkOLB2RuD0yM3lsCE8bHKxBlycKp/GO2aizxylrC5wkRyn8/XBZvNf0zykn/4o49zmHYZDyDLLLe9fFL5SvG4inecnV+TFt7xuvqj8eIBFnR6vgdg5HSqMRh479xTl4SaWsq3Atc5E5grKti3ZuiU0NFvOhky4PGyt5fziaWfASwZ4BfBEUysG/uFha5UAUg9gDFIeAQ5gHleokmiO/Ry+/QnOodsFxfCVkr1Jxo1jJDawfN5b31xPSOBHO5QZCtE0RyKEF+F/zAZhuy22oEih62C9wuO/2qJ1DcZ7NViXcdPqUJHlA4Gc3Lfb1gzAql/AyuOVKDBXE02xXm0uEjA8u2vj35DG6gaYO55y7AnRn78zNFrwI2S6LNmXHY/BkqYGOJawq18PRFP7SyCUtG07eM/qGAu+u9h4tMRU6hPPOc3Hved/dFD5DnX3wkYIC3Y3+XHOWDHKitFhjwdPOqqoAO6oW3J3B1DYbTolGQuU1gHUGnJi23g4Rj327bAc9/SDZ/7orwcncs4qxvM3Zt7BpOX2cYXhAvSt9zjiHJyKMbaPhFofif5DZrM1EtNTgvSEoKpvTcssJZ+6w3NQbItkzOxuX11+S0QET/8razk1kUF+jV3kO2qpzP0AG7o0R3GbcxPPZ/NEOqb6FVKBQIBjiLDZQwILWmgUShmjQ9m2aAIky+K89YuyGv+N2j9+0h/GsqDoO0Y2ScC4On2u9eD5s2MdJ+SKoFo7ZV+u6hcCs5JFBav2OuxdghinIyARgB",
+      "signature": "CAQSmwgKEAgUGAI4AUIIdGhpbmtpbmcSDMHzRTKlJZ42VqyiahoMzgxBqokSKUNc62dxIjAyVtmntwfsqXOYXc/NieLOIduF6xkQ3IxyYiRq2d2QW6tgF1hkeeMWxVyUqKTq+0MquAe/hvItb6ufk5vhZMV5lEhoss6P7Jen7zVTtw1+ZFdKou/4Ap6aw45QOiRvLke46RK1FPWkUtdiJ80V0KKpBEssSOvumOmOGK2jitpu90vezuOr1er3R6Y9HliicvV9nUYSFh9RCDEyzjl5QXwrqO0k85N6AunULCbJFAn/vIZB3G8KKNE9nwQ9usja4ZFgis+S1JecrVk1QMzR5tbfCNwrd6kRKkhdQdHBZorf46kCTaOxtVG7iCRcvMEzQTd+RP3Sca/UpfUndwQIHLwiampxNVkwveruPk6YNt6whHNtjbZU3KV3tSYKygmSw43TNx1UgDIS6l4ce4P2u9KYkVVVarlcI4CtvdwFYpIpLjeyjJ/1x1yvVaNQXCWD1SC5/BgROE10DgQpjjGizMiA+Xsh7+bIfmrpyjcQ3j1Wm2krrzx5TCz4jaUf/Tl/dIWwdw+dIRUbaBldPfh56Z6ipcaYjjswzyoEHQRM7i7MpyRjxOODXQ4uKXLQxj5+6BH938WMvDiqTcfTpwkUkWJ0KIbbX8sbgp5MwrK7MH2CB8g0ktg1lVBGV1aPmxzrMFDwo2zdsaoLivqy7/ZRA/hIZbmbcm01DkctVfHWGW0x88UCvgqVtiw6iKw839j7MSiQj7x/kYsLpKSLxig/Q9mO+PO/0ER+kngxqb3HJSD8U5tG748ioYTwTdAVkm1v0bgOFSEk3R56V1S7iwN4aCIZj1LTrOMNZJUjEPzIoziBctzSuS+RsWD9dU06kSH2gBzPzpWZGjIsuHVfkRtkcVOsUtEZk+ykLjRnUqhvNjqjpyncUS2MnQfvQUt1bl6hVFLrBM+rRMysu9dAJedXTzlR8toWW4CXoiSLbRgK0zSZrlvfDWnZQ7eZzP0bF2LGPpMWa37vCwiCQOSMIAU0r54+cbnuZqioNR7jC2xi2aIEOnK8oUlkYA3zOomiy+jirvn7mlgeCt20wM6NRkc4iaF1AMYkmTeX81YZc1+AFAUcxOC3lTFUdEiivm4sA1lAqLCcIz1Pvm2eTuhrCYSAnTXNvPEKG1bpl3hl/sKZhmkjmqN4xYTcT6KF7/BD1ourZY1K8MMHOyv8BxXeYUxw0l943XiFjn15ygJv7hvz2evMoPtCkmNReJn4H1b+6xngF7I5JQYAnpz9pu0C2snjZHqEdhp93fbrKfKPomdMcudcXhNa9CcFuwHLgiZSUPfMvq9Hv5ei4YzfYufOwoRGXVOkINrrrAvuvMtl31Jet4V9GGxzcRpChGM++HZjGAE=",
       "thinking": "",
       "type": "thinking"
      },
      {
-      "id": "toolu_019DvCADfvUdnJE19vN2jnXs",
+      "id": "toolu_01JhCSv9tnwN9bUNebmGaFEN",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The LG TV ran for 44 minutes at 11:46 today, peaking at 29 W. That is normal daytime use in the living room, so no action is needed.",
+       "text": "The living room LG TV was on from 11:46 for 44 minutes, which is daytime viewing and most likely someone watching. It is not waste, so nothing needs switching off.",
        "choices": []
       },
       "name": "decide",
@@ -641,13 +626,13 @@
     ],
     [
      {
-      "id": "toolu_01E4JHWjvqsruWS1TqLvyTaw",
+      "id": "toolu_01Jg8NCZz4pU8hs3MVBpHhYi",
       "caller": {
        "type": "direct"
       },
       "input": {
        "action": "note",
-       "text": "The LG TV ran 44 minutes at 11:46 today, peaking at 29 W, which is normal daytime use.",
+       "text": "The living room LG TV ran from 11:46 for 44 minutes, most likely someone watching during the day, so it is not waste.",
        "choices": []
       },
       "name": "decide",
@@ -1083,6 +1068,444 @@
        "message": "Here is the card for the LG TV in the living room. I have not added any usual times, since you were not sure of them. Save it, or tell me what to change."
       },
       "name": "propose_card",
+      "type": "tool_use"
+     }
+    ]
+   ]
+  ]
+ },
+ "EV-30": {
+  "key": "07c286109a29322c",
+  "model": "claude-sonnet-5-5",
+  "samples": [
+   [
+    [
+     {
+      "id": "toolu_01EBxzMxxp7vhkc1FXg8wPuz",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "house_week",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_012b5ADyLccAiQMkgjdPJtZu",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "week_notes",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01Y964ksAGCRGF4vwscE4j9Q",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV"
+      },
+      "name": "options",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01Ab7Yu3xAJrE2n8w9hRs5JS",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box"
+      },
+      "name": "options",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "id": "toolu_01Qs9XE6M91Gx8TVZiQ9aJUD",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "Little to save this week; the TV and PeoTV box use very little. The PeoTV box can start later with no effect on viewing.",
+       "items": [
+        {
+         "device": "PeoTV box",
+         "kind": "move_timer",
+         "slot": 1,
+         "time": "09:30",
+         "off": null,
+         "on": null,
+         "days": null,
+         "why": "The box switches on at 06:00 but has not been used before 09:30 on any recent day."
+        },
+        {
+         "device": "PeoTV box",
+         "kind": "move_timer",
+         "slot": 2,
+         "time": "00:30",
+         "off": null,
+         "on": null,
+         "days": null,
+         "why": "It stays on until 01:00 but has not been in use after 00:30 on any recent day."
+        }
+       ]
+      },
+      "name": "propose_plan",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "id": "toolu_018BfjDrpTbhGt9z38EG5VfB",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "house_week",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_019kLMwB6ftBLztyPcgVwJfn",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "week_notes",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_019uGQkcs6kH8j78bJiVACKy",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV"
+      },
+      "name": "options",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01QdE5txY1FSCPLvvonhpHEx",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box"
+      },
+      "name": "options",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "id": "toolu_01BcBo7ATZQ9AC5MmTNbPNow",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "Usage is low this week. The PeoTV box has a small ready saving from starting later and stopping a little earlier. The TV's options would get in the way on a day, so I left it alone.",
+       "items": [
+        {
+         "device": "PeoTV box",
+         "kind": "move_timer",
+         "slot": 1,
+         "time": "09:30",
+         "off": null,
+         "on": null,
+         "days": null,
+         "why": "The box switches on at 06:00 but nobody has used it before 09:30 in the last 13 days."
+        },
+        {
+         "device": "PeoTV box",
+         "kind": "move_timer",
+         "slot": 2,
+         "time": "00:30",
+         "off": null,
+         "on": null,
+         "days": null,
+         "why": "The box stays on until 01:00 but was not in use after 00:30 on any of the last 13 days."
+        }
+       ]
+      },
+      "name": "propose_plan",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "id": "toolu_01PmAxRyiCDLJrAfyEEKHmL2",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "house_week",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01WtwkkV5dzzGvEL3atvr5t2",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "week_notes",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01U13CpBuEuhEp9FBgKSESYQ",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV"
+      },
+      "name": "options",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_013jjBN3jACyDUycrjPDBSk8",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box"
+      },
+      "name": "options",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "id": "toolu_0122HkYD54oWPeRBtBM1mdWn",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "Little to save this week; the TV and TV box barely use power. The TV box can safely start later in the morning.",
+       "items": [
+        {
+         "device": "PeoTV box",
+         "kind": "move_timer",
+         "slot": 1,
+         "time": "09:30",
+         "off": null,
+         "on": null,
+         "days": null,
+         "why": "It switches on at 06:00 but has not been used before 09:30 on any of the last 13 days."
+        },
+        {
+         "device": "PeoTV box",
+         "kind": "move_timer",
+         "slot": 2,
+         "time": "00:30",
+         "off": null,
+         "on": null,
+         "days": null,
+         "why": "It stays on until 01:00 but has not been in use between 00:30 and 01:00 on any of the last 13 days."
+        }
+       ]
+      },
+      "name": "propose_plan",
+      "type": "tool_use"
+     }
+    ]
+   ]
+  ]
+ },
+ "EV-31": {
+  "key": "dbdc3a4f253ee43f",
+  "model": "claude-sonnet-5-5",
+  "samples": [
+   [
+    [
+     {
+      "id": "toolu_01WwEf65Hp9B8f2Q1KVgUp7u",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "house_week",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01AH5UwAeFXU9P6agYZyFHhX",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "week_notes",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01TYHoDSwY2HcTvRaFCfEdG8",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV"
+      },
+      "name": "options",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01NTTCaEeC2oetGqdpnT89ew",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box"
+      },
+      "name": "options",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQS1AUKEAgUGAI4AUIIdGhpbmtpbmcSDBbo0UckzjjMIhhnFBoMaXo+hoFiiJzPuVOUIjAHA/mR/JQ8bHpTIvV65U+A51ee1CY+Xhdrwf5O2foj4toJVjRlz+D2Du+ZklvgZvwq8QR+4R6faq2G0jEBhqblL8TC+T9WTDarqqabCRVVviW4pGkG0VWMC+VElzhHafnL+fVDodcw0qgAcbUFfEpZtzgx2eW41Q9X9ZnH45+1GD6p4dyVhAxUFJ9Stusv5Qr7qe0NEfNNKKTRlkE5o/hCbItnUazgNyMAkJLVQK6qN9r5CVqybv9FsbEzTE9I0p4OFBilpZ/2mCDvnhnWW5EDtjEVwlosdiDbJkjAYDhk7VzIJ9oAPmHJQYbCI7pXIbqokFi2X6V0nmQUO3aIJvYGbLLh3tylWkM0SueA2odR8WZIB1i2hZmCq6UYww3yNa4S+FKA1ibK057dUnzzW+MGhnaquNBBWTj4vm1ch6ZaJDCGjsoDBnUd7thDRgN0RSqM+qWQEuYHhb7XMurgsO0AUqnu0EE71EXUOXeSHNKJt2N5LEufxr4k5TvWRYpsSOsuDv/T9Rd7owgOeVM5LU8fCEUYAYiOugN7FSN51aOlAsGbl+Fp0Uahbp1jvwdMO2mxiuOxykM0eQQ6k9Tdi0vmEg68Rn5m1Isy9CD0/A0EAeSbEYAo/HUwuIC9MEfBxIKCuYnVUKrcjLiIERQ1kP9FxvUivR0IEmpxR+GR4gglkiSq0UvazZ186RkEjr4+9IrD0EDIWbr4tO88qzRzV2z5nmIyPJG1CoxUvnbfYAlhc5lZwPbyd319GzLwPZSXKzHEXglqK7PRq+h3ozKd5RNdHyCAJ0z8Ql+ge4qSfl6QW4CKPnaxPsWBPDw6jEBXNXRMuns7aHjhD5/IgbeQ3KVPs9rb5kW6/axm0S2YAPNuKEfzoqpfioGVpstKph2mkToLsoW9GAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01J8c9vc6NDAeWzwDvDAPgn7",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "Your house used very little this week, and you have not let me change the timers on the LG TV or the PeoTV box. Desk 2 and the 3D printer have no timers, so I'm suggesting nothing.",
+       "items": []
+      },
+      "name": "propose_plan",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "id": "toolu_01AVmgJn1jGuBttu9e6KztWT",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "house_week",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01QFRwAoukPFxbkfyWSeKhrd",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "week_notes",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01YSunnNfDtMbERoBueQrKvh",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV"
+      },
+      "name": "options",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01RSMG1p5a3xUvNEj2WRXFsk",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box"
+      },
+      "name": "options",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSjgYKEAgUGAI4AUIIdGhpbmtpbmcSDBEt2d9Cpn0kRed/WRoMolv2scVSXLrbmRqdIjCK0q/3MZ8OObvlYqoND6A9pwN28oV5pCmXnYucn1C0zRCXkgmLwwmBu7DIzVVlqJkqqwWb2yKkPi4WR/UUQFDFRWAO85lMwk2PwSBW6ki4ktowhMowgN9XuQmzxb2iEsNyueEJVAzV1xlXjcLl7HvvC2+zbcemVcBeOfN3WeVR8RegmwC6odWFKhgrJhxBq9FGzQp7rWs62vhRLG819WX133t3L13v2eyf5XJkITe1xv/jAQcD66Em25BySaLP1UEEiwq6ddiaov98IrZvHorM6Bem1k/0klEzDsxAEtea8QJMfW6cLN8xFHNgzWp8pF0L+1Mz0ktARjGF6R6Q0mw+n1JbOeocYFpTcH4EotaWnLgeNW0aAqbw9NbaZIS9ZXuUx+TX1dArIKUX36eK46RT6hQLcwt9FNOXFkEDmdVcCDiap/kSbeWyaflpzFEQO0KF0CH4UpKSG0rMdqskSl7KQs3ksjCiivxn6b6cnu9hdSSlY0LQPJHspSx7xYXlZ6zfYtp881G8bAW2wqS9UvC4Jb7kHqsetGBfsb8eIX+hdhNUERQ/oVOjVd5NqwDwg00fe8s8i0IrjAAYJR+Rq5gSSdqHsJCWCPAjKfOUAlnCIlrbqzEIvfd4pWvgBXnIgAwr64lRhzHqiP7IU4DZUpZmd42Lc6RVKpOhbgN0IyrSPXB70uaO2MDAab4VPEqbNeCBxD/y87n7kfKMD5kFqRTWIpX7m7U+my+97wN1g4g83EWw8qiQDgWgbxNQznmWh22ChOfKvaAk+QtZUJVgcrVIoCoyW61EuMIWIQBG0hOYUbn60M2NB/Db7ip5jnfOer9lKiFpTqm4Fnn/riHnMUjZrwMVRPLa5LkS/zIY4BD3y4aKrz5VbFpSbBJmgWTAwKEFAPxOd/WQbJNCZEMZZ8Ae+l53AIFuy6B296mSJONNxNIwdVfUzJAmt6dFzNsKZYPQKRXnifLIzRgNnSBnoxgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_0182uabi2qxss9JUMbJbTBC5",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "It was a quiet week with small use across the house. You have not let me change any timers, so I have no changes to suggest.",
+       "items": []
+      },
+      "name": "propose_plan",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "id": "toolu_01RCCTkL3dLjMY9DNpxUxjLm",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "house_week",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01WUou5MwoRv77NM8PsGoJBD",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "week_notes",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01MZSutBVMyf9fJjXGbkQnm4",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV"
+      },
+      "name": "options",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01FRNBrFwV1fyj6FHjVjEwmr",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box"
+      },
+      "name": "options",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSwAUKEAgUGAI4AUIIdGhpbmtpbmcSDDHteWaKm//7fSX7rxoMuUqxyvs236EOA85oIjDIZ+YJ3UkLVzxnb+PQ9Dv3xJbXcQtiXbUnmkbDqPauW21VHgbd/pbFUztff5e5wzIq3QRTeu3itKvb71BNPVtpbzbdyUVJAk6sIBwYzQ5Z+eLpBv1AmH/J0ebZ7Bd1pvpPYw/HSQJuYGfq1+I8AKethuIjjlabBnoUagX/Y7bVmOAfo88hcPB9C9GP6R2RCQSp8tjaMl2lIxKb2Hz2slvCYk0niWHXVmo7DlOdWsRgyhTSonb9xtzeNVOQZdiCbDDsFKAEAr8wl1lveWCWAuMHvD7CQpW0Ckn+aWwjpRfF2D7DC7rO8KvTVWw2+piXHnkgcVNPMQzn/L8PY9PgO/Pv1A3IFIP0lxPvkVewc8mFd5Wi2rCeNJ/g0l3XIlRthr3R5saXO/cbP2l9bwM5nnuKxZbOyPpK+vR+Yse+Tw1/JtX6lAwhXIdjEOBqa42/upGzXwKTVyvmc1izchkqXr15/Yz8HqUz+iYLK3Uvmmo0Q+BkRBWzMA8wvN/UZsm0IyR99oE9wdPXSStYJrQXXb6j0xLKmW5OUDPsGQlpLyWGhgcEOXVNUP7x3n4yUOW/N5R0BoKOAgvdDCBY2zsFFAHSn8NxJkQwjfvpH8aORvHnF6Va4KMmPNVTzRcwaQD1vPHdvI5QabwQzQSKrmdVt3POV7VYRCMSQuaPx1LnDK/EWi5mBbsHHXxgL4RqD9dvlRN8fOirBD/l1Ntr0QNGoBnGbUqWut2ahK43rgQNYshesULy1Khhvh/SoJWpVdAdeexgTuOkON2QWQrOQP94GNFWYMbJsCZUhD9Q1Wn3OUhH+AvJU/1aTpRYQlH9dLgZaLF4qkdfsl1kGs41EWJxNp7Zi1CXPENpInJl9nzgn8l/BBgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01X43pEk2ikvaMXGdkFR5fqG",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "It was a quiet week with low use. You have not let me change any timers on the TV or the TV box, and the other two devices have no timers, so I'm suggesting nothing.",
+       "items": []
+      },
+      "name": "propose_plan",
       "type": "tool_use"
      }
     ]
