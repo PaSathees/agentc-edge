@@ -7,6 +7,7 @@ reason. Every limit sits here or in llm(), never in the model.
 """
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -27,9 +28,23 @@ DOES = ("switch_off_now", "save_habit", "remind_later", "nothing")
 PROMPT_TIMES = f"{QUIET_FROM:%H:%M} {QUIET_TO:%H:%M}"  # times SYSTEM gives: quiet hours
 SENTENCES = {"ask": 2, "note": 1, "ignore": 1}  # read on a phone; a note feeds the Planner
 END = re.compile(r"[.!?]+(?=\s|$)")  # a sentence's end: "0.5 W" has none
+# the system's words, not the owner's (FM-09): "access none", "the Planner", "its card".
+# Plain words like "signal", "tool" or "card" alone are fine: "no TV signal", "SD card".
 SYSTEM_TERMS = re.compile(
-    r"\baccess\b|\bplanner\b|\bsignal\b|\btools?\b|\bcard\b", re.IGNORECASE
-)  # the owner's words, not the system's (FM-09)
+    r"\baccess\b(?=\s*(?::|(?:is|was|none|advice|write)\b))"
+    r"|\bplanner\b|\b(?:device|its|the) card\b",
+    re.IGNORECASE,
+)
+
+
+def system_word(text: str, names: Sequence[str] = ()) -> str | None:
+    """A system word in text meant for the owner, or None. Device names are left out first,
+    so a device called "Card reader" can still be named."""
+    for name in sorted(names, key=len, reverse=True):
+        text = re.sub(re.escape(name), " ", text, flags=re.IGNORECASE)
+    found = SYSTEM_TERMS.search(text)
+    return found.group(0) if found else None
+
 
 QUIET = f"{QUIET_FROM:%H:%M} and {QUIET_TO:%H:%M}"  # the owner's night, from owner.py
 SYSTEM = f"""You are the housemate for a home's electricity. You catch waste that is \
@@ -196,8 +211,8 @@ def check_decision(d: Decision, *, device: Device, card: Card, facts: str) -> st
     """Why the decision is blocked, or None if it passes. Cheap checks first."""
     if (n := sentences(d.text)) > (most := SENTENCES[d.action]):
         return f"format: {n} sentences; at most {most} for {d.action}, read on a phone"
-    if d.action != "ignore" and (term := SYSTEM_TERMS.search(d.text)):
-        return f"words: {term.group(0)!r} is a system word; write for the owner"
+    if d.action != "ignore" and (term := system_word(d.text, [device.name])):
+        return f"words: {term!r} is a system word; write for the owner"
     if device.access == "none" and d.action not in ("ignore", "note"):
         return f"access: {device.name} is never changed, so only ignore or note"
     if d.action in ("ignore", "note") and d.choices:

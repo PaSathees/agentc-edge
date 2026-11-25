@@ -6,7 +6,6 @@ import os
 import sqlite3
 import time
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from sqlite3 import Connection
@@ -189,11 +188,14 @@ def show_plan(db: Connection, cfg: Config, *, site_id: int, step: llm.StepSend |
         print(NO_KEY)
         return 1
     now = datetime.now(UTC)
-    budget = replace(cfg.budget, run_usd=cfg.budget.plan_usd)
-    model = llm.Llm(db, site_id, cfg.tz, cfg.tiers, budget, step)
+    model = llm.Llm(db, site_id, cfg.tz, cfg.tiers, cfg.budget, step)
     tools = agent_tools.Tools(db, readings.connect(cfg.energy_db), cfg, site_id, now)
-    run_id = f"plan:{now:%Y%m%dT%H%M}"
-    p = planner_agent.plan(tools, llm=model, run_id=run_id)
+    run_id = f"plan:{now:%Y%m%dT%H%M%S}"
+    try:
+        p = planner_agent.plan(tools, llm=model, run_id=run_id)
+    except (llm.OverBudget, llm.Unreachable) as err:
+        print(f"The Planner stopped: {err}")
+        return 1
     if not p.done:
         print("The Planner did not finish a plan.")
         return 1

@@ -334,8 +334,9 @@ def _ready_saving(p: planner_agent.Plan) -> bool:
 
 
 def _nothing(p: planner_agent.Plan) -> bool:
-    """No device is set to write, so the plan is empty, and done."""
-    return p.done and not p.items
+    """No device is set to write, so the plan is empty and done, and nothing was refused:
+    the model itself proposed nothing, not code after a retry."""
+    return p.done and not p.items and not p.blocked
 
 
 PLANS = (
@@ -360,7 +361,9 @@ def plan_key(tools: Tools) -> str:
     t = planner_agent.PlanTools(tools, planner_agent.week_start(tools.now, tz=TZ))
     text = planner_agent.VERSION + planner_agent.SYSTEM + json.dumps(planner_agent.TOOLS,
                                                                      sort_keys=True)  # fmt: skip
-    return hashlib.sha256((text + t.house_week()).encode()).hexdigest()[:16]
+    text += t.house_week() + t.week_notes()  # what it reads first, and what options give
+    text += "".join(t.options(config.device(tools.cfg, p).name) for p in (TV[0], BOX[0]))
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
 def _plan_sample(pe: PlanEval, send: StepSend, cfg: Config) -> Sample:
@@ -374,8 +377,7 @@ def _plan_sample(pe: PlanEval, send: StepSend, cfg: Config) -> Sample:
         steps.append(blocks)
         return blocks, stop, tokens_in, tokens_out
 
-    budget = replace(pcfg.budget, run_usd=pcfg.budget.plan_usd)
-    brain = Llm(tools.app, 1, pcfg.tz, pcfg.tiers, budget, listen, clock=lambda: SUNDAY)
+    brain = Llm(tools.app, 1, pcfg.tz, pcfg.tiers, pcfg.budget, listen, clock=lambda: SUNDAY)
     p = planner_agent.plan(tools, llm=brain, run_id=pe.id)
     action = f"items {len(p.items)}" if p.done else "none"
     return Sample(steps, action, pe.right(p), list(p.tools), store.llm_usd(tools.app, site_id=1))

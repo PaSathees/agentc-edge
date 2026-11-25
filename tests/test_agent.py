@@ -228,6 +228,17 @@ def test_sentences_end_at_a_mark_before_a_space_not_in_a_number(text, n):
     assert agent.sentences(text) == n
 
 
+@pytest.mark.parametrize(
+    ("text", "names", "word"),
+    [("Is the box showing no signal?", [], None), ("The SD card reader is on.", [], None),
+     ("The power tool charger idles.", [], None), ("Its access is none.", [], "access"),
+     ("The access: advice says so.", [], "access"), ("The Planner will look.", [], "Planner"),
+     ("Its card says media.", [], "Its card"), ("The Card reader idles.", ["Card reader"], None)],
+)  # fmt: skip
+def test_system_words_are_the_systems_not_plain_ones(text, names, word):
+    assert agent.system_word(text, names) == word
+
+
 def test_the_times_the_prompt_gives_are_known():  # "it will reach you at 07:00"
     d = decision("ask", "About 5 W since 01:51. Off now, or ask me at 07:00?")
     assert check_decision(d, device=DESK, card=CARD, facts=FACTS) is None

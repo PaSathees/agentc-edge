@@ -14,7 +14,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from agentc import config, planner, store
-from agentc.agent import SYSTEM_TERMS, tool
+from agentc.agent import system_word, tool
 from agentc.agent_tools import Tools, used_kwh, worth
 from agentc.checks import made_up
 from agentc.config import Config
@@ -233,7 +233,8 @@ def week_start(now: datetime, *, tz: str) -> datetime:
 
 
 def plan(tools: Tools, *, llm: Llm, run_id: str) -> Plan:
-    """Run the Planner once. Raises OverBudget or Unreachable."""
+    """Run the Planner once, under its own cap (plan_usd). Raises OverBudget or Unreachable."""
+    llm = replace(llm, budget=replace(llm.budget, run_usd=llm.budget.plan_usd))
     t = PlanTools(tools, week_start(tools.now, tz=tools.cfg.tz))
     first = (
         f"Now: {tools.now.astimezone(ZoneInfo(tools.cfg.tz)):%a %d %b %H:%M}\n\n{t.house_week()}"
@@ -259,7 +260,7 @@ def plan(tools: Tools, *, llm: Llm, run_id: str) -> Plan:
                 continue
             got, why = _check(c["input"], t, first)
             tries += 1
-            if not why or tries >= TRIES:
+            if not why or tries >= TRIES or step == MAX_STEPS - 1:  # no step left to fix it
                 return replace(got, tools=tuple(used))
             blocked = tuple(why)
             results.append(_result(c, "Blocked: " + "; ".join(why) + ". Fix or drop those items"
@@ -276,18 +277,22 @@ def _check(raw: dict[str, Any], t: PlanTools, first: str) -> tuple[Plan, list[st
     if missing := made_up(summary, facts):
         why.append(f"summary: not in the tool results: {', '.join(missing)}")
         summary = ""
-    elif term := SYSTEM_TERMS.search(summary):
-        why.append(f"summary: {term.group(0)!r} is a system word; write for the owner")
+    elif term := system_word(summary, _names(t)):
+        why.append(f"summary: {term!r} is a system word; write for the owner")
         summary = ""
-    kept, changes = [], []
+    kept, changes, taken = [], [], set()
     for n, item in enumerate(_items(raw.get("items", []), why), 1):
         got, change, bad = _item(item, t, facts)
         changes += [change] if change else []
+        if not bad and got and _spot(got) in taken:
+            name = config.device(t.base.cfg, got.plug).name
+            bad = f" ({name}): that timer has a change already"
         if bad:
             why.append(f"item {n}{bad}")
         elif got:
             kept.append(got)
-    if bad := planner.check_plan(changes):
+            taken.add(_spot(got))
+    if bad := planner.check_plan([i.change for i in kept]):  # what passed, at most 3
         why.append(bad)
         kept = kept[: planner.ITEMS]
     return Plan(summary or _summary(kept), tuple(kept), (), tuple(why)), why
@@ -304,24 +309,52 @@ def _item(item: Any, t: PlanTools, facts: str  # noqa: ANN401 (the model's own J
     if name not in names or (mac := store.plug_mac(b.app, name=names[name])) is None:
         return None, None, f": no device named {name!r}"
     plug = names[name]
-    c = planner.Change(str(item.get("kind", "")), item.get("slot"), item.get("time"),
-                       item.get("off"), item.get("on"), item.get("days"))  # fmt: skip
+    c = _change(item)
     device = config.device(b.cfg, plug, store.learned(b.app, mac=mac))
     timers = store.load_timers(b.app, mac=mac)
-    result = t.result(plug, mac, c)
+    try:
+        result = t.result(plug, mac, c)
+    except (TypeError, ValueError, KeyError) as err:  # never stop the week's run
+        return None, c, f" ({name}): format: {err}"
     refused = store.refused(b.app, mac=mac, since=b.now - planner.NOT_NOW)
     if bad := planner.check_item(c, device=device, card=store.load_card(b.app, mac=mac),
                                  timers=timers, timers_on=store.timers_on(b.app, mac=mac),
                                  result=result, refused=refused):  # fmt: skip
         return None, c, f" ({name}): {bad}"
-    text = str(item.get("why", "")).strip()
-    if term := SYSTEM_TERMS.search(text):
-        return None, c, f" ({name}): {term.group(0)!r} is a system word; write for the owner"
+    if not isinstance(raw_why := item.get("why"), str) or not raw_why.strip():
+        return None, c, f" ({name}): why: one sentence in plain words is needed"
+    text = raw_why.strip()
+    if term := system_word(text, _names(t)):
+        return None, c, f" ({name}): {term!r} is a system word; write for the owner"
     own = " ".join(str(v) for v in (c.slot, c.time, c.off, c.on) if v)  # its own choice
     if missing := made_up(text, f"{facts}\n{result.text()}\n{own}"):
         return None, c, f" ({name}): why: not in the tool results: {', '.join(missing)}"
     before, after = planner.before_after(c, timers)
     return Item(plug, mac, c, text, result.text(), before, after, planner.ready(result)), c, ""
+
+
+def _names(t: PlanTools) -> list[str]:
+    return [config.device(t.base.cfg, p).name for p in t.base.cfg.plugs]
+
+
+def _spot(i: Item) -> tuple[str, str]:
+    """What an item changes: one timer slot, or the plug's new pair. Two items on one spot
+    would undo each other, and each saving was measured alone."""
+    return i.mac, "pair" if i.change.kind == "add_pair" else str(i.change.slot)
+
+
+def _change(item: dict[str, Any]) -> planner.Change:
+    """The change from the model's item, with each value of the right type or None, so a
+    number sent for a time, or a list for a slot, is refused by the checks, not a crash."""
+    slot = item.get("slot")
+    if isinstance(slot, str) and slot.isdigit():
+        slot = int(slot)
+    text = {k: v if isinstance(v := item.get(k), str) else None for k in ("time", "off", "on",
+                                                                         "days")}  # fmt: skip
+    kind = item.get("kind")
+    return planner.Change(kind if isinstance(kind, str) else "",
+                          slot if isinstance(slot, int) and not isinstance(slot, bool) else None,
+                          text["time"], text["off"], text["on"], text["days"])  # fmt: skip
 
 
 def _items(raw: Any, why: list[str]) -> list[Any]:  # noqa: ANN401 (the model's own JSON)
