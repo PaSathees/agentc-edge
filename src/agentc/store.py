@@ -20,8 +20,8 @@ from agentc.readings import utc_bounds
 from agentc.watcher import Event
 
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
-# 7: questions.sent. 8: unused v1 tables dropped. 9: chats. 10: chats.reads
-SCHEMA_VERSION = 10
+# 7: questions.sent. 8: unused v1 tables dropped. 9: chats. 10: chats.reads. 11: plans
+SCHEMA_VERSION = 11
 UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
@@ -187,6 +187,27 @@ CREATE TABLE IF NOT EXISTS chat_turns (
     role    TEXT NOT NULL CHECK (role IN ('owner', 'agent')),
     text    TEXT NOT NULL,
     ts_utc  TEXT NOT NULL
+);
+-- The weekly Planner's plan (ADR-010): a few items, each one change to one plug's timers
+CREATE TABLE IF NOT EXISTS plans (
+    id       INTEGER PRIMARY KEY,
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    week     TEXT NOT NULL,  -- the Monday the week planned from began (local date)
+    summary  TEXT NOT NULL,  -- one or two sentences on the week, for the Sunday message
+    created  TEXT NOT NULL,
+    UNIQUE (site_id, week)
+);
+CREATE TABLE IF NOT EXISTS plan_items (
+    id       INTEGER PRIMARY KEY,
+    plan_id  INTEGER NOT NULL REFERENCES plans(id),
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    plug_mac TEXT NOT NULL REFERENCES plugs(mac),
+    change   TEXT NOT NULL,  -- JSON: planner.Change
+    why      TEXT NOT NULL,  -- the Planner's reason, in the owner's words
+    saving   TEXT NOT NULL,  -- what_if's text: the saving and the days in use
+    status   TEXT NOT NULL DEFAULT 'open'
+             CHECK (status IN ('open', 'done', 'not_now', 'failed', 'expired')),
+    decided  TEXT
 );
 -- Shadow mode, pause, caps; key-value
 CREATE TABLE IF NOT EXISTS settings (
@@ -786,3 +807,62 @@ def undoable(db: sqlite3.Connection, *, site_id: int, since: datetime) -> list[t
                                AND b.ref = a.ref AND b.id > a.id AND b.action = 'write')
              ORDER BY a.id"""
     return [(i, p) for i, p in db.execute(sql, (site_id, since.astimezone(UTC).isoformat()))]
+
+
+# the weekly plan (Phase 5b)
+
+
+@dataclass(frozen=True)
+class PlanItem:
+    id: int
+    plan_id: int
+    plug_mac: str
+    change: str  # JSON, read with planner.Change
+    why: str
+    saving: str
+    status: str  # open, done, not_now, failed or expired
+
+
+def add_plan(db: sqlite3.Connection, *, site_id: int, week: str, summary: str,
+             items: Sequence[tuple[str, str, str, str]], now: datetime) -> int | None:  # fmt: skip
+    """Save a week's plan with its items (mac, change JSON, why, saving), in one go.
+    None if that week has a plan already: the Planner runs once a week."""
+    with db:
+        sql = "INSERT OR IGNORE INTO plans (site_id, week, summary, created) VALUES (?, ?, ?, ?)"
+        cur = db.execute(sql, (site_id, week, summary, now.isoformat()))
+        if not cur.rowcount:
+            return None
+        plan = cur.lastrowid or 0
+        db.executemany("INSERT INTO plan_items (plan_id, site_id, plug_mac, change, why, saving)"
+                       " VALUES (?, ?, ?, ?, ?, ?)",
+                       [(plan, site_id, *item) for item in items])  # fmt: skip
+    return plan
+
+
+def latest_plan(db: sqlite3.Connection, *, site_id: int) -> tuple[int, str, str] | None:
+    """The newest plan as (id, week, summary), or None before the first one."""
+    sql = "SELECT id, week, summary FROM plans WHERE site_id = ? ORDER BY week DESC LIMIT 1"
+    row = db.execute(sql, (site_id,)).fetchone()
+    return (row[0], row[1], row[2]) if row else None
+
+
+def plan_items(db: sqlite3.Connection, *, plan_id: int) -> list[PlanItem]:
+    sql = """SELECT id, plan_id, plug_mac, change, why, saving, status FROM plan_items
+             WHERE plan_id = ? ORDER BY id"""
+    return [PlanItem(*row) for row in db.execute(sql, (plan_id,))]
+
+
+def decide_item(db: sqlite3.Connection, *, item_id: int, status: str, now: datetime) -> bool:
+    """Close an open item: done, not_now, failed or expired. False if it was not open: a
+    second tap does nothing."""
+    with db:
+        cur = db.execute("UPDATE plan_items SET status = ?, decided = ? WHERE id = ?"
+                         " AND status = 'open'", (status, now.isoformat(), item_id))  # fmt: skip
+    return cur.rowcount == 1
+
+
+def refused(db: sqlite3.Connection, *, mac: str, since: datetime) -> list[str]:
+    """The changes the owner said Not now to on this plug since a time (change JSON)."""
+    sql = """SELECT change FROM plan_items WHERE plug_mac = ? AND status = 'not_now'
+             AND decided >= ? ORDER BY id"""
+    return [c for (c,) in db.execute(sql, (mac, since.isoformat()))]
