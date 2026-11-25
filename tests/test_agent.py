@@ -1,21 +1,17 @@
 """The housemate agent's loop: look with tools, then decide; code checks the decision."""
 
-from dataclasses import replace
-
 import pytest
 
 from agentc import agent
 from agentc.agent import Choice, Decision, check_decision
-from agentc.config import Budget, Device, Rule
+from agentc.config import Budget, Device
 from agentc.house import Card
 from agentc.llm import Llm, OverBudget, Unreachable
 from tests.test_agent_tools import CFG, NOW, tools  # noqa: F401 (tools is a fixture)
 
 ASK = {"action": "ask", "text": "Desk 2 has drawn about 5 W since 01:51. Switch it off now?",
-       "choices": [{"label": "Switch off", "does": "switch_off_now", "off": None, "on": None,
-                    "days": None},
-                   {"label": "That's normal", "does": "save_habit", "off": None, "on": None,
-                    "days": None}]}  # fmt: skip
+       "choices": [{"label": "Switch off", "does": "switch_off_now"},
+                   {"label": "That's normal", "does": "save_habit"}]}  # fmt: skip
 
 
 PLAIN = {**ASK, "text": "Desk 2 is still on and nothing else is. Switch it off now?"}  # no numbers
@@ -138,7 +134,6 @@ def test_the_run_cap_stops_the_look(tools):  # noqa: F811
 
 
 DESK, CARD, FACTS = Device("Desk 2"), Card("computer"), "about 5 W since 01:51"
-LATE = Rule("latest_off", "02:00", hard=True, text="Desk 2 may run until 02:00")
 
 
 def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
@@ -154,50 +149,33 @@ def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
          "format: a question needs 2 or 3 choices"),
         (Decision("note", "Quiet night.", (Choice("Off", "switch_off_now"),)), DESK, CARD,
          "format: ignore and note take no choices"),
-        (decision("propose", "Timer?", Choice("Timer", "set_timer")), DESK, CARD,
-         "format: set_timer needs off, on and days"),
-        (decision("propose", "Timer off at 01:30?",
-                  Choice("Timer", "set_timer", "01:30", "07:00", "weekdays")), DESK, CARD, None),
-        (decision("propose", "Timer?", Choice("Timer", "set_timer", "25:00", "07:00", "weekdays")),
-         DESK, CARD, "format: times are HH:MM"),
         (decision(), Device("3D printer", access="none"), CARD,
          "access: 3D printer is never changed, so only ignore or note"),
         (decision(), DESK, Card("fridge"), "must run: Desk 2 is never switched off"),
         (decision("ask", "It used 42 W. Off?"), DESK, CARD, "grounded: not in the facts: 42"),
         (decision("ask", "About 5 W since 01:51. It is late. Off?"), DESK, CARD,
-         "format: 3 sentences; at most 2, for a phone"),
+         "format: 3 sentences; at most 2 for ask, read on a phone"),
+        (Decision("note", "Desk 2 ran late. Move its timer?", ()), DESK, CARD,
+         "format: 2 sentences; at most 1 for note, read on a phone"),
+        (Decision("ignore", "Normal. It runs at night.", ()), DESK, CARD,
+         "format: 2 sentences; at most 1 for ignore, read on a phone"),
         (Decision("ignore", "Normal for this hour.", ()), Device("3D printer", access="none"),
          CARD, None),
         (decision("ask", "About 5 W since 01:51. Off?", Choice("Off", "switch_off_now"),
                   Choice("Off now", "switch_off_now")), DESK, CARD,
          "format: two choices do the same"),
-        (decision("propose", "Timer off at 01:30?",
-                  Choice("Timer", "set_timer", "01:30", "07:00", "weekdays")),
-         Device("Desk 2", rules=(LATE,)), CARD, "rule: Desk 2 may run until 02:00"),
-        (decision("propose", "Timer off at 01:30?",
-                  Choice("Timer", "set_timer", "01:30", "07:00", "weekdays")),
-         Device("Desk 2", rules=(replace(LATE, hard=False),)), CARD, None),  # soft: card only
     ],
 )  # fmt: skip
 def test_check_decision(d, device, card, why):
     assert check_decision(d, device=device, card=card, facts=FACTS) == why
 
 
-def test_no_timer_is_offered_on_a_plug_with_its_timers_switch_off():
-    d = decision("propose", "Set Desk 2 off at 01:30 and on at 07:00?",
-                 Choice("Yes", "set_timer", "01:30", "07:00", "every_day"))  # fmt: skip
-    assert check_decision(d, device=DESK, card=CARD, facts=FACTS, timers_on=False) == (
-        "timers: the Timers switch on Desk 2's plug is off, so no timer fires"
-    )
-    off = decision("ask", "Desk 2 is on, about 5 W. Off?", Choice("Off", "switch_off_now"),
-                   Choice("Fine", "save_habit"))  # fmt: skip
-    assert check_decision(off, device=DESK, card=CARD, facts=FACTS, timers_on=False) is None
-
-
-def test_numbers_the_agent_chose_for_a_timer_are_allowed():
-    d = decision("propose", "Set Desk 2 off at 01:30 and on at 07:00?",
-                 Choice("Yes", "set_timer", "01:30", "07:00", "every_day"))  # fmt: skip
-    assert check_decision(d, device=DESK, card=CARD, facts=FACTS) is None
+def test_the_housemate_cannot_propose_or_offer_a_timer(tools):  # noqa: F811 (Planner's job)
+    for raw in ({"action": "propose", "text": "Timer?", "choices": []},
+                {"action": "ask", "text": "x", "choices": [{"label": "Timer",
+                                                             "does": "set_timer"}]}):  # fmt: skip
+        run = look(tools, Script([use("decide", raw)], [use("decide", raw, 2)]))
+        assert run.decision is None and (run.blocked or "").startswith("format:")
 
 
 def test_a_model_that_ignores_the_last_offer_ends_with_no_decision(tools):  # noqa: F811
@@ -210,8 +188,7 @@ def test_a_model_that_ignores_the_last_offer_ends_with_no_decision(tools):  # no
     ("raw", "why"),
     [
         ({"action": "shout", "text": "x", "choices": []}, "format: action must be one of"),
-        ({"action": "ask", "text": "x", "choices": [{"label": "a", "does": "explode",
-                                                      "off": None, "on": None, "days": None}]},
+        ({"action": "ask", "text": "x", "choices": [{"label": "a", "does": "explode"}]},
          "format: a choice must do one of"),
         ({"action": "ask", "text": "x"}, "format: 'choices'"),
     ],
@@ -219,13 +196,6 @@ def test_a_model_that_ignores_the_last_offer_ends_with_no_decision(tools):  # no
 def test_a_malformed_decision_is_blocked(tools, raw, why):  # noqa: F811
     run = look(tools, Script([use("decide", raw)], [use("decide", raw, 2)]))
     assert run.decision is None and (run.blocked or "").startswith(why)
-
-
-def test_a_proposal_needs_a_choice():
-    d = Decision("propose", "Fix it.", ())
-    assert check_decision(d, device=DESK, card=CARD, facts=FACTS) == (
-        "format: a proposal needs 1 to 3 choices"
-    )
 
 
 def _enums(schema):

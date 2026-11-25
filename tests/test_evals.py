@@ -8,9 +8,8 @@ import pytest
 from agentc import agent, cli, evals, setup
 from agentc.house import Card
 
-NONE = {"off": None, "on": None, "days": None}
-OFF = [{"label": "Switch off", "does": "switch_off_now", **NONE},
-       {"label": "That's normal", "does": "save_habit", **NONE}]  # fmt: skip
+OFF = [{"label": "Switch off", "does": "switch_off_now"},
+       {"label": "That's normal", "does": "save_habit"}]  # fmt: skip
 
 
 def decide(action, choices=()):

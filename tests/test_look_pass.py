@@ -27,9 +27,8 @@ class Decides:
         if self.error and (self.on is None or self.calls in self.on):
             raise self.error
         pairs = (("Off", "switch_off_now"), ("Normal", "save_habit"), ("Later", "remind_later"),
-                 ("Leave it", "nothing")) if self.action in ("ask", "propose") else ()  # fmt: skip
-        choices = [{"label": a, "does": b, "off": None, "on": None, "days": None}
-                   for a, b in pairs[:3]]  # fmt: skip
+                 ("Leave it", "nothing")) if self.action == "ask" else ()  # fmt: skip
+        choices = [{"label": a, "does": b} for a, b in pairs[:3]]
         text = "Still on. Switch it off?" if choices else "Normal for this device."
         args = {"action": self.action, "text": text, "choices": choices}
         call = {"type": "tool_use", "id": "t1", "name": "decide", "input": args}
@@ -147,7 +146,7 @@ def test_a_drifting_timer_is_looked_at_once_it_is_a_pattern(app, tmp_path):  # n
 
     def model(**kw):
         seen.append(kw["messages"][0]["content"])
-        return Decides("propose")(**kw)
+        return Decides("ask")(**kw)
 
     db = small(tmp_path)
     for day in (-2, -1):
@@ -163,9 +162,9 @@ def test_a_drifting_timer_is_looked_at_once_a_week(app, tmp_path):  # noqa: F811
     db = small(tmp_path)
     for day in (-3, -2, -1):
         drift(app, day)
-        look(app, db, Decides("propose"))
+        look(app, db, Decides("ask"))
     drift(app, 0)
-    (out,) = look(app, db, Decides("propose"))
+    (out,) = look(app, db, Decides("ask"))
     assert out.why == "grouped: timer 1 was looked at in the last 7 days"
 
 
@@ -174,7 +173,7 @@ def test_another_timer_on_the_same_plug_counts_on_its_own(app, tmp_path):  # noq
     for day in (-2, -1):
         drift(app, day)
     drift(app, 0, slot=2)
-    outs = look(app, db, Decides("propose"))
+    outs = look(app, db, Decides("ask"))
     assert outs[-1].why == "waiting: timer 2 drifted on 1 of the last 7 days"
 
 
@@ -327,9 +326,7 @@ def test_remind_later_asks_again_in_2_hours(app, tmp_path):  # noqa: F811
 
 def test_nothing_is_just_noted(app, tmp_path):  # noqa: F811
     signal(app)
-    model = Decides()
-    model.action = "propose"
-    look(app, small(tmp_path), model)
+    look(app, small(tmp_path), Decides())
     store.ask_again(app, question_id=1, at=NOW)  # keep it simple: open now
     # the stand-in offers Off, Normal, Later; "nothing" needs its own question
     app.execute("UPDATE questions SET choices = ? WHERE id = 1",

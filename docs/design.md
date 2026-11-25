@@ -24,9 +24,9 @@ One real example. On Monday 2 November, at 01:37, Desk 2 switched on and then sa
 
 The version 2 question on your phone at 07:00:
 
-> Desk 2 was on from 01:37 to 07:00 last night at about 5 W. It's usually off by 01:00 and nothing else was on.
+> Desk 2 has been on since 01:37 at about 5 W. It's usually off by 01:00 and nothing else is on.
 >
-> **Set a timer** · **That's normal on Mondays** · **Ask me at night next time**
+> **Switch off now** · **That's normal on Mondays** · **Ask me at night next time**
 
 A 1,500 W heater left on would not wait: above 50 W it asks at once, even at night.
 
@@ -49,7 +49,7 @@ flowchart TB
   S -- "health signal" --> N["Notice to you<br/>no AI"]
   S -- "use signal" --> A["Housemate agent<br/>AI + read tools"]
   H[("House model<br/>devices · habits ·<br/>automations · plan")] <--> A
-  A -- "ask · propose · note · ignore" --> C{"Checks<br/>code"}
+  A -- "ask · note · ignore" --> C{"Checks<br/>code"}
   C --> O["You<br/>phone · inbox · chat"]
   O -- "answer" --> H
   O -- "approved action" --> X["Actuator<br/>code, the only writer"] --> P
@@ -61,7 +61,7 @@ flowchart TB
 | Logger | Reads every plug once a minute into `energy.db`. A separate program | code (built) |
 | House model | What the system knows about the home: devices, habits, automations, the plan | data, kept by code |
 | Signals | Finds things worth a look, early and cheaply. Never calls the AI | code |
-| Housemate agent | Looks into one signal with tools, then decides what to do | AI (one of three agents on a shared base) |
+| Housemate agent | Looks into one signal with tools, then decides what to do | AI (one of four agents on a shared base, ADR-010) |
 | Checks | Validates everything the agent produces before you see it | code (built, extended) |
 | You | Answer questions, approve actions, chat | owner |
 | Actuator | Writes to a plug after approval, reads it back, logs it | code |
@@ -114,8 +114,7 @@ flowchart LR
   D --> I["ignore<br/>with a reason"]
   D --> NO["note<br/>for the daily summary"]
   D --> Q["ask you<br/>question + 2 or 3 choices"]
-  D --> PR["propose<br/>an action"]
-  I & NO & Q & PR --> C{"Checks"}
+  I & NO & Q --> C{"Checks"}
 ```
 
 **Tools (read only)**
@@ -134,9 +133,10 @@ flowchart LR
 
 **What it may produce**
 - **ignore**: logged with a reason, so you can audit what it chose not to raise.
-- **note**: one line in the evening summary. For small things not worth an interruption.
-- **ask**: a question with 2 or 3 choices. Each choice maps to something code knows how to do: switch off now, set a timer, save a habit, or remind me later.
-- **propose**: an action (switch off now, add or change a timer, move use to cheaper hours), with its saving from `cost`.
+- **note**: one sentence, for the evening summary. From Phase 5b the Planner will read every note each week. Anything about the long run, such as a timer to move, is a note.
+- **ask**: only when the device is wasting power now and a tap would stop it. 2 or 3 choices, each one of: switch off now, save a habit, remind me later, or nothing.
+
+Since [ADR-010](adr/010-four-agents-four-jobs.md) the housemate never proposes and never offers a timer: long-run changes are the Planner's.
 
 **The loop** is our own small loop on `llm()`: the model asks for a tool, code runs it, up to 6 times ([ADR-009](adr/009-own-agent-loop.md)). The agent never stops itself: every limit sits in code.
 
@@ -152,9 +152,9 @@ flowchart LR
 
 Prompt caching (re-using the unchanged start of a prompt at a lower price) cuts it further. Phase 3 measures the real cost from the traces.
 
-**Every number traces to a tool.** In the Desk 2 run, "usually off by 01:00" needs `usual()`, and offering "Set a timer" needs `automations()` (is there a timer already, which slots are free). A number with no tool behind it is blocked by the checks.
+**Every number traces to a tool.** In the Desk 2 run, "usually off by 01:00" needs `usual()`, and "on since 01:37 at about 5 W" needs `power()`. A number with no tool behind it is blocked by the checks. So a long-run idea with a new time the agent worked out itself ("move it to 07:30") is blocked too; the Planner (5b) will work out times with its own tools.
 
-**Three agents on a shared base.** The housemate (signals), chat and the Planner are separate agents: each has its own prompt, its own subset of tools, its own model and its own evals. The Planner will later get forecasting tools, and one prompt for three jobs would be hard to keep right. They share one base: the house model, the tool library, the checks and `llm()`. So each one has the whole view, and each one can change and be tested on its own ([ADR-007](adr/007-housemate-agent.md)).
+**Four agents on a shared base, four jobs** ([ADR-010](adr/010-four-agents-four-jobs.md)). The housemate catches waste now, on one device. The Planner plans once a week for the whole house. The Assistant answers when you ask and hosts the weekly review. The setup agent drafts a device's card. Each has its own prompt, its own subset of tools, its own model and its own evals. The Planner will later get forecasting tools, and one prompt for four jobs would be hard to keep right. They share one base: the house model, the tool library, the checks and `llm()`. So each one has the whole view, and each one can change and be tested on its own ([ADR-007](adr/007-housemate-agent.md)).
 
 | Shared (one copy) | Separate (per agent) |
 |---|---|
@@ -202,7 +202,9 @@ On failure the agent gets one retry with the reason, then the draft is dropped a
 
 ## 7. Chat and Planner (Phase 5)
 
-- **Chat** is a separate agent on the shared base, started by your message. It has the read tools, plus draft tools that create a habit, a rule or a proposal, which go through the same checks. "Keep the TVs on until 1 on Fridays" becomes a rule you confirm.
+Roles: [ADR-010](adr/010-four-agents-four-jobs.md). The Planner's plan reaches you once a week, as a weekly review in the chat, with Do it and Not now on each item.
+
+- **Chat (the Assistant)** is a separate agent on the shared base, started by your message. It has the read tools, plus draft tools that create a habit, a rule or a proposal, which go through the same checks. "Keep the TVs on until 1 on Fridays" becomes a rule you confirm.
 - **Planner** is a separate agent on the shared base, started every Sunday. It reads the week's signals, answers and automations, and proposes timer changes as one plan. On a time-of-use tariff it also suggests moving use to cheaper hours. Version 1 planned a solver for this (CP-SAT, a tool that finds the best timetable within the rules; [ADR-003](adr/003-solver-not-llm-loop.md)). It is on hold until plans are big enough to need it.
 
 ## 8. Evals: how we know it works
@@ -268,3 +270,4 @@ New tables: `device` card fields (description, kind, must run), `habits`, `quest
 | [007](adr/007-housemate-agent.md) | Agents with a shared house model and read tools replace code-built options | accepted |
 | [008](adr/008-one-off-switch-off.md) | One-off "switch off now" after the owner's tap; amended: on and off from the Devices page | accepted |
 | [009](adr/009-own-agent-loop.md) | Our own small agent loop on `llm()`, not LangGraph | accepted |
+| [010](adr/010-four-agents-four-jobs.md) | Four agents, four jobs: housemate now, Planner weekly, Assistant on request, setup agent for cards | accepted |

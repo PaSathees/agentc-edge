@@ -36,7 +36,7 @@ class Question:
     id: int
     event_id: int
     plug_mac: str
-    decision: Decision  # action ask or propose
+    decision: Decision  # action ask (propose only in rows from before ADR-010)
     status: str  # open, answered or expired
     send_at: datetime  # when it may reach the owner (UTC)
     answer: int | None = None  # the choice picked, from 1
