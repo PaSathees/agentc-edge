@@ -152,6 +152,9 @@ def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
         (decision(), Device("3D printer", access="none"), CARD,
          "access: 3D printer is never changed, so only ignore or note"),
         (decision(), DESK, Card("fridge"), "must run: Desk 2 is never switched off"),
+        (Decision("note", "The 3D printer idles, but its access is none.", ()), DESK, CARD,
+         "words: 'access' is a system word; write for the owner"),
+        (Decision("ignore", "Normal; access none.", ()), DESK, CARD, None),  # only logged
         (decision("ask", "It used 42 W. Off?"), DESK, CARD, "grounded: not in the facts: 42"),
         (decision("ask", "About 5 W since 01:51. It is late. Off?"), DESK, CARD,
          "format: 3 sentences; at most 2 for ask, read on a phone"),

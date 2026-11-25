@@ -5,7 +5,8 @@ The model chooses and explains; code measures. what_if replays the plug's last 1
 real readings twice, minute by minute: as its timers ran, and as they would run after the
 change. Minutes the change would switch off save what the plug really drew then; minutes
 it would switch on cost about its standby. It also counts the days the device was in use
-in the new off time, so a plan never switches off something the owner uses.
+in the new off time: a change that would have cut real use is never ready to do, only an
+option to talk over.
 """
 
 import json
@@ -25,7 +26,8 @@ from agentc.house import Card, runs_always
 
 DAYS = 14  # days of readings a change is replayed on
 MINUTES = 24 * 60
-USED_DAYS = 2  # in use in the new off time on this many days or more: blocked
+DISCUSS_DAYS = 3  # in use in the new off time on 1 to this many days: an option to talk over;
+# more: blocked. On 0 days it is ready: the owner can just say Do it
 ITEMS = 3  # plan items a week, at most
 SMALL = 0.005  # kWh a month: less than this is no saving at all
 NOT_NOW = timedelta(days=30)  # a "Not now" keeps the same change away this long
@@ -171,12 +173,18 @@ def check_item(change: Change, *, device: Device, card: Card, timers: Sequence[T
         return f"rule: {hard[0].text}"
     if change.to_json() in refused:
         return f"not now: the owner said Not now to this in the last {NOT_NOW.days} days"
-    if result.used_days >= USED_DAYS:
+    if result.used_days > DISCUSS_DAYS:
         return (f"used: {name} was in use in the new off time on {result.used_days} of"
                 f" {result.seen_days} days")  # fmt: skip
     if result.net_kwh < SMALL:
         return "no saving: it would not use less"
     return None
+
+
+def ready(result: WhatIf) -> bool:
+    """Can the owner just say Do it? Only if it would never have cut real use. Else it is an
+    option to talk over in the chat, with no Do it."""
+    return result.used_days == 0
 
 
 def check_plan(changes: Sequence[Change]) -> str | None:

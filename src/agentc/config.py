@@ -34,13 +34,14 @@ class Tier:
 class Budget:
     month_usd: float  # all model calls in a calendar month (NFR-01)
     run_usd: float  # one agent run
+    plan_usd: float = 0.25  # one weekly Planner run: it reads the whole house on a bigger model
 
 
 TIERS = {
     "small": Tier("claude-haiku-5-5", 0.10, 0.50, "low"),
     "mid": Tier("claude-sonnet-5-5", 2.0, 10.0, "medium"),
 }
-BUDGET = Budget(month_usd=3.0, run_usd=0.05)
+BUDGET = Budget(month_usd=3.0, run_usd=0.05, plan_usd=0.25)
 ACCESS = ("none", "advice", "write")  # never changed; proposals only; written after approval
 SLOTS = tuple(range(9, 17))  # timers the system may use; 1 to 8 stay the owner's
 
@@ -156,7 +157,11 @@ def load(path: str | Path) -> Config:
         if carbon
         else None,
         tiers={**TIERS, **{k: _tier(t) for k, t in llm.get("tiers", {}).items()}},
-        budget=Budget(llm.get("month_usd", BUDGET.month_usd), llm.get("run_usd", BUDGET.run_usd)),
+        budget=Budget(
+            llm.get("month_usd", BUDGET.month_usd),
+            llm.get("run_usd", BUDGET.run_usd),
+            llm.get("plan_usd", BUDGET.plan_usd),
+        ),
         devices={plug: _device(plug, d, site_policy) for plug, d in raw.get("devices", {}).items()},
         policy=site_policy,
         own=frozenset(raw.get("policy", {})),

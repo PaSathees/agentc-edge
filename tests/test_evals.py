@@ -26,6 +26,18 @@ class Wise:
 
     def __call__(self, *, tier, system, messages, tools, on_text=None):
         self.steps += 1
+        if any(t["name"] == "propose_plan" for t in tools):  # the Planner: the box, if allowed
+            write = "PeoTV box: access write" in messages[0]["content"]
+            item = {"device": "PeoTV box", "kind": "move_timer", "slot": 1, "time": "07:00",
+                    "off": None, "on": None, "days": None,
+                    "why": "It idles from 06:00 and nobody uses it before 07:00."}  # fmt: skip
+            args = {"summary": "A quiet week.", "items": [item] if write else []}
+            return (
+                [{"type": "tool_use", "id": "p1", "name": "propose_plan", "input": args}],
+                ("tool_use", 1000, 100)[0],
+                1000,
+                100,
+            )
         if any(t["name"] == "propose_card" for t in tools):  # the setup chat: usual, then a card
             read = any(isinstance(m["content"], list) for m in messages)  # a tool result came
             name, args = ("propose_card", TV_CARD) if read else ("usual", USUAL)
@@ -75,7 +87,7 @@ def test_ev22_is_the_tv_on_at_midday():
 
 def test_a_model_that_decides_well_passes(tmp_path):
     scores = evals.run(Wise(), samples=2, path=tmp_path / "r.json")
-    assert [s.passed for s in scores] == [True, True, True, True]
+    assert [s.passed for s in scores] == [True] * 6
     assert scores[0].line() == "EV-01: right 2/2, actions ask 2, 1.0 steps each, USD 0.0003: PASS"
 
 
@@ -154,7 +166,7 @@ def test_a_stale_recording_is_reported(recorded, capsys, monkeypatch):
 
 
 def test_the_recorded_live_steps_still_pass():  # free on every commit
-    assert [s.passed for s in evals.run(None)] == [True, True, True, True]
+    assert [s.passed for s in evals.run(None)] == [True] * 6
 
 
 def test_ev13_is_a_new_tv_on_real_readings():
@@ -171,3 +183,11 @@ def test_ev13_scores_the_card_the_owner_described():
         assert not right(setup.parse({**TV_CARD, **change}, base=Card()), read)
     assert not right(None, read)
     assert not right(good, ["power"])  # never read the usual week, so suggested no times
+
+
+def test_a_case_never_recorded_says_how_to_record_it_and_the_live_ones_are_kept(tmp_path):
+    why = "EV-05: not recorded yet. Run `agentc eval --live --case EV-05`"
+    path = tmp_path / "r.json"
+    with pytest.raises(evals.Stale, match=why):  # only EV-01 is asked; EV-05 has nothing
+        evals.run(Wise(), samples=1, path=path, cases=["EV-01"])
+    assert list(json.loads(path.read_text())) == ["EV-01"]  # what it paid for is saved

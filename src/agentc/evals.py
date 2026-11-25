@@ -18,9 +18,10 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from agentc import agent, calc, config, house, setup, store, watcher, words
+from agentc import agent, calc, config, house, planner_agent, setup, store, watcher, words
 from agentc.agent_tools import Tools, card
 from agentc.config import Config, Device, Tier
+from agentc.devices.base import Timer
 from agentc.house import Card
 from agentc.llm import Block, Llm, Message, OnText, Schema, StepSend
 from agentc.owner import Decision
@@ -111,32 +112,49 @@ class Score:
                 f" {'PASS' if self.passed else 'FAIL'}")  # fmt: skip
 
 
-def run(send: StepSend | None, *, samples: int = 5, path: Path | None = None) -> list[Score]:
-    """Live with `send`, saving the replies to `path`; with None, replay what `path` holds."""
+def run(send: StepSend | None, *, samples: int = 5, path: Path | None = None,
+        cases: Sequence[str] = ()) -> list[Score]:  # fmt: skip
+    """Live with `send`, saving the replies to `path`; with None, replay what `path` holds.
+    cases: with `send`, ask the model only for these and replay the rest (the Planner's
+    cases cost more, so they are recorded on their own)."""
     path = path or RECORDED
     cfg = settings()
-    saved = {} if send else json.loads(path.read_text())
+    saved = json.loads(path.read_text()) if path.exists() else {}
+
+    def live(eid: str) -> StepSend | None:
+        return send if send and (not cases or eid in cases) else None
+
     scores = []
-    for ev in LIVE:
-        signal, tools = case(ev, cfg)
-        look = lambda s, ev=ev, signal=signal: _sample(ev, signal, s, cfg)  # noqa: E731
-        scores.append(_score(ev.id, key(signal, ev, tools), saved, send, samples, cfg, look))
-    scores.append(_score(SETUP_ID, setup_key(setup_case(cfg), cfg), saved, send, samples, cfg,
-                         lambda s: _setup_sample(s, cfg)))  # fmt: skip
-    if send:
-        path.write_text(json.dumps(saved, indent=1) + "\n")
+    try:
+        for ev in LIVE:
+            signal, tools = case(ev, cfg)
+            look = lambda s, ev=ev, signal=signal: _sample(ev, signal, s, cfg)  # noqa: E731
+            scores.append(_score(ev.id, key(signal, ev, tools), saved, live(ev.id), samples, cfg,
+                                 look))  # fmt: skip
+        scores.append(_score(SETUP_ID, setup_key(setup_case(cfg), cfg), saved, live(SETUP_ID),
+                             samples, cfg, lambda s: _setup_sample(s, cfg)))  # fmt: skip
+        for pe in PLANS:
+            pcfg, tools = plan_case(pe, cfg)
+            plan = lambda s, pe=pe: _plan_sample(pe, s, cfg)  # noqa: E731
+            scores.append(_score(pe.id, plan_key(tools), saved, live(pe.id), samples, pcfg, plan,
+                                 tier="mid"))  # fmt: skip
+    finally:  # what was asked live is kept, even if a later case cannot be replayed
+        if send:
+            path.write_text(json.dumps(saved, indent=1) + "\n")
     return scores
 
 
 def _score(
     eid: str, k: str, saved: dict[str, Any], send: StepSend | None, samples: int, cfg: Config,
-    sample: Callable[[StepSend], Sample],
+    sample: Callable[[StepSend], Sample], tier: str = "small",
 ) -> Score:  # fmt: skip
     """One case: live (recording into `saved`) or replayed from it."""
     if send:
         got = [sample(send) for _ in range(samples)]
-        saved[eid] = {"key": k, "model": cfg.tiers["small"].model,
+        saved[eid] = {"key": k, "model": cfg.tiers[tier].model,
                       "samples": [x.steps for x in got]}  # fmt: skip
+    elif eid not in saved:
+        raise Stale(f"{eid}: not recorded yet. Run `agentc eval --live --case {eid}`.")
     elif saved[eid]["key"] != k:
         raise Stale(f"{eid}: the prompt changed. Run `agentc eval --live` again.")
     else:
@@ -224,7 +242,19 @@ def printer(desk: list[tuple[datetime, float]]) -> list[tuple[datetime, float]]:
 
 
 def case(ev: Eval, cfg: Config) -> tuple[str, Tools]:
-    """The house as it was when the agent looks, and the signal it gets.
+    """The house as it was when the agent looks, and the signal it gets."""
+    tools, rows = house_at(ev.at, cfg)
+    seen = [(at, w) for at, w in rows[ev.plug[0]] if at < ev.at]
+    peak = max(w for at, w in seen if at >= ev.start)
+    minutes = round((ev.at - ev.start) / timedelta(minutes=1))
+    e = watcher.Event(ev.kind, ev.plug[1], ev.start, {"peak_w": peak, "minutes": minutes})
+    name = config.device(cfg, ev.plug[0]).name
+    signal = words.event_words(e, {ev.plug[1]: name}, tz=cfg.tz)
+    return signal, tools
+
+
+def house_at(at: datetime, cfg: Config) -> tuple[Tools, dict[str, list[tuple[datetime, float]]]]:
+    """The house of the real readings, as of `at`, with each plug's readings.
 
     Profiles come from all 14 days, so they know a little more than the house did then.
     """
@@ -237,19 +267,13 @@ def case(ev: Eval, cfg: Config) -> tuple[str, Tools]:
     energy.execute("CREATE TABLE readings (ts_utc TEXT, plug TEXT, power_w REAL, error TEXT)")
     for plug, mac in (DESK, PRINTER, TV, BOX):
         store.plug_seen(app, site_id=1, mac=mac, name=plug, ip=cfg.plugs[plug], timers_on=True,
-                        now=ev.at)  # fmt: skip
-        store.save_card(app, site_id=1, mac=mac, card=CARDS[plug], now=ev.at)
+                        now=at)  # fmt: skip
+        store.save_card(app, site_id=1, mac=mac, card=CARDS[plug], now=at)
         profile = calc.build_profile(rows[plug], tz=cfg.tz) or []
         store.save_profile(app, site_id=1, mac=mac, profile=profile)
         rs = [(at.astimezone(UTC).isoformat(), plug, w) for at, w in rows[plug]]
         energy.executemany("INSERT INTO readings VALUES (?, ?, ?, NULL)", rs)
-    seen = [(at, w) for at, w in rows[ev.plug[0]] if at < ev.at]
-    peak = max(w for at, w in seen if at >= ev.start)
-    minutes = round((ev.at - ev.start) / timedelta(minutes=1))
-    e = watcher.Event(ev.kind, ev.plug[1], ev.start, {"peak_w": peak, "minutes": minutes})
-    name = config.device(cfg, ev.plug[0]).name
-    signal = words.event_words(e, {ev.plug[1]: name}, tz=cfg.tz)
-    return signal, Tools(app, energy, cfg, site_id=1, now=ev.at)
+    return Tools(app, energy, cfg, site_id=1, now=at), rows
 
 
 def key(signal: str, ev: Eval, tools: Tools) -> str:
@@ -286,3 +310,72 @@ def _replay(steps: list[list[Block]]) -> StepSend:
         return left.pop(0), "tool_use", 0, 0
 
     return send
+
+
+# EV-30 and EV-31: the weekly Planner, on the TV and the PeoTV box's real readings
+
+
+@dataclass(frozen=True)
+class PlanEval:
+    id: str
+    access: str  # the TV's and the PeoTV box's access
+    right: Callable[[planner_agent.Plan], bool]
+
+
+SUNDAY = datetime(2026, 11, 15, 2, 30, tzinfo=ZoneInfo(TZ))  # the readings end here
+ON6 = Timer(1, True, 0, "06:00", 0, "1111111", True, 1, 1)
+OFF1 = Timer(2, True, 0, "01:00", 0, "1111111", True, 1, 0)
+
+
+def _ready_saving(p: planner_agent.Plan) -> bool:
+    """At least one ready change: code checked it saves energy and never cut real use (the
+    box idles from 06:00 and nobody used it early in 13 days, so one exists)."""
+    return p.done and any(i.ready for i in p.items)
+
+
+def _nothing(p: planner_agent.Plan) -> bool:
+    """No device is set to write, so the plan is empty, and done."""
+    return p.done and not p.items
+
+
+PLANS = (
+    PlanEval("EV-30", "write", _ready_saving),
+    PlanEval("EV-31", "advice", _nothing),
+)
+
+
+def plan_case(pe: PlanEval, cfg: Config) -> tuple[Config, Tools]:
+    """The house on Sunday 15 Nov: the TV and the PeoTV box with their real timers (on at
+    06:00, off at 01:00), both at the access the case says."""
+    pcfg = replace(cfg, devices={**cfg.devices, TV[0]: Device("LG TV", access=pe.access),
+                                 BOX[0]: Device("PeoTV box", access=pe.access)})  # fmt: skip
+    tools, _ = house_at(SUNDAY, pcfg)
+    for _, mac in (TV, BOX):
+        store.save_timers(tools.app, site_id=1, mac=mac, timers=[ON6, OFF1], now=SUNDAY)
+    return pcfg, tools
+
+
+def plan_key(tools: Tools) -> str:
+    """Changes when what the Planner reads first changes: its prompt, tools or the week."""
+    t = planner_agent.PlanTools(tools, planner_agent.week_start(tools.now, tz=TZ))
+    text = planner_agent.VERSION + planner_agent.SYSTEM + json.dumps(planner_agent.TOOLS,
+                                                                     sort_keys=True)  # fmt: skip
+    return hashlib.sha256((text + t.house_week()).encode()).hexdigest()[:16]
+
+
+def _plan_sample(pe: PlanEval, send: StepSend, cfg: Config) -> Sample:
+    pcfg, tools = plan_case(pe, cfg)
+    steps: list[list[Block]] = []
+
+    def listen(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+               on_text: OnText | None = None) -> tuple[list[Block], str, int, int]:  # fmt: skip
+        blocks, stop, tokens_in, tokens_out = send(tier=tier, system=system, messages=messages,
+                                                   tools=tools)  # fmt: skip
+        steps.append(blocks)
+        return blocks, stop, tokens_in, tokens_out
+
+    budget = replace(pcfg.budget, run_usd=pcfg.budget.plan_usd)
+    brain = Llm(tools.app, 1, pcfg.tz, pcfg.tiers, budget, listen, clock=lambda: SUNDAY)
+    p = planner_agent.plan(tools, llm=brain, run_id=pe.id)
+    action = f"items {len(p.items)}" if p.done else "none"
+    return Sample(steps, action, pe.right(p), list(p.tools), store.llm_usd(tools.app, site_id=1))

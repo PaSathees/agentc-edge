@@ -152,10 +152,15 @@ class Tools:
             b = datetime.strptime(end, LOCAL).replace(tzinfo=zone)
         except ValueError:
             raise ValueError("times are YYYY-MM-DD HH:MM, local time") from None
-        rows = readings.power(self.energy, plug=plug, start=a, end=b)
-        kwh = sum(w * min(_next(rows, i, b) - at, watcher.MAX_GAP).total_seconds()
-                  for i, (at, w) in enumerate(rows)) / 3600 / 1000  # fmt: skip
+        kwh = used_kwh(self.energy, plug, a, b)
         return f"From {a:%a %H:%M} to {b:%a %H:%M}: {worth(self.cfg, kwh, a, digits=3)}"
+
+
+def used_kwh(energy: Connection, plug: str, start: datetime, end: datetime) -> float:
+    """kWh a plug drew from start to end, from its minute readings (gaps over 5 min skipped)."""
+    rows = readings.power(energy, plug=plug, start=start, end=end)
+    return sum(w * min(_next(rows, i, end) - at, watcher.MAX_GAP).total_seconds()
+               for i, (at, w) in enumerate(rows)) / 3600 / 1000  # fmt: skip
 
 
 def worth(cfg: Config, kwh: float, at: datetime, *, digits: int = 1) -> str:

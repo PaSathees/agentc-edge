@@ -205,6 +205,7 @@ CREATE TABLE IF NOT EXISTS plan_items (
     change   TEXT NOT NULL,  -- JSON: planner.Change
     why      TEXT NOT NULL,  -- the Planner's reason, in the owner's words
     saving   TEXT NOT NULL,  -- what_if's text: the saving and the days in use
+    ready    INTEGER NOT NULL DEFAULT 1,  -- 0: it cut real use, so only to talk over
     status   TEXT NOT NULL DEFAULT 'open'
              CHECK (status IN ('open', 'done', 'not_now', 'failed', 'expired')),
     decided  TEXT
@@ -242,6 +243,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
         db.execute("ALTER TABLE events ADD COLUMN tries INTEGER NOT NULL DEFAULT 0")  # before 3
     if "sent" not in [col[1] for col in db.execute("PRAGMA table_info(questions)")]:
         db.execute("ALTER TABLE questions ADD COLUMN sent TEXT")  # before 7
+    if "ready" not in [col[1] for col in db.execute("PRAGMA table_info(plan_items)")]:
+        db.execute("ALTER TABLE plan_items ADD COLUMN ready INTEGER NOT NULL DEFAULT 1")
     if "reads" not in [col[1] for col in db.execute("PRAGMA table_info(chats)")]:
         db.execute("ALTER TABLE chats ADD COLUMN reads TEXT")  # before 10
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
@@ -821,11 +824,13 @@ class PlanItem:
     why: str
     saving: str
     status: str  # open, done, not_now, failed or expired
+    ready: bool = True  # False: it would have cut real use, so only to talk over
 
 
 def add_plan(db: sqlite3.Connection, *, site_id: int, week: str, summary: str,
-             items: Sequence[tuple[str, str, str, str]], now: datetime) -> int | None:  # fmt: skip
-    """Save a week's plan with its items (mac, change JSON, why, saving), in one go.
+             items: Sequence[tuple[str, str, str, str, bool]],
+             now: datetime) -> int | None:  # fmt: skip
+    """Save a week's plan with its items (mac, change JSON, why, saving, ready), in one go.
     None if that week has a plan already: the Planner runs once a week."""
     with db:
         sql = "INSERT OR IGNORE INTO plans (site_id, week, summary, created) VALUES (?, ?, ?, ?)"
@@ -833,8 +838,8 @@ def add_plan(db: sqlite3.Connection, *, site_id: int, week: str, summary: str,
         if not cur.rowcount:
             return None
         plan = cur.lastrowid or 0
-        db.executemany("INSERT INTO plan_items (plan_id, site_id, plug_mac, change, why, saving)"
-                       " VALUES (?, ?, ?, ?, ?, ?)",
+        db.executemany("INSERT INTO plan_items (plan_id, site_id, plug_mac, change, why, saving,"
+                       " ready) VALUES (?, ?, ?, ?, ?, ?, ?)",
                        [(plan, site_id, *item) for item in items])  # fmt: skip
     return plan
 
@@ -847,9 +852,12 @@ def latest_plan(db: sqlite3.Connection, *, site_id: int) -> tuple[int, str, str]
 
 
 def plan_items(db: sqlite3.Connection, *, plan_id: int) -> list[PlanItem]:
-    sql = """SELECT id, plan_id, plug_mac, change, why, saving, status FROM plan_items
+    sql = """SELECT id, plan_id, plug_mac, change, why, saving, status, ready FROM plan_items
              WHERE plan_id = ? ORDER BY id"""
-    return [PlanItem(*row) for row in db.execute(sql, (plan_id,))]
+    return [
+        PlanItem(i, p, mac, c, why, saving, status, bool(ready))
+        for i, p, mac, c, why, saving, status, ready in db.execute(sql, (plan_id,))
+    ]
 
 
 def decide_item(db: sqlite3.Connection, *, item_id: int, status: str, now: datetime) -> bool:

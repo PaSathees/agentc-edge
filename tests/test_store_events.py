@@ -89,3 +89,13 @@ def test_an_app_db_from_phase_3d3_gets_the_reads_column(tmp_path):
     old.close()
     db = store.connect(tmp_path / "app.db")
     assert "reads" in [row[1] for row in db.execute("PRAGMA table_info(chats)")]
+
+
+def test_an_app_db_from_phase_5b1_gets_the_ready_column(tmp_path):
+    old = sqlite3.connect(tmp_path / "app.db")
+    old.execute("CREATE TABLE plan_items (id INTEGER PRIMARY KEY, plan_id, site_id, plug_mac,"
+                " change, why, saving, status, decided)")  # fmt: skip
+    old.execute("PRAGMA user_version = 11")
+    old.close()
+    db = store.connect(tmp_path / "app.db")
+    assert "ready" in [row[1] for row in db.execute("PRAGMA table_info(plan_items)")]
