@@ -203,7 +203,7 @@ def _look(
                         detail={"why": why, "tools": ", ".join(look.tools)})  # fmt: skip
         return Outcome(eid, device.name, None, why)
     why, qid = "", None
-    if d.action in ("ask", "propose"):
+    if d.action == "ask":  # the housemate no longer proposes (ADR-010)
         local = now.astimezone(zone)
         due = owner.send_at(
             local, _watts(energy, plug, e, now), night_wake_w=device.policy.night_wake_w

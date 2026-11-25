@@ -24,7 +24,7 @@ Option 2:
 | Assistant (Phase 5d) | when the owner asks | anything, read only | answers, explanations, drafts; hosts the weekly review (5c) | nothing by itself |
 | Setup agent (since 3d3) | when the owner sets up or edits a device | that device | a draft card | nothing: only the owner's Save |
 
-The housemate no longer proposes and never offers a timer. Anything about the long run becomes a one-sentence note, and the Planner reads every note each week. Code checks this: the housemate's actions are ignore, note and ask, and its choices are switch off now, save a habit, remind later, or nothing.
+The housemate no longer proposes and never offers a timer. Anything about the long run becomes a one-sentence note. From Phase 5b, the Planner reads every note each week. Code checks this: the housemate's actions are ignore, note and ask, and its choices are switch off now, save a habit, remind later, or nothing.
 
 ## Consequences
 

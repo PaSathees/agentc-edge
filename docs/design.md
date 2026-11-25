@@ -24,9 +24,9 @@ One real example. On Monday 2 November, at 01:37, Desk 2 switched on and then sa
 
 The version 2 question on your phone at 07:00:
 
-> Desk 2 was on from 01:37 to 07:00 last night at about 5 W. It's usually off by 01:00 and nothing else was on.
+> Desk 2 has been on since 01:37 at about 5 W. It's usually off by 01:00 and nothing else is on.
 >
-> **Set a timer** · **That's normal on Mondays** · **Ask me at night next time**
+> **Switch off now** · **That's normal on Mondays** · **Ask me at night next time**
 
 A 1,500 W heater left on would not wait: above 50 W it asks at once, even at night.
 
@@ -61,7 +61,7 @@ flowchart TB
 | Logger | Reads every plug once a minute into `energy.db`. A separate program | code (built) |
 | House model | What the system knows about the home: devices, habits, automations, the plan | data, kept by code |
 | Signals | Finds things worth a look, early and cheaply. Never calls the AI | code |
-| Housemate agent | Looks into one signal with tools, then decides what to do | AI (one of three agents on a shared base) |
+| Housemate agent | Looks into one signal with tools, then decides what to do | AI (one of four agents on a shared base, ADR-010) |
 | Checks | Validates everything the agent produces before you see it | code (built, extended) |
 | You | Answer questions, approve actions, chat | owner |
 | Actuator | Writes to a plug after approval, reads it back, logs it | code |
@@ -133,7 +133,7 @@ flowchart LR
 
 **What it may produce**
 - **ignore**: logged with a reason, so you can audit what it chose not to raise.
-- **note**: one sentence, for the evening summary and for the Planner, which reads every note each week. Anything about the long run, such as a timer to move, is a note.
+- **note**: one sentence, for the evening summary. From Phase 5b the Planner will read every note each week. Anything about the long run, such as a timer to move, is a note.
 - **ask**: only when the device is wasting power now and a tap would stop it. 2 or 3 choices, each one of: switch off now, save a habit, remind me later, or nothing.
 
 Since [ADR-010](adr/010-four-agents-four-jobs.md) the housemate never proposes and never offers a timer: long-run changes are the Planner's.
@@ -152,9 +152,9 @@ Since [ADR-010](adr/010-four-agents-four-jobs.md) the housemate never proposes a
 
 Prompt caching (re-using the unchanged start of a prompt at a lower price) cuts it further. Phase 3 measures the real cost from the traces.
 
-**Every number traces to a tool.** In the Desk 2 run, "usually off by 01:00" needs `usual()`, and offering "Set a timer" needs `automations()` (is there a timer already, which slots are free). A number with no tool behind it is blocked by the checks.
+**Every number traces to a tool.** In the Desk 2 run, "usually off by 01:00" needs `usual()`, and "on since 01:37 at about 5 W" needs `power()`. A number with no tool behind it is blocked by the checks. So a long-run idea with a new time the agent worked out itself ("move it to 07:30") is blocked too; the Planner (5b) will work out times with its own tools.
 
-**Four agents on a shared base, four jobs** ([ADR-010](adr/010-four-agents-four-jobs.md)). The housemate catches waste now, on one device. The Planner plans once a week for the whole house. The Assistant answers when you ask and hosts the weekly review. The setup agent drafts a device's card. Each has its own prompt, its own subset of tools, its own model and its own evals. The Planner will later get forecasting tools, and one prompt for three jobs would be hard to keep right. They share one base: the house model, the tool library, the checks and `llm()`. So each one has the whole view, and each one can change and be tested on its own ([ADR-007](adr/007-housemate-agent.md)).
+**Four agents on a shared base, four jobs** ([ADR-010](adr/010-four-agents-four-jobs.md)). The housemate catches waste now, on one device. The Planner plans once a week for the whole house. The Assistant answers when you ask and hosts the weekly review. The setup agent drafts a device's card. Each has its own prompt, its own subset of tools, its own model and its own evals. The Planner will later get forecasting tools, and one prompt for four jobs would be hard to keep right. They share one base: the house model, the tool library, the checks and `llm()`. So each one has the whole view, and each one can change and be tested on its own ([ADR-007](adr/007-housemate-agent.md)).
 
 | Shared (one copy) | Separate (per agent) |
 |---|---|

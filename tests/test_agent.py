@@ -4,16 +4,14 @@ import pytest
 
 from agentc import agent
 from agentc.agent import Choice, Decision, check_decision
-from agentc.config import Budget, Device, Rule
+from agentc.config import Budget, Device
 from agentc.house import Card
 from agentc.llm import Llm, OverBudget, Unreachable
 from tests.test_agent_tools import CFG, NOW, tools  # noqa: F401 (tools is a fixture)
 
 ASK = {"action": "ask", "text": "Desk 2 has drawn about 5 W since 01:51. Switch it off now?",
-       "choices": [{"label": "Switch off", "does": "switch_off_now", "off": None, "on": None,
-                    "days": None},
-                   {"label": "That's normal", "does": "save_habit", "off": None, "on": None,
-                    "days": None}]}  # fmt: skip
+       "choices": [{"label": "Switch off", "does": "switch_off_now"},
+                   {"label": "That's normal", "does": "save_habit"}]}  # fmt: skip
 
 
 PLAIN = {**ASK, "text": "Desk 2 is still on and nothing else is. Switch it off now?"}  # no numbers
@@ -136,7 +134,6 @@ def test_the_run_cap_stops_the_look(tools):  # noqa: F811
 
 
 DESK, CARD, FACTS = Device("Desk 2"), Card("computer"), "about 5 W since 01:51"
-LATE = Rule("latest_off", "02:00", hard=True, text="Desk 2 may run until 02:00")
 
 
 def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
@@ -160,6 +157,8 @@ def decision(action="ask", text="About 5 W since 01:51. Off?", *choices):
          "format: 3 sentences; at most 2 for ask, read on a phone"),
         (Decision("note", "Desk 2 ran late. Move its timer?", ()), DESK, CARD,
          "format: 2 sentences; at most 1 for note, read on a phone"),
+        (Decision("ignore", "Normal. It runs at night.", ()), DESK, CARD,
+         "format: 2 sentences; at most 1 for ignore, read on a phone"),
         (Decision("ignore", "Normal for this hour.", ()), Device("3D printer", access="none"),
          CARD, None),
         (decision("ask", "About 5 W since 01:51. Off?", Choice("Off", "switch_off_now"),

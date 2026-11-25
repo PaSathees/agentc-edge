@@ -1,7 +1,7 @@
 """The housemate agent: looks into one signal with read tools, then decides (ADR-007, 009).
 
 Our own small loop on llm(): the model asks for a tool, code runs it, up to MAX_STEPS
-times. It ends by calling `decide`: ignore, note, ask the owner, or propose a fix. Code
+times. It ends by calling `decide`: ignore, note, or ask the owner (ADR-010: no proposals). Code
 checks that decision before anything is saved; a blocked one gets one retry with the
 reason. Every limit sits here or in llm(), never in the model.
 """
@@ -189,7 +189,7 @@ def sentences(text: str) -> int:
 
 def check_decision(d: Decision, *, device: Device, card: Card, facts: str) -> str | None:
     """Why the decision is blocked, or None if it passes. Cheap checks first."""
-    if (n := sentences(d.text)) > (most := SENTENCES.get(d.action, 1)):
+    if (n := sentences(d.text)) > (most := SENTENCES[d.action]):
         return f"format: {n} sentences; at most {most} for {d.action}, read on a phone"
     if device.access == "none" and d.action not in ("ignore", "note"):
         return f"access: {device.name} is never changed, so only ignore or note"

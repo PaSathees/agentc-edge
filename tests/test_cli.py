@@ -434,7 +434,7 @@ def decides(action):
     def step(*, tier, system, messages, tools):
         text = "Desk 2 is still on. Switch it off?" if action == "ask" else "Normal."
         pairs = (("Off", "switch_off_now"), ("Normal", "save_habit")) if action == "ask" else ()
-        choices = [{"label": a, "does": b, "off": None, "on": None, "days": None} for a, b in pairs]
+        choices = [{"label": a, "does": b} for a, b in pairs]
         args = {"action": action, "text": text, "choices": choices}
         return (
             [{"type": "tool_use", "id": "t1", "name": "decide", "input": args}],

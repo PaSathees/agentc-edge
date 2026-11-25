@@ -57,7 +57,7 @@ Where EV-01 to EV-06 run (3c2, 2026-11-23):
 | FM-06 | Texts of 3 to 5 sentences, too long for a phone | EV-01 5 of 5, most replay texts | FR-31 | Fixed in housemate-v3: at most 2 sentences, checked in code (`agent.sentences`) |
 | FM-07 | One missed sleep shortcut gives 2 or 3 questions the same morning (Desk 1, Desk 2, MacBook charger) | Replay v4: 3 mornings | FR-36 | Open (3d): one morning message for the night's questions, grouped by what the card says switches them off |
 | FM-08 | The setup chat repeats a read, copies system facts into the card's notes, and does not suggest habits from the usual week | EV-13 live, 2026-11-24 | FR-30 | Fixed 2026-11-24: reads kept per chat (code), setup-v2 prompt, notes checked in code. EV-13 5/5, 4.0 steps a chat (was 4.4 with repeats) |
-| FM-09 | Housemate notes name system facts (access none, the Planner) and their first drafts run to 2 sentences | EV-05, EV-22 live, 2026-11-25 | FR-36 | Open: prompt pass in 5b, when the Planner reads the notes (plain owner words, one sentence, no system terms) |
+| FM-09 | Housemate notes name system facts (access none, the Planner) and their first drafts run to 2 sentences | EV-05, EV-22 live, 2026-11-25 | FR-36 | Open: prompt pass in 5b, when the Planner reads the notes (plain owner words, one sentence, no system terms). Also known: a note with a time the agent worked out itself ("move it to 07:30") is blocked as made up and dropped after the retry, as NFR-11 wants; the Planner will work out times with its own tools |
 
 ## Public homes (B3b)
 
