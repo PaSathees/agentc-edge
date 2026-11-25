@@ -223,7 +223,10 @@ def show_plan(db: Connection, cfg: Config, *, site_id: int, step: llm.StepSend |
     print(p.summary)
     for n, i in enumerate(p.items, 1):
         name = config.device(cfg, i.plug).name
-        print(f"\n{n}. {name}: {i.why}\n   Now: {i.before}\n   After: {i.after}\n   {i.saving}")
+        how = (f"   You: {i.action}" if i.change is None else
+               f"   Now: {i.before}\n   After: {i.after}")  # fmt: skip
+        tag = "ready" if i.ready else "only to talk over"
+        print(f"\n{n}. {name} ({tag}): {i.why}\n{how}\n   {i.saving}")
     for why in p.blocked:
         print(f"Left out: {why}")
     usd = store.llm_usd(db, site_id=site_id, run_id=run_id)

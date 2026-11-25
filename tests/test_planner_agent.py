@@ -1,4 +1,4 @@
-"""The weekly Planner's agent half: it proposes, code measures and checks (ADR-010, 5b2)."""
+"""The weekly Planner: code chooses with CP-SAT, the model explains (ADR-003 revised, 5b4)."""
 
 import json
 import sqlite3
@@ -8,14 +8,30 @@ from datetime import timedelta
 import pytest
 
 from agentc import cli, evals, llm, planner, planner_agent, store
+from agentc.house import Card
 from agentc.llm import Llm
 from agentc.owner import Choice, Decision
 from agentc.watcher import Event
 from tests.test_cli import EXAMPLE
 
-WRITE = evals.PLANS[0]  # the TV and the PeoTV box set to write
-BOX = {"device": "PeoTV box", "kind": "move_timer", "slot": 1, "time": "07:00", "off": None,
-       "on": None, "days": None}  # fmt: skip
+REACH, ON_TRACK, SHORT = evals.PLANS  # goal 3.7 (reachable), 50 (on track), 0.5 (out of reach)
+CHOICES: dict[str, planner_agent.Choice] = {}
+REAL_DECIDE = planner_agent.decide
+
+
+@pytest.fixture(autouse=True)
+def once(monkeypatch):
+    """Code's choice for each eval house is worked out once: CP-SAT gives the same set."""
+    real = planner_agent.decide
+
+    def cached(t):
+        box = t.base.cfg.devices.get(evals.BOX[0])
+        key = f"{t.base.cfg.goal}|{box.access if box else '-'}|{sorted(t.base.cfg.plugs)}"
+        if key not in CHOICES:
+            CHOICES[key] = real(t)
+        return CHOICES[key]
+
+    monkeypatch.setattr(planner_agent, "decide", cached)
 
 
 def use(name, args, n=1):
@@ -34,153 +50,232 @@ class Script:
         return self.turns.pop(0), "tool_use", 2000, 200
 
 
-def propose(items, summary="A quiet week.", n=9):
-    return [use("propose_plan", {"summary": summary, "items": items}, n)]
+def propose(items, summary="A quiet week.", left_out=(), n=9):
+    return [use("propose_plan", {"summary": summary, "items": items,
+                                 "left_out": list(left_out)}, n)]  # fmt: skip
 
 
-def run(script, pe=WRITE):
+def run(script, pe=REACH):
     cfg, tools = evals.plan_case(pe, evals.settings())
-    budget = replace(cfg.budget, run_usd=cfg.budget.plan_usd)
-    brain = Llm(tools.app, 1, cfg.tz, cfg.tiers, budget, script, clock=lambda: evals.SUNDAY)
+    brain = Llm(tools.app, 1, cfg.tz, cfg.tiers, cfg.budget, script, clock=lambda: evals.SUNDAY)
     return planner_agent.plan(tools, llm=brain, run_id="plan:test"), tools, cfg
 
 
-def test_a_good_item_is_measured_by_code_and_kept():
-    item = {**BOX, "why": "It idles from 06:00 and nobody uses it before 07:00."}
-    script = Script([use("house_week", {}), use("what_if", BOX, 2)], propose([item]))
+WHY = {"c2": "The 3D printer's Pi idles when it is not printing.",
+       "c5": "It idles from 06:00 and nobody uses it before 09:30.",
+       "c7": "It stays on until 01:00 but nobody uses it after 00:30."}  # fmt: skip
+
+
+def all_items():
+    return [{"id": k, "why": v} for k, v in WHY.items()]
+
+
+# code's choice, the model's words
+
+
+def test_code_chooses_and_the_model_explains_every_chosen_change():
+    script = Script(propose(all_items(), "One change of yours closes the month's gap."))
     p, _, _ = run(script)
-    (i,) = p.items
-    assert (p.done, p.summary, p.tools) == (True, "A quiet week.", ("house_week", "what_if"))
-    assert (i.plug, i.change, i.before, i.after) == (
-        "Plug-4", planner.Change("move_timer", slot=1, time="07:00"),
-        "On at 06:00, every day", "On at 07:00, every day")  # fmt: skip
-    assert i.saving.startswith("Saves about 0.02 kWh") and "on 0 of 13 days" in i.saving
-    assert script.seen[0]["tier"] == "claude-sonnet-5-5"  # the mid tier
+    assert (p.done, p.chosen, p.shortfall, p.blocked) == (True, ("c2", "c5", "c7"), "", ())
+    printer, start, off = p.items
+    assert (printer.change, printer.action, printer.ready) == (None, planner_agent.ACTION, True)
+    assert printer.saving.startswith("Saves about 3.55 kWh") and printer.why == WHY["c2"]
+    assert (start.before, start.after) == ("On at 06:00, every day", "On at 09:30, every day")
+    assert off.change == planner.Change("move_timer", slot=2, time="00:30")
+    brief = script.seen[0]["messages"][0]["content"]
+    assert script.seen[0]["tier"] == "claude-sonnet-5-5" and "Chosen changes:" in brief
 
 
-def test_a_blocked_item_goes_back_once_then_only_good_items_stay():
-    bad = {**BOX, "device": "Desk 2", "why": "It runs late."}  # access advice
-    good = {**BOX, "why": "It idles from 06:00 and nobody uses it before 07:00."}
-    script = Script([use("what_if", BOX)], propose([bad, good]), propose([bad, good], n=10))
-    p, _, _ = run(script)
-    back = script.seen[2]["messages"][-1]["content"][0]
-    assert back["is_error"] and back["content"].startswith("Blocked: item 1 (Desk 2): access:")
-    assert [i.plug for i in p.items] == ["Plug-4"] and p.blocked[0].startswith("item 1 (Desk 2)")
+def test_on_track_with_nothing_writable_chooses_nothing():
+    p, _, _ = run(Script(propose([], "On track this month.")), ON_TRACK)
+    assert (p.chosen, p.items, p.summary) == ((), (), "On track this month.")
 
 
-def test_a_number_from_nowhere_is_blocked():
-    made_up = {**BOX, "why": "It wastes 93 W every morning."}
-    p, _, _ = run(Script(propose([made_up]), propose([made_up], n=10)))
-    assert p.items == () and "why: not in the tool results: 93" in p.blocked[0]
+def test_out_of_reach_says_the_shortfall():
+    p, _, _ = run(Script(propose([])), SHORT)
+    assert p.shortfall.startswith("These changes leave about 6.25 kWh")
+    assert p.shortfall.endswith("2.65 kgCO2e over the goal by 30 Nov.")
 
 
-def test_a_made_up_summary_gives_way_to_one_from_code():
-    p, _, _ = run(Script(propose([], summary="You used 42 kWh."), propose([], "x 77", n=10)))
-    assert (p.summary, p.items) == ("Nothing to change this week.", ())
+def test_the_gap_left_this_month_becomes_a_months_rate(monkeypatch):
+    seen = []
+    monkeypatch.setattr(planner, "choose", lambda c, gap_wh: seen.append(gap_wh) or [])  # noqa: ARG005
+    _, tools = evals.plan_case(SHORT, evals.settings())
+    choice = REAL_DECIDE(planner_agent.PlanTools(
+        tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ)))  # fmt: skip
+    share = 15.896 / 30  # 15 Nov 02:30: about 16 of 30 days left
+    assert abs(seen[0] * share - 9120) < 15  # 3.87 kgCO2e over is about 9.12 kWh
+    assert "over the goal by 30 Nov." in choice.shortfall
 
 
-def test_system_words_go_back_for_plain_ones():
-    techy = {**BOX, "why": "Its access is write and it idles from 06:00."}
-    script = Script(propose([techy], summary="The Planner found one."), propose([], n=10))
+def test_a_zero_carbon_factor_means_no_gap():
+    _, tools = evals.plan_case(SHORT, evals.settings())
+    cfg = tools.cfg
+    assert cfg.factor is not None
+    zero = replace(tools, cfg=replace(cfg, factor=replace(cfg.factor, value=0.0)))
+    t = planner_agent.PlanTools(zero, planner_agent.week_start(zero.now, tz=evals.TZ))
+    assert REAL_DECIDE(t).shortfall == ""
+
+
+def test_a_chosen_change_the_model_skipped_is_kept_in_codes_words():
+    p, _, _ = run(Script(propose([{"id": "c5", "why": WHY["c5"]}])))
+    assert [i.why for i in p.items] == [
+        "3D printer idles when you are not using it.", WHY["c5"],
+        "PeoTV box: Off at 01:00, every day to Off at 00:30, every day."]  # fmt: skip
+
+
+def test_the_model_may_leave_a_change_out_with_a_reason():
+    left = [{"id": "c2", "reason": "You said the Pi must stay on for remote prints."}]
+    p, _, _ = run(Script(propose(all_items()[1:], left_out=left)))
+    assert [i.plug for i in p.items] == [evals.BOX[0], evals.BOX[0]]
+    assert p.blocked == (
+        "c2 (3D printer): left out: You said the Pi must stay on for remote prints.",)  # fmt: skip
+
+
+def test_a_change_with_no_words_of_the_models_is_marked_plain():
+    p, _, _ = run(Script(propose([])))
+    assert p.plain == ("c2", "c5", "c7") and not evals._kept_all(p)  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.parametrize(
+    ("items", "left", "reason"),
+    [([{"id": "c5", "why": WHY["c5"]}] * 2, [], "item 2 (c5): listed twice"),
+     ([{"id": "c5", "why": WHY["c5"]}], [{"id": "c5", "reason": "No."}], "in items too"),
+     ([], [{"id": "c9", "reason": "No."}], "left out 1: only the ids in the brief"),
+     ([], [{"id": "c2", "reason": "The Planner said so."}], "left out 1 (c2): reason: 'Planner'"),
+     ([], [{"id": "c2", "reason": ""}], "left out 1 (c2): reason: one sentence"),
+     ([], "[no", "left_out: not a list")],
+)  # fmt: skip
+def test_repeats_and_bad_reasons_go_back_and_the_change_stays(items, left, reason):
+    def step(n):
+        return [use("propose_plan", {"summary": "A week.", "items": items, "left_out": left}, n)]
+
+    p, _, _ = run(Script(step(9), step(10)))
+    assert any(reason in b for b in p.blocked), p.blocked
+    assert "c5" in {i for i in p.chosen} and len(p.items) >= 2
+
+
+def test_the_model_cannot_add_a_change():
+    added = [*all_items(), {"id": "c9", "why": "A new pair."}]
+    script = Script(propose(added), propose(added, n=10))
     p, _, _ = run(script)
     back = script.seen[1]["messages"][-1]["content"][0]["content"]
-    assert "summary: 'Planner' is a system word" in back and "'access' is a system word" in back
-    assert (p.summary, p.items) == ("A quiet week.", ())  # the plain retry
+    assert "item 4: only the ids in the brief" in back and len(p.items) == 3
 
 
-def test_a_change_that_cut_real_use_is_kept_only_to_talk_over():
-    late = {**BOX, "slot": 2, "time": "00:00", "why": "It stays on until 01:00."}
-    p, _, _ = run(Script([use("what_if", {**BOX, "slot": 2, "time": "00:00"})], propose([late])))
-    (i,) = p.items
-    assert not i.ready and "In use in the new off time on 1 of 13 days" in i.saving
-
-
-def test_items_sent_as_text_are_read_and_odd_ones_refused():
-    good = {**BOX, "why": "It idles from 06:00 and nobody uses it before 07:00."}
-    text = json.dumps([good, "not an item"])
-    p, _, _ = run(Script(propose(text), propose(text, n=10)))
-    assert [i.plug for i in p.items] == ["Plug-4"] and p.blocked == (
-        "item 2: an item is an object with device, kind and why",)  # fmt: skip
-    for bad in ("[not json", {"device": "x"}):
-        p, _, _ = run(Script(propose(bad), propose(bad, n=10)))
-        assert p.items == () and p.blocked == ("items: not a list of changes",)
-
-
-def test_an_unknown_device_is_named():
-    p, _, _ = run(Script(propose([{**BOX, "device": "Kettle", "why": "x"}]),
-                         propose([], n=10)))  # fmt: skip
-    assert p.done and p.items == ()
-
-
-def test_a_plan_over_3_items_keeps_3():
-    why = "It idles."
-    items = [{**BOX, "time": "09:30", "why": why}, {**BOX, "slot": 2, "time": "00:30", "why": why},
-             {**BOX, "device": "LG TV", "time": "07:30", "why": why},
-             {**BOX, "device": "LG TV", "slot": 2, "time": "00:00", "why": why}]  # fmt: skip
+@pytest.mark.parametrize(
+    ("why", "reason"),
+    [("It wastes 93 W.", "why: not in the brief or a tool: 93"),
+     ("Its access is write.", "'access' is a system word"),
+     (None, "why: one sentence in plain words is needed")],
+)  # fmt: skip
+def test_bad_words_go_back_once_then_codes_words_stand_in(why, reason):
+    items = [{"id": "c5", "why": why}]
     p, _, _ = run(Script(propose(items), propose(items, n=10)))
-    assert len(p.items) == 3 and "format: at most 3 items a week" in p.blocked
+    assert any(reason in b for b in p.blocked) and len(p.items) == 3
 
 
-def test_wrong_value_types_are_refused_not_a_crash():
-    odd = [{**BOX, "time": 700, "why": "x"}, {**BOX, "slot": [1], "why": "x"},
-           {**BOX, "kind": "add_pair", "off": 200, "on": "07:00", "days": ["x"], "why": "x"},
-           {**BOX, "kind": None, "why": "x"}, {**BOX, "why": None}]  # fmt: skip
-    p, _, _ = run(Script(propose(odd), propose(odd, n=10)))
-    assert p.done and p.items == () and len(p.blocked) == 5
-    assert "why: one sentence in plain words is needed" in p.blocked[-1]
+@pytest.mark.parametrize(
+    ("summary", "reason"),
+    [("You used 42 kWh.", "not in the brief"), ("The Planner chose 3.", "system word")],
+)
+def test_a_bad_summary_gives_way_to_codes(summary, reason):
+    p, _, _ = run(Script(propose(all_items(), summary), propose(all_items(), summary, n=10)))
+    assert p.summary == "3 changes to look at this week." and reason in p.blocked[0]
 
 
-def test_a_slot_sent_as_text_is_read():
-    item = {**BOX, "slot": "1", "why": "It idles from 06:00 and nobody uses it before 07:00."}
-    p, _, _ = run(Script(propose([item])))
-    assert [i.change.slot for i in p.items] == [1]
-
-
-def test_the_same_change_or_the_same_timer_twice_is_kept_once():
-    why = "It idles from 06:00 and nobody uses it before 07:00."
-    twice = [{**BOX, "why": why}, {**BOX, "why": why}, {**BOX, "time": "09:00", "why": "It idles."}]
-    p, _, _ = run(Script(propose(twice), propose(twice, n=10)))
-    assert [i.change.time for i in p.items] == ["07:00"]
-    assert sum("that timer has a change already" in b for b in p.blocked) == 2
-
-
-def test_a_block_on_the_last_step_keeps_what_passed():
-    good = {**BOX, "why": "It idles from 06:00 and nobody uses it before 07:00."}
-    bad = {**BOX, "device": "Desk 2", "why": "x"}
-    steps = [[use("house_week", {}, n)] for n in range(planner_agent.MAX_STEPS - 1)]
-    p, _, _ = run(Script(*steps, propose([good, bad])))
-    assert p.done and [i.plug for i in p.items] == ["Plug-4"]
+def test_lists_sent_as_text_are_read_and_nonsense_is_refused():
+    p, _, _ = run(Script(propose(json.dumps(all_items()))))
+    assert p.blocked == () and [i.why for i in p.items] == list(WHY.values())
+    p, _, _ = run(Script(propose("[no"), propose({"x": 1}, n=10)))
+    assert "items: not a list" in p.blocked
 
 
 def test_no_tool_call_gets_a_nudge_and_a_planner_that_never_proposes_is_not_done():
     words = [{"type": "text", "text": "Let me think."}]
-    script = Script(*[words] + [[use("house_week", {}, n)] for n in range(9)])
+    script = Script(words, *[[use("week_notes", {}, n)] for n in range(5)])
     p, _, _ = run(script)
-    assert script.seen[1]["messages"][-1]["content"] == "Use the tools, then call propose_plan."
+    assert script.seen[1]["messages"][-1]["content"] == "Call propose_plan."
     assert script.seen[-1]["tools"] == ["propose_plan"] and not p.done
+    assert p.chosen == ("c2", "c5", "c7")
+
+
+def test_a_block_on_the_last_step_keeps_what_passed():
+    steps = [[use("week_notes", {}, n)] for n in range(planner_agent.MAX_STEPS - 1)]
+    p, _, _ = run(Script(*steps, propose([{"id": "c5", "why": "It wastes 93 W."}])))
+    assert p.done and len(p.items) == 3
 
 
 def test_a_bad_tool_call_comes_back_as_an_error():
-    script = Script([use("what_if", {**BOX, "kind": "swap"}), use("what_if", {"device": "x"}, 2),
-                     use("nope", {}, 3)], propose([]))  # fmt: skip
+    script = Script([use("usual", {"device": "PeoTV box"}), use("nope", {}, 2),
+                     use("week_notes", {"week": 1}, 3)], propose([]))  # fmt: skip
     run(script)
     errors = [r["content"] for r in script.seen[1]["messages"][-1]["content"]]
-    assert errors[0].startswith("Error: kind is one of") and errors[1].startswith("Error:")
-    assert errors[2] == "Error: no tool named 'nope'"
+    assert errors[0].startswith("Error:") and errors[1] == "Error: no tool named 'nope'"
+    assert errors[2].startswith("Error:") and "week" in errors[2]
 
 
-def test_the_plan_is_saved_once_a_week():
-    item = {**BOX, "why": "It idles from 06:00 and nobody uses it before 07:00."}
-    p, tools, cfg = run(Script(propose([item])))
-    plan = planner_agent.save(tools.app, p, site_id=1, cfg=cfg, now=evals.SUNDAY)
-    assert plan == 1 and store.latest_plan(tools.app, site_id=1)[1] == "2026-11-09"  # pyright: ignore[reportOptionalSubscript]
+def test_the_plan_is_saved_once_a_week_with_its_actions():
+    p, tools, cfg = run(Script(propose(all_items())))
+    assert planner_agent.save(tools.app, p, site_id=1, cfg=cfg, now=evals.SUNDAY) == 1
     assert planner_agent.save(tools.app, p, site_id=1, cfg=cfg, now=evals.SUNDAY) is None
+    first = store.plan_items(tools.app, plan_id=1)[0]
+    assert json.loads(first.change) == {"kind": "action", "do": planner_agent.ACTION}
+    later = evals.SUNDAY + timedelta(days=7)
     assert planner_agent.save(tools.app, replace(p, done=False), site_id=1, cfg=cfg,
-                              now=evals.SUNDAY + timedelta(days=7)) is None  # fmt: skip
+                              now=later) is None  # fmt: skip
+
+
+# candidates
+
+
+def test_candidates_cover_moves_pairs_and_actions():
+    _, tools = evals.plan_case(REACH, evals.settings())
+    t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
+    got = {(c.device, c.change.kind if c.change else "action", c.ready, c.cost)
+           for c in t.candidates()}  # fmt: skip
+    assert ("PeoTV box", "move_timer", True, 0) in got and ("LG TV", "move_timer", False, 1) in got
+    assert ("3D printer", "action", True, 2) in got and ("Desk 2", "action", True, 2) in got
+    assert all(kind != "add_pair" for _, kind, _, _ in got)  # it has timers: moves, no pair
+
+
+def test_a_must_run_device_gets_no_candidate():
+    _, tools = evals.plan_case(REACH, evals.settings())
+    store.save_card(tools.app, site_id=1, mac=evals.PRINTER[1], card=Card("router"),
+                    now=evals.SUNDAY)  # fmt: skip
+    store.save_timers(tools.app, site_id=1, mac=evals.BOX[1], timers=[], now=evals.SUNDAY)
+    t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
+    got = [(c.device, c.change.kind if c.change else "") for c in t.candidates()]
+    assert "3D printer" not in [d for d, _ in got]
+    assert [k for d, k in got if d == "PeoTV box"] == ["add_pair"]  # no timers: a pair
+
+
+def test_an_action_said_not_now_to_or_seen_too_short_is_not_offered(monkeypatch):
+    _, tools = evals.plan_case(REACH, evals.settings())
+    t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
+    mac = evals.PRINTER[1]
+    store.add_plan(tools.app, site_id=1, week="2026-11-02", summary="s", now=evals.SUNDAY,
+                   items=[(mac, planner_agent.action_json(planner_agent.ACTION), "w", "s",
+                           True)])  # fmt: skip
+    store.decide_item(tools.app, item_id=1, status="not_now", now=evals.SUNDAY)
+    assert t._action(evals.PRINTER[0], mac) is None  # pyright: ignore[reportPrivateUsage]
+    monkeypatch.setattr(planner, "idle_wh", lambda *a, **k: (5000, 6))  # noqa: ARG005
+    assert t._action(evals.DESK[0], evals.DESK[1]) is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_no_pair_where_every_night_off_cut_use(monkeypatch):
+    _, tools = evals.plan_case(REACH, evals.settings())
+    store.save_timers(tools.app, site_id=1, mac=evals.BOX[1], timers=[], now=evals.SUNDAY)
+    t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
+    monkeypatch.setattr(planner, "ready", lambda r: False)
+    assert t._pair(evals.BOX[0], evals.BOX[1]) == []  # pyright: ignore[reportPrivateUsage]
+
+
+# notes and the week
 
 
 def test_week_notes_hold_notes_answers_and_not_nows():
-    _, tools = evals.plan_case(WRITE, evals.settings())
+    _, tools = evals.plan_case(REACH, evals.settings())
     app, mac = tools.app, evals.BOX[1]
     week = planner_agent.week_start(evals.SUNDAY, tz=evals.TZ)
     store.add_audit(app, site_id=1, at=week + timedelta(days=1), actor="agent", action="note",
@@ -192,14 +287,9 @@ def test_week_notes_hold_notes_answers_and_not_nows():
     store.add_question(app, site_id=1, event_id=1, mac=mac, decision=d,
                        send_at=week + timedelta(days=2), now=week)  # fmt: skip
     store.answer_question(app, question_id=1, answer=1, now=week + timedelta(days=2))
-    store.add_plan(
-        app,
-        site_id=1,
-        week="2026-11-02",
-        summary="s",
-        now=week,
-        items=[(mac, planner.Change("remove_timer", slot=2).to_json(), "w", "s", True)],
-    )
+    store.add_plan(app, site_id=1, week="2026-11-02", summary="s", now=week,
+                   items=[(mac, planner.Change("remove_timer", slot=2).to_json(), "w", "s",
+                           True)])  # fmt: skip
     store.decide_item(app, item_id=1, status="not_now", now=week)
     text = planner_agent.PlanTools(tools, week).week_notes()
     assert text == ("Note: The box idled all morning.\n"
@@ -208,37 +298,12 @@ def test_week_notes_hold_notes_answers_and_not_nows():
 
 
 def test_an_empty_week_says_so_and_a_timers_switch_off_shows():
-    _, tools = evals.plan_case(WRITE, evals.settings())
+    _, tools = evals.plan_case(REACH, evals.settings())
     store.plug_seen(tools.app, site_id=1, mac=evals.TV[1], name=evals.TV[0], ip="192.0.2.13",
                     timers_on=False, now=evals.SUNDAY)  # fmt: skip
     t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
     assert t.week_notes() == "No notes, answers or Not nows this week."
     assert "every day (Timers switch off)" in t.house_week()
-
-
-def test_options_show_the_furthest_ready_move_and_one_to_talk_over():
-    _, tools = evals.plan_case(WRITE, evals.settings())
-    t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
-    box = t.run("options", {"device": "PeoTV box"}).splitlines()
-    assert box[0].startswith("Timer 1 (On at 06:00, every day): ready: move to 09:30. Saves")
-    assert box[1].startswith("Timer 1 (On at 06:00, every day): to talk over: move to 10:00.")
-    assert box[2].startswith("Timer 2 (Off at 01:00, every day): ready: move to 00:30.")
-    tv = t.run("options", {"device": "LG TV"})
-    assert "ready" not in tv and "to talk over: move to 07:30" in tv
-    assert (
-        t.run("options", {"device": "Desk 2"})
-        == "The owner has not let you change Desk 2's timers."
-    )
-
-
-def test_options_say_when_nothing_helps_or_there_are_no_timers():
-    _, tools = evals.plan_case(WRITE, evals.settings())
-    t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
-    flat = [planner.Timer(1, True, 0, "19:00", 0, "1111111", True, 1, 1)]  # on in the evening
-    store.save_timers(tools.app, site_id=1, mac=evals.TV[1], timers=flat, now=evals.SUNDAY)
-    assert "no move saves energy without cutting use" in t.run("options", {"device": "LG TV"})
-    store.save_timers(tools.app, site_id=1, mac=evals.TV[1], timers=[], now=evals.SUNDAY)
-    assert t.run("options", {"device": "LG TV"}) == "LG TV has no timers set at a clock time."
 
 
 def test_the_week_starts_on_monday_local():
@@ -283,28 +348,23 @@ def test_agentc_plan_says_when_the_model_cannot_go_on(home, capsys):
 
 
 def test_agentc_plan_says_when_it_did_not_finish(home, capsys):
-    stuck = Script(*[[use("house_week", {}, n)] for n in range(10)])
+    stuck = Script(*[[use("week_notes", {}, n)] for n in range(planner_agent.MAX_STEPS)])
     assert cli.main(["--config", str(home), "plan"], step=stuck) == 1
     assert "The Planner did not finish a plan." in capsys.readouterr().out
 
 
-def test_agentc_plan_prints_each_item_and_what_was_left_out(home, capsys, monkeypatch):
-    item = planner_agent.Item("Plug-1", "AA", planner.Change("move_timer", slot=1, time="07:00"),
+def test_agentc_plan_prints_timer_changes_actions_and_what_was_left_out(home, capsys,
+                                                                        monkeypatch):  # fmt: skip
+    move = planner_agent.Item("Plug-1", "AA", planner.Change("move_timer", slot=1, time="07:00"),
                               "It idles.", "Saves about 0.02 kWh a month.",
-                              "On at 06:00, every day", "On at 07:00, every day")  # fmt: skip
-    done = planner_agent.Plan("One change.", (item,), ("what_if",), ("item 2 (TV): used",))
+                              "On at 06:00, every day", "On at 07:00, every day",
+                              False)  # fmt: skip
+    act = planner_agent.Item("Plug-2", "BB", None, "It idles.", "Saves about 3 kWh.", "",
+                             planner_agent.ACTION, True, planner_agent.ACTION)  # fmt: skip
+    done = planner_agent.Plan("Two changes.", (move, act), ("usual",), ("c3 (TV): left out: x",))
     monkeypatch.setattr(planner_agent, "plan", lambda tools, llm, run_id: done)
     assert cli.main(["--config", str(home), "plan"], step=Script()) == 0
     out = capsys.readouterr().out
-    assert "1. Desk 2: It idles.\n   Now: On at 06:00, every day\n   After: On at 07:00" in out
-    assert "Left out: item 2 (TV): used" in out and "Tools: what_if." in out
-
-
-def test_any_error_measuring_an_item_is_a_reason_not_a_crash(monkeypatch):
-    def broken(self, plug, mac, c):
-        raise ValueError("bad readings")
-
-    monkeypatch.setattr(planner_agent.PlanTools, "result", broken)
-    item = {**BOX, "why": "It idles."}
-    p, _, _ = run(Script(propose([item]), propose([item], n=10)))
-    assert p.done and p.blocked == ("item 1 (PeoTV box): format: bad readings",)
+    assert "1. Desk 2 (only to talk over): It idles.\n   Now: On at 06:00, every day" in out
+    assert f"2. 3D printer (ready): It idles.\n   You: {planner_agent.ACTION}" in out
+    assert "Left out: c3 (TV): left out: x" in out and "Tools: usual." in out

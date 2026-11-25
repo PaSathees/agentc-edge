@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from agentc import config, readings, store
+from agentc import config, planner, readings, store
 from agentc.config import Device, Rule
 from agentc.devices.base import Timer
 from agentc.house import Card
@@ -241,3 +241,60 @@ def test_an_item_is_decided_once_and_not_now_is_remembered(app):
 
 def test_no_plan_before_the_first_week(app):
     assert store.latest_plan(app, site_id=1) is None
+
+
+# the solver
+
+
+def cand(cid, wh, cost=0, spot=None, ready=True):
+    return planner.Candidate(cid, "Plug-9", "AA", "PeoTV box", None, "do it", wh, cost,
+                             spot or cid, ready, "")  # fmt: skip
+
+
+def ids(chosen):
+    return [c.id for c in chosen]
+
+
+def test_choose_closes_the_gap_with_the_least_disruption():
+    cs = [cand("A", 80), cand("B", 10), cand("C", 30, 3, spot="B"), cand("D", 400, 1),
+          cand("E", 2900, 2), cand("F", 200, 2)]  # fmt: skip
+    assert ids(planner.choose(cs, gap_wh=1800)) == ["A", "B", "E"]  # the widget's example
+    assert planner.shortfall_wh(planner.choose(cs, gap_wh=1800), gap_wh=1800) == 0
+
+
+def test_with_no_gap_only_free_changes():
+    cs = [cand("A", 80), cand("E", 2900, 2), cand("Z", 0)]
+    assert ids(planner.choose(cs, gap_wh=0)) == ["A"]
+    assert planner.choose([cand("Z", 0)], gap_wh=500) == []
+
+
+def test_a_change_that_cut_use_must_save_100_wh_more():
+    near = [cand("ready", 83, 0, spot="t1"), cand("talk", 96, 1, spot="t1")]
+    assert ids(planner.choose(near, gap_wh=5000)) == ["ready"]
+    far = [cand("ready", 83, 0, spot="t1"), cand("talk", 300, 1, spot="t1")]
+    assert ids(planner.choose(far, gap_wh=5000)) == ["talk"]
+
+
+def test_out_of_reach_picks_the_least_shortfall_and_at_most_3():
+    cs = [cand(c, 100 * n) for n, c in enumerate("ABCDE", 1)]
+    chosen = planner.choose(cs, gap_wh=10_000)
+    assert ids(chosen) == ["C", "D", "E"]
+    assert planner.shortfall_wh(chosen, gap_wh=10_000) == 8800
+
+
+def test_idle_power_counts_only_on_but_not_in_use(tmp_path):
+    db = sqlite3.connect(tmp_path / "e.db")
+    db.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
+    start = END - timedelta(days=14)
+    rows = []
+    for n in range(14 * 24 * 60):  # 5 W idle, 30 W for 3 h each evening, 0 W 01:00 to 06:00
+        at = start + timedelta(minutes=n)
+        h = at.hour
+        rows.append((at.astimezone(UTC).isoformat(), "Plug-9", 0.0 if 1 <= h < 6 else
+                     30.0 if 19 <= h < 22 else 5.0, None))  # fmt: skip
+    db.executemany("INSERT INTO readings VALUES (?, ?, ?, ?)", rows)
+    wh, days = planner.idle_wh(db, BOX, "Plug-9", end=END)
+    assert (wh, days) == (2400, 14)  # 16 h a day at 5 W: 80 Wh a day, so 2400 Wh in 30
+    empty = sqlite3.connect(tmp_path / "none.db")
+    empty.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
+    assert planner.idle_wh(empty, BOX, "Plug-9", end=END) == (0, 0)

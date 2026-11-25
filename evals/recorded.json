@@ -1075,22 +1075,13 @@
   ]
  },
  "EV-30": {
-  "key": "07c286109a29322c",
+  "key": "afcef671323de6c3",
   "model": "claude-sonnet-5-5",
   "samples": [
    [
     [
      {
-      "id": "toolu_01EBxzMxxp7vhkc1FXg8wPuz",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "house_week",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_012b5ADyLccAiQMkgjdPJtZu",
+      "id": "toolu_018SYeTrtVT2KCfMk1UELZjZ",
       "caller": {
        "type": "direct"
       },
@@ -1099,58 +1090,56 @@
       "type": "tool_use"
      },
      {
-      "id": "toolu_01Y964ksAGCRGF4vwscE4j9Q",
+      "id": "toolu_01WFvDJPwVsMkiupYC37HnwH",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "device": "LG TV"
+       "device": "3D printer"
       },
-      "name": "options",
+      "name": "device",
       "type": "tool_use"
      },
      {
-      "id": "toolu_01Ab7Yu3xAJrE2n8w9hRs5JS",
+      "id": "toolu_015vkSc3PBG5Bq7gcL2zpraf",
       "caller": {
        "type": "direct"
       },
       "input": {
        "device": "PeoTV box"
       },
-      "name": "options",
+      "name": "device",
       "type": "tool_use"
      }
     ],
     [
      {
-      "id": "toolu_01Qs9XE6M91Gx8TVZiQ9aJUD",
+      "signature": "CAQSpAYKEAgUGAI4AUIIdGhpbmtpbmcSDLrUwBGW+oEgr+u78xoMw6I2oUdeGrKsPDmIIjBiiUTeyK1TyaRHU513kRySsX+txI+3xv7HR40P7tOPOYJi4cwjhAZVatDzupJEZVMqwQUwLD0JDVtHtC3p/ai77y5wu30J+HdQUfUEBhtrG8+Y18rWaKRIgByObw5qfZu+khD2lNWQcq9Nq7guE0Oa+P3wtyJ1/Vipk20Vz1sjTPzuUcIGy/vNSELdeURQ20eMhd2GT/O8rmeR7+jF5rfA30/OGK5Xi2M+skHEWNuwia2qbmo8+QaPCf1eQMgdoXcHyXoyUmaVeq5MvXbvcieM89J6MkscY5U9wWzh4kqodzyiHGarLw8+d41VNNh/lEpL2Q9bE85uoYdH1bFoi9/wPlYG/bRVagF+h1GtOzDI6vrANwIrzVDfXTM1HrOOSBUu99IP23YPcGMOZlf0sOBEMVbdu3IHaFbB9j6DVZXpridx3pjAGwcn8ELpU4cxMMNdE1+i6KnG7GrW3VmjzD08OtPtJCDWQl9TuHoPUncQGV3v+uXkydvhEFJZI0JAYEPTMp64hsrdcWOGP5ssG9hw5PVKbUUrU+jOQ0nYyBOmlKJ1GxyeP5Luj6xZY9Uj8CScTjvlkqr5/jUqA5xekxOmxrojpf2nCFJYm1yF5lZcOddh6vCMmoLE7zm8fTYbVQ01TF3OE43rXWtNfqWtITQYYo2sotl1mPfK0VNd6gmteIyDHg1cnQyWTDP7osXc4IDgQPobK1l91d0gaDMsxG/h7IroGYRMyoRdYX+W3BB8UvekAKb3ZjD9Ef05ZtQ57olikyLkfusq/TIGZ8jOoWlRGpDSCu16PNmYhmUzg6iUQW4bzoEB0GT7pj3YUErguNQkfnUmNB38vkQ1QI4uDFJ30WLThicgo/8eFDxRHHDurARjbr38qm66dEp1COc4K1lbaZtiuBWial9vHVdGaAVlDYncTKfsYKCco9sJu5dlIG2K5If28AlBor/ZfyLBDLFTLXslmfU2Vw758ETxsN3BzirKosLM99R4i2lksnWW2qz8CXUYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_0188piLvN3Dgwhs3Tvmj7fob",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "Little to save this week; the TV and PeoTV box use very little. The PeoTV box can start later with no effect on viewing.",
+       "summary": "November is at 2.0 of 3.7 kgCO2e so far and is heading for 4.4 kgCO2e by 30 Nov, which is 0.67 over. These three changes are the smallest set that closes the gap.",
        "items": [
         {
-         "device": "PeoTV box",
-         "kind": "move_timer",
-         "slot": 1,
-         "time": "09:30",
-         "off": null,
-         "on": null,
-         "days": null,
-         "why": "The box switches on at 06:00 but has not been used before 09:30 on any recent day."
+         "id": "c2",
+         "why": "The 3D printer sat idle and drawing power on 13 days, so switch it off at the wall when you are done. That also cuts power to its Raspberry Pi, and you will need to do this by hand because I cannot change its timers."
         },
         {
-         "device": "PeoTV box",
-         "kind": "move_timer",
-         "slot": 2,
-         "time": "00:30",
-         "off": null,
-         "on": null,
-         "days": null,
-         "why": "It stays on until 01:00 but has not been in use after 00:30 on any recent day."
+         "id": "c5",
+         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and nobody used it in that window on any of the 13 days."
+        },
+        {
+         "id": "c7",
+         "why": "The PeoTV box will now turn off at 00:30 instead of 01:00, and nobody used it in that half hour on any of the 13 days."
         }
-       ]
+       ],
+       "left_out": []
       },
       "name": "propose_plan",
       "type": "tool_use"
@@ -1160,16 +1149,7 @@
    [
     [
      {
-      "id": "toolu_018BfjDrpTbhGt9z38EG5VfB",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "house_week",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_019kLMwB6ftBLztyPcgVwJfn",
+      "id": "toolu_01GU4NybZLkxCo3nYvzSStQZ",
       "caller": {
        "type": "direct"
       },
@@ -1178,58 +1158,56 @@
       "type": "tool_use"
      },
      {
-      "id": "toolu_019uGQkcs6kH8j78bJiVACKy",
+      "id": "toolu_01DHMZ4FiVHxiFs2qgsrnZVM",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "device": "LG TV"
+       "device": "3D printer"
       },
-      "name": "options",
+      "name": "device",
       "type": "tool_use"
      },
      {
-      "id": "toolu_01QdE5txY1FSCPLvvonhpHEx",
+      "id": "toolu_01JvFDKy4rSsmp956hc8nUCF",
       "caller": {
        "type": "direct"
       },
       "input": {
        "device": "PeoTV box"
       },
-      "name": "options",
+      "name": "device",
       "type": "tool_use"
      }
     ],
     [
      {
-      "id": "toolu_01BcBo7ATZQ9AC5MmTNbPNow",
+      "signature": "CAQS1wYKEAgUGAI4AUIIdGhpbmtpbmcSDMvTAJxRBvFTmHb62xoMnanWsk/0i5ULcSPIIjBTZZlyjtFih8w73agRO/KPOakqjU7bGUh7j3uiBmV1oool+eRfSni3lxNyZftMIOsq9AU/opTYYcPmlmo2VQOugBLzwxixl/OHwZhz6vW4jFM171wSO/BYMGcRs5ToGBvDMMiQRfh0WQmCYzlH9TfWDaUEInmqBbUtCcWlvM/JECpkaJdwu4BTYja6JfsFQvkhOcZ3TaOwnIAtoTZBV/AA7BJVHAAF8t7yidNkIG3lpEpx+LtT+sdPWQHm3Ih0fO4R3+D0fD2/yvsRQ7XmozCiuMGAkigjEaTrbGPWDRHPUO1UwCcfEqF3cIy5J66CfCTJHvfW1FYoVH5bBVT8yBkE0kr6CfahADvbjH8vKHAfA0g1bGccw5Jqj36kGrjL4M+WiuR/efJcBmo8UnldIiLgCkFD7DH0umzrA4BuHRf3lVt/BwpWQ/C9Wq/7FvOdc2p15AF5CG9EGd456yFg4PdU+XZuL3hCNFZmOpbOxqasa15VgfJo58BSapKGfxvIqlYs6uA4fDMQfoexTIufae+va7g8iHPLGX3G1TQq2jm8rD1TyDNAbuVnfa7N+EHndzt+c/CAJJgMDLoylg8Rax/k52Pbu9mMr8pzJ8EzJgsgmAAVBNy0ENZLZHlq4Plaqb/ZKRPWAw/nf0z9GtYg32STDQDtK9y7bKxPlNQjUg/6H3boen4Ppr26uRQHvm/00zao1QSlF6aHIKDw4nTBvWAjfUG8/CuDqTQaMBclykEam/2jpsoahU34oCL/sn994h7Ja9Eq65beMwcegEfUMU+gBPVV2iTHmkds2sxUTf+bGy2nJWH9GYD1DLDymMHPYWpS9WAhK7XecuK+Gj7AjIBYutEONRs1eSNTq9An86RH+wBuWhzc3AGFsyMAuEBuh/ggFBCA7zagp1gJJ4gXHmzbH7d/RZ5I02TcI0NPAZGrEybLgOGia84L6dq5vxxYHw9VuU5Xw6e6dBYseEzS4irvNEoq5u/zZTQZCyi3SLKygq7ajhDNBao3NFUcwUv3fgL45islhmclO7JInlXs9WzLJKPBqy79pX+1adfew8HcwrSXPXg49pcYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01KPzHoThZKWDbBYQiA3zfbk",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "Usage is low this week. The PeoTV box has a small ready saving from starting later and stopping a little earlier. The TV's options would get in the way on a day, so I left it alone.",
+       "summary": "November is at 2.0 of 3.7 kgCO2e and heading for 4.4, which is 0.67 over, so you are off track. These three changes are the smallest set that closes the gap.",
        "items": [
         {
-         "device": "PeoTV box",
-         "kind": "move_timer",
-         "slot": 1,
-         "time": "09:30",
-         "off": null,
-         "on": null,
-         "days": null,
-         "why": "The box switches on at 06:00 but nobody has used it before 09:30 in the last 13 days."
+         "id": "c2",
+         "why": "You switch the 3D printer and its Raspberry Pi off at the wall when you are not using it, since I cannot change its timers and it drew power while idle on all 13 days."
         },
         {
-         "device": "PeoTV box",
-         "kind": "move_timer",
-         "slot": 2,
-         "time": "00:30",
-         "off": null,
-         "on": null,
-         "days": null,
-         "why": "The box stays on until 01:00 but was not in use after 00:30 on any of the last 13 days."
+         "id": "c5",
+         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and nobody used it in that window on any of the 13 days."
+        },
+        {
+         "id": "c7",
+         "why": "The PeoTV box now turns off at 00:30 instead of 01:00, and nobody used it in that half hour on any of the 13 days."
         }
-       ]
+       ],
+       "left_out": []
       },
       "name": "propose_plan",
       "type": "tool_use"
@@ -1239,16 +1217,7 @@
    [
     [
      {
-      "id": "toolu_01PmAxRyiCDLJrAfyEEKHmL2",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "house_week",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01WtwkkV5dzzGvEL3atvr5t2",
+      "id": "toolu_01AWD9YSwtJD1ZuahFNttzjp",
       "caller": {
        "type": "direct"
       },
@@ -1257,58 +1226,56 @@
       "type": "tool_use"
      },
      {
-      "id": "toolu_01U13CpBuEuhEp9FBgKSESYQ",
+      "id": "toolu_018yo1gQDSotaFAQaEJoVQLL",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "device": "LG TV"
+       "device": "3D printer"
       },
-      "name": "options",
+      "name": "device",
       "type": "tool_use"
      },
      {
-      "id": "toolu_013jjBN3jACyDUycrjPDBSk8",
+      "id": "toolu_01BJVhsQsP6DsiqDeKF8uWdE",
       "caller": {
        "type": "direct"
       },
       "input": {
        "device": "PeoTV box"
       },
-      "name": "options",
+      "name": "device",
       "type": "tool_use"
      }
     ],
     [
      {
-      "id": "toolu_0122HkYD54oWPeRBtBM1mdWn",
+      "signature": "CAQSwwYKEAgUGAI4AUIIdGhpbmtpbmcSDMDP3dqKl4grLRQHNxoMIAqO8i0LUCmhM5w/IjA4GePUVb99HJ9Aqrm7dhXtFd0GmW1oLOV6XsoDMKYJ2VHo0GFmTFNcwrQALV9BuEEq4AWTZeNhzGUUa86IFtGzcbdHtQmhRDF0J/6iGP3bM3Zu4xM0NpogncZwbJVB0GRX3HgLPV8/UjRWJipOT1kO1gmNMyaKtm+OhsI4HVoxWZKFJewc1V9rPgwUDg67fLPcqUM/46xdoFVySIDasEqf8e7c52ZqSWb5MMeHlSoQNn88Y37/qDJDbsAswGUvt6HuAP94z7FSsGqPXBPlfv8q0n+fHIoMj8AFZJ+F9nzmR9J9eKcMwvNTVAnhU+JCxjD9DbMXn+fjIysJWrmyFajmf+OmF6RknVpZguk0BAQ9IvqYw1mpkJUFtpPolrfV2GI/2Rxr43disnozbbXco9DgPKrUYTDH7WlTGr5mSyGtE/1PmbRNX231QH8i8YLYpAHLDqVXJfWwNn1/nTbbzW5w6zcR3M572s3DD7e4vXNzTTkayvktSz7NIEkDIJu2ZN3TWxRTLC04FL+eMkjk2xaqAoa7EpQOe9JNTF/BHw9sj1enFK45WdhLiwatzXzhZSqElgYQ+TY2QUmgc1DcdPjLdIjTXO+pGhDt3gc0iMIE9BzSpHGlcCmIZf/KEnmr1nahGPXue8Ptf563kpOqQvGDpUCYpYx9aY8RTezsLb2E1ubIQZwR5+s1N/E1WcJOWl6PqKF47G9NczKxq5lb1zj3X4+yfgQg3fZqYXWnMudHD5DHUyqq9FJ02H5vo4vBfQYr4NARwy4Cv+wZq7OYKyBVRMYjmvoix0aiXJE+WNLbQPrtEHU3CVrP+r+k9sdA4vJiZcaxhAGDTFYC50L9yDnkIXzxwoNv/XEnu604I4O/pnb3u+IE+yBZHAUTEW/zaGN+z+WfhPMgBKM5ZJlF5Kg2guKF/OPxoFhmA6IHndDT4niBvXywZESA/bkZGMTkiRmiJTD+uUhmMih2t/gMiiCcrZS9gyBWATFJX+vgzgSXEJv2JYJqmCZta+uPULlbm1AbVpvankAgcCpKNC1RVDyHCmYUGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_0164r5LSXvjgY5mNUSo8XGGW",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "Little to save this week; the TV and TV box barely use power. The TV box can safely start later in the morning.",
+       "summary": "November is at 2.0 of 3.7 kgCO2e and heading to 4.4 by 30 Nov, which is 0.67 over. These three changes are ready, and the printer one does most of the work.",
        "items": [
         {
-         "device": "PeoTV box",
-         "kind": "move_timer",
-         "slot": 1,
-         "time": "09:30",
-         "off": null,
-         "on": null,
-         "days": null,
-         "why": "It switches on at 06:00 but has not been used before 09:30 on any of the last 13 days."
+         "id": "c2",
+         "why": "Switch the 3D printer off at the wall when you are not using it, since it drew power while idle on all 13 days; this also turns off the Raspberry Pi plugged in with it."
         },
         {
-         "device": "PeoTV box",
-         "kind": "move_timer",
-         "slot": 2,
-         "time": "00:30",
-         "off": null,
-         "on": null,
-         "days": null,
-         "why": "It stays on until 01:00 but has not been in use between 00:30 and 01:00 on any of the last 13 days."
+         "id": "c5",
+         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and nobody used it between those times on any of the 13 days."
+        },
+        {
+         "id": "c7",
+         "why": "The PeoTV box will now go off at 00:30 instead of 01:00, and nobody used it in that half hour on any of the 13 days."
         }
-       ]
+       ],
+       "left_out": []
       },
       "name": "propose_plan",
       "type": "tool_use"
@@ -1318,66 +1285,20 @@
   ]
  },
  "EV-31": {
-  "key": "dbdc3a4f253ee43f",
+  "key": "26b71b15812d9d7e",
   "model": "claude-sonnet-5-5",
   "samples": [
    [
     [
      {
-      "id": "toolu_01WwEf65Hp9B8f2Q1KVgUp7u",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "house_week",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01AH5UwAeFXU9P6agYZyFHhX",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "week_notes",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01TYHoDSwY2HcTvRaFCfEdG8",
+      "id": "toolu_01LMhb1Z8nDf1RKpQ7bcda2b",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "device": "LG TV"
-      },
-      "name": "options",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01NTTCaEeC2oetGqdpnT89ew",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "PeoTV box"
-      },
-      "name": "options",
-      "type": "tool_use"
-     }
-    ],
-    [
-     {
-      "signature": "CAQS1AUKEAgUGAI4AUIIdGhpbmtpbmcSDBbo0UckzjjMIhhnFBoMaXo+hoFiiJzPuVOUIjAHA/mR/JQ8bHpTIvV65U+A51ee1CY+Xhdrwf5O2foj4toJVjRlz+D2Du+ZklvgZvwq8QR+4R6faq2G0jEBhqblL8TC+T9WTDarqqabCRVVviW4pGkG0VWMC+VElzhHafnL+fVDodcw0qgAcbUFfEpZtzgx2eW41Q9X9ZnH45+1GD6p4dyVhAxUFJ9Stusv5Qr7qe0NEfNNKKTRlkE5o/hCbItnUazgNyMAkJLVQK6qN9r5CVqybv9FsbEzTE9I0p4OFBilpZ/2mCDvnhnWW5EDtjEVwlosdiDbJkjAYDhk7VzIJ9oAPmHJQYbCI7pXIbqokFi2X6V0nmQUO3aIJvYGbLLh3tylWkM0SueA2odR8WZIB1i2hZmCq6UYww3yNa4S+FKA1ibK057dUnzzW+MGhnaquNBBWTj4vm1ch6ZaJDCGjsoDBnUd7thDRgN0RSqM+qWQEuYHhb7XMurgsO0AUqnu0EE71EXUOXeSHNKJt2N5LEufxr4k5TvWRYpsSOsuDv/T9Rd7owgOeVM5LU8fCEUYAYiOugN7FSN51aOlAsGbl+Fp0Uahbp1jvwdMO2mxiuOxykM0eQQ6k9Tdi0vmEg68Rn5m1Isy9CD0/A0EAeSbEYAo/HUwuIC9MEfBxIKCuYnVUKrcjLiIERQ1kP9FxvUivR0IEmpxR+GR4gglkiSq0UvazZ186RkEjr4+9IrD0EDIWbr4tO88qzRzV2z5nmIyPJG1CoxUvnbfYAlhc5lZwPbyd319GzLwPZSXKzHEXglqK7PRq+h3ozKd5RNdHyCAJ0z8Ql+ge4qSfl6QW4CKPnaxPsWBPDw6jEBXNXRMuns7aHjhD5/IgbeQ3KVPs9rb5kW6/axm0S2YAPNuKEfzoqpfioGVpstKph2mkToLsoW9GAE=",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_01J8c9vc6NDAeWzwDvDAPgn7",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "summary": "Your house used very little this week, and you have not let me change the timers on the LG TV or the PeoTV box. Desk 2 and the 3D printer have no timers, so I'm suggesting nothing.",
-       "items": []
+       "summary": "November is on track: 2.0 of 50.0 kgCO2e used so far, heading to 4.4 kgCO2e by 30 Nov. No changes are needed this week.",
+       "items": [],
+       "left_out": []
       },
       "name": "propose_plan",
       "type": "tool_use"
@@ -1387,60 +1308,14 @@
    [
     [
      {
-      "id": "toolu_01AVmgJn1jGuBttu9e6KztWT",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "house_week",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01QFRwAoukPFxbkfyWSeKhrd",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {},
-      "name": "week_notes",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01YSunnNfDtMbERoBueQrKvh",
+      "id": "toolu_015FVnzWGj97yD5e85Rwa7hU",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "device": "LG TV"
-      },
-      "name": "options",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01RSMG1p5a3xUvNEj2WRXFsk",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "PeoTV box"
-      },
-      "name": "options",
-      "type": "tool_use"
-     }
-    ],
-    [
-     {
-      "signature": "CAQSjgYKEAgUGAI4AUIIdGhpbmtpbmcSDBEt2d9Cpn0kRed/WRoMolv2scVSXLrbmRqdIjCK0q/3MZ8OObvlYqoND6A9pwN28oV5pCmXnYucn1C0zRCXkgmLwwmBu7DIzVVlqJkqqwWb2yKkPi4WR/UUQFDFRWAO85lMwk2PwSBW6ki4ktowhMowgN9XuQmzxb2iEsNyueEJVAzV1xlXjcLl7HvvC2+zbcemVcBeOfN3WeVR8RegmwC6odWFKhgrJhxBq9FGzQp7rWs62vhRLG819WX133t3L13v2eyf5XJkITe1xv/jAQcD66Em25BySaLP1UEEiwq6ddiaov98IrZvHorM6Bem1k/0klEzDsxAEtea8QJMfW6cLN8xFHNgzWp8pF0L+1Mz0ktARjGF6R6Q0mw+n1JbOeocYFpTcH4EotaWnLgeNW0aAqbw9NbaZIS9ZXuUx+TX1dArIKUX36eK46RT6hQLcwt9FNOXFkEDmdVcCDiap/kSbeWyaflpzFEQO0KF0CH4UpKSG0rMdqskSl7KQs3ksjCiivxn6b6cnu9hdSSlY0LQPJHspSx7xYXlZ6zfYtp881G8bAW2wqS9UvC4Jb7kHqsetGBfsb8eIX+hdhNUERQ/oVOjVd5NqwDwg00fe8s8i0IrjAAYJR+Rq5gSSdqHsJCWCPAjKfOUAlnCIlrbqzEIvfd4pWvgBXnIgAwr64lRhzHqiP7IU4DZUpZmd42Lc6RVKpOhbgN0IyrSPXB70uaO2MDAab4VPEqbNeCBxD/y87n7kfKMD5kFqRTWIpX7m7U+my+97wN1g4g83EWw8qiQDgWgbxNQznmWh22ChOfKvaAk+QtZUJVgcrVIoCoyW61EuMIWIQBG0hOYUbn60M2NB/Db7ip5jnfOer9lKiFpTqm4Fnn/riHnMUjZrwMVRPLa5LkS/zIY4BD3y4aKrz5VbFpSbBJmgWTAwKEFAPxOd/WQbJNCZEMZZ8Ae+l53AIFuy6B296mSJONNxNIwdVfUzJAmt6dFzNsKZYPQKRXnifLIzRgNnSBnoxgB",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_0182uabi2qxss9JUMbJbTBC5",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "summary": "It was a quiet week with small use across the house. You have not let me change any timers, so I have no changes to suggest.",
-       "items": []
+       "summary": "November is on track: 2.0 of 50.0 kgCO2e used so far, heading to 4.4 kgCO2e by 30 Nov. No changes are needed this week.",
+       "items": [],
+       "left_out": []
       },
       "name": "propose_plan",
       "type": "tool_use"
@@ -1450,60 +1325,143 @@
    [
     [
      {
-      "id": "toolu_01RCCTkL3dLjMY9DNpxUxjLm",
+      "id": "toolu_01TZqiCPzAcQL77QVXKBiPz2",
       "caller": {
        "type": "direct"
       },
-      "input": {},
-      "name": "house_week",
+      "input": {
+       "summary": "November is on track: 2.0 of 50.0 kgCO2e so far, heading to 4.4 kgCO2e by 30 Nov. No changes are needed this week.",
+       "items": [],
+       "left_out": []
+      },
+      "name": "propose_plan",
       "type": "tool_use"
-     },
+     }
+    ]
+   ]
+  ]
+ },
+ "EV-32": {
+  "key": "7d3ff92d67c38f1f",
+  "model": "claude-sonnet-5-5",
+  "samples": [
+   [
+    [
      {
-      "id": "toolu_01WUou5MwoRv77NM8PsGoJBD",
+      "id": "toolu_01VBaEVMmoi4ydr3nw9V9cNV",
       "caller": {
        "type": "direct"
       },
       "input": {},
       "name": "week_notes",
       "type": "tool_use"
-     },
+     }
+    ],
+    [
      {
-      "id": "toolu_01MZSutBVMyf9fJjXGbkQnm4",
+      "id": "toolu_01L1gf55cHeQWHV2AjTgYEgo",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "device": "LG TV"
+       "summary": "November is at 2.0 kgCO2e against a 0.5 goal and is heading to 4.4 by 30 Nov, so you are off track. These three changes do not close the gap: about 2.65 kgCO2e (6.25 kWh, LKR 320.5) would still be over the goal.",
+       "items": [
+        {
+         "id": "c1",
+         "why": "Switch Desk 2 off at the wall when you are not using it, so it stops drawing power while idle."
+        },
+        {
+         "id": "c2",
+         "why": "Switch the 3D printer off at the wall when you are not using it, so it stops drawing power while idle."
+        },
+        {
+         "id": "c5",
+         "why": "The PeoTV box will turn on at 09:30 instead of 06:00, and it was not in use between those times on any of the last 13 days."
+        }
+       ],
+       "left_out": []
       },
-      "name": "options",
+      "name": "propose_plan",
       "type": "tool_use"
-     },
+     }
+    ]
+   ],
+   [
+    [
      {
-      "id": "toolu_01FRNBrFwV1fyj6FHjVjEwmr",
+      "id": "toolu_01UxHfAq3LpeexvqzgqaVswP",
       "caller": {
        "type": "direct"
       },
-      "input": {
-       "device": "PeoTV box"
-      },
-      "name": "options",
+      "input": {},
+      "name": "week_notes",
       "type": "tool_use"
      }
     ],
     [
      {
-      "signature": "CAQSwAUKEAgUGAI4AUIIdGhpbmtpbmcSDDHteWaKm//7fSX7rxoMuUqxyvs236EOA85oIjDIZ+YJ3UkLVzxnb+PQ9Dv3xJbXcQtiXbUnmkbDqPauW21VHgbd/pbFUztff5e5wzIq3QRTeu3itKvb71BNPVtpbzbdyUVJAk6sIBwYzQ5Z+eLpBv1AmH/J0ebZ7Bd1pvpPYw/HSQJuYGfq1+I8AKethuIjjlabBnoUagX/Y7bVmOAfo88hcPB9C9GP6R2RCQSp8tjaMl2lIxKb2Hz2slvCYk0niWHXVmo7DlOdWsRgyhTSonb9xtzeNVOQZdiCbDDsFKAEAr8wl1lveWCWAuMHvD7CQpW0Ckn+aWwjpRfF2D7DC7rO8KvTVWw2+piXHnkgcVNPMQzn/L8PY9PgO/Pv1A3IFIP0lxPvkVewc8mFd5Wi2rCeNJ/g0l3XIlRthr3R5saXO/cbP2l9bwM5nnuKxZbOyPpK+vR+Yse+Tw1/JtX6lAwhXIdjEOBqa42/upGzXwKTVyvmc1izchkqXr15/Yz8HqUz+iYLK3Uvmmo0Q+BkRBWzMA8wvN/UZsm0IyR99oE9wdPXSStYJrQXXb6j0xLKmW5OUDPsGQlpLyWGhgcEOXVNUP7x3n4yUOW/N5R0BoKOAgvdDCBY2zsFFAHSn8NxJkQwjfvpH8aORvHnF6Va4KMmPNVTzRcwaQD1vPHdvI5QabwQzQSKrmdVt3POV7VYRCMSQuaPx1LnDK/EWi5mBbsHHXxgL4RqD9dvlRN8fOirBD/l1Ntr0QNGoBnGbUqWut2ahK43rgQNYshesULy1Khhvh/SoJWpVdAdeexgTuOkON2QWQrOQP94GNFWYMbJsCZUhD9Q1Wn3OUhH+AvJU/1aTpRYQlH9dLgZaLF4qkdfsl1kGs41EWJxNp7Zi1CXPENpInJl9nzgn8l/BBgB",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_01X43pEk2ikvaMXGdkFR5fqG",
+      "id": "toolu_01LKAUKjjV2DNt445h8hqbuX",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "It was a quiet week with low use. You have not let me change any timers on the TV or the TV box, and the other two devices have no timers, so I'm suggesting nothing.",
-       "items": []
+       "summary": "November is at 2.0 kgCO2e against a 0.5 goal and is heading for 4.4 by 30 Nov, so you are off track. These three changes are not enough: they still leave about 2.65 kgCO2e over the goal.",
+       "items": [
+        {
+         "id": "c1",
+         "why": "Switch Desk 2 off at the wall when you are not using it, so it stops drawing power while idle."
+        },
+        {
+         "id": "c2",
+         "why": "Switch the 3D printer off at the wall when you are not using it, so it stops drawing power while idle."
+        },
+        {
+         "id": "c5",
+         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and it was not used in that window on any of the last 13 days."
+        }
+       ],
+       "left_out": []
+      },
+      "name": "propose_plan",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "id": "toolu_01Uks579PjeojYTZn4CHSjq7",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {},
+      "name": "week_notes",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "id": "toolu_01P6cTz5muC96pejF8eJ2Y3p",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "November is at 2.0 kgCO2e against a 0.5 goal and is heading to 4.4 by 30 Nov, which is 3.87 over. These three changes cannot close the gap and still leave about 2.65 kgCO2e over the goal.",
+       "items": [
+        {
+         "id": "c1",
+         "why": "Switch Desk 2 off at the wall when you are not using it, because it keeps drawing power while idle."
+        },
+        {
+         "id": "c2",
+         "why": "Switch the 3D printer off at the wall when you are not using it, because it keeps drawing power while idle."
+        },
+        {
+         "id": "c5",
+         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and it was not in use in that window on any of the last 13 days."
+        }
+       ],
+       "left_out": []
       },
       "name": "propose_plan",
       "type": "tool_use"
