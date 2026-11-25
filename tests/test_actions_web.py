@@ -137,11 +137,17 @@ def test_the_devices_page_shows_state_power_and_timers(live):
     )
 
 
-def test_the_switch_goes_through_the_actuator(live):
+def test_the_switch_goes_through_the_actuator_then_back_to_the_page(live):
     c, db, _, plug = live
     tok = notify.token(KEY, "switch", "Plug-1")
-    r = c.post("/switch/Plug-1", data={"on": "off", "tok": tok})
-    assert "Done: Desk 2 is off." in r.text and "Back to devices" in r.text and not plug.relay_on
+    r = c.post("/switch/Plug-1", data={"on": "off", "tok": tok}, follow_redirects=False)
+    assert (r.status_code, r.headers["location"]) == (
+        303,
+        "/setup?said=Done%3A%20Desk%202%20is%20off.",
+    )
+    assert not plug.relay_on  # a reload now reloads the page, not the switch
+    page = c.get(r.headers["location"]).text
+    assert '<p class="card" role="status">Done: Desk 2 is off.</p>' in page
     assert "Done: Desk 2 is on." in c.post("/switch/Plug-1", data={"on": "on", "tok": tok}).text
     why = [d for (d,) in db.execute("SELECT detail FROM audit WHERE action = 'write'")]
     assert all('"why": "devices"' in d for d in why) and len(why) == 2
@@ -187,3 +193,10 @@ def test_before_the_logger_starts_the_devices_page_shows_no_reading(client, tmp_
     cfg = replace(cfg, energy_db=tmp_path / "none.db")
     web.app.dependency_overrides[web.settings] = lambda: cfg
     assert "no reading now" in c.get("/setup").text
+
+
+def test_the_switch_needs_the_login_too(live):
+    c, _, _, plug = live
+    c.cookies.clear()  # signed out, with a real token
+    r = c.post("/switch/Plug-1", data={"on": "off", "tok": notify.token(KEY, "switch", "Plug-1")})
+    assert r.status_code == 401 and plug.relay_on

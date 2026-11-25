@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from html import escape
 from sqlite3 import Connection
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
@@ -72,7 +73,7 @@ RUNS_LOCK = threading.Lock()
 
 @router.get("/setup", response_class=HTMLResponse)
 def devices(request: Request, cfg: Cfg, key: Secret, ways: Ways, now: Now, data: Db,
-            connect: Connect) -> HTMLResponse:  # fmt: skip
+            connect: Connect, said: str = "") -> HTMLResponse:  # fmt: skip
     """Every plug: what the housemate knows, its power now, its timers, and a link to set it
     up or edit it. A device set to write shows its state and a switch. On top, shadow mode."""
     db, site = data
@@ -96,15 +97,16 @@ def devices(request: Request, cfg: Cfg, key: Secret, ways: Ways, now: Now, data:
                 if config.device(cfg, p).access == "write"]  # fmt: skip
     return pages.TemplateResponse(request, "devices.html", {
         "title": "Devices", "page": "setup", "devices": rows, "writable": writable,
-        "shadow": store.shadow(db, site_id=site), "login": ways.set,
+        "said": said[:300], "shadow": store.shadow(db, site_id=site), "login": ways.set,
         "tok": notify.token(key, "shadow")})  # fmt: skip
 
 
-@router.post("/switch/{plug}", response_class=HTMLResponse)
-def switch(request: Request, plug: str, on: Annotated[str, Form()], tok: Tok, cfg: Cfg,
-           key: Secret, now: Now, data: Db, connect: Connect) -> HTMLResponse:  # fmt: skip
+@router.post("/switch/{plug}")
+def switch(plug: str, on: Annotated[str, Form()], tok: Tok, cfg: Cfg, key: Secret, now: Now,
+           data: Db, connect: Connect) -> RedirectResponse:  # fmt: skip
     """The owner switches a device on or off from the Devices page (ADR-008, amended): the
-    same Actuator and checks as a tap on a question."""
+    same Actuator and checks as a tap on a question. Answers with a redirect back to the
+    page, so a reload cannot send the switch again."""
     if not notify.valid(key, tok, "switch", plug):
         raise HTTPException(403, "Not a form from this hub")
     if on not in ("on", "off") or plug not in cfg.plugs:
@@ -112,9 +114,7 @@ def switch(request: Request, plug: str, on: Annotated[str, Form()], tok: Tok, cf
     db, site = data
     done = actuator.switch(db, cfg, site_id=site, plug=plug, on=on == "on", why="devices",
                            now=now, connect=connect)  # fmt: skip
-    return pages.TemplateResponse(request, "done.html", {
-        "title": "Done", "page": "setup", "lines": [done], "back": "/setup",
-        "back_label": "Back to devices"})  # fmt: skip
+    return RedirectResponse(f"/setup?said={quote(done)}", status_code=303)
 
 
 def _watts(cfg: Config, now: datetime) -> dict[str, float | None]:

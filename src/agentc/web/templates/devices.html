@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block main %}
 <h1>Devices</h1>
+{% if said %}<p class="card" role="status">{{ said }}</p>{% endif %}
 <section class="card">
   {% if shadow %}
   <b>Shadow mode is on</b>

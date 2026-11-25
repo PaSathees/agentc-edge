@@ -4,9 +4,13 @@
     uv run python scripts/dev.py                       # use the copy you have
 
 It copies the hub's app.db and energy.db into dev/ (git ignores it), starts one fake plug
-for every plug in config.toml, and runs the web app at http://127.0.0.1:8770. The copy
-points every plug at its fake, so nothing here can reach a real plug. There is no API key,
-so no model is called. Sign in with the password "dev". Ctrl+C stops it all.
+for every plug in config.toml, and runs the web app at http://127.0.0.1:8770. It starts
+only if every plug in the copy's config points at its fake, so nothing here can reach a
+real plug. There is no API key, so no model is called. Sign in with the password "dev".
+Ctrl+C stops it all.
+
+The logger does not run here, so the copied readings age: 5 minutes after the copy, every
+plug shows "no reading now". Copy again to see fresh power.
 
 --write Plug-9 sets a device to write in the copy, to try the Devices page switch.
 """
@@ -17,11 +21,13 @@ import re
 import shlex
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))  # for tests.fake_tasmota
 
+from agentc import config  # noqa: E402
 from tests.fake_tasmota import FakePlug  # noqa: E402
 
 DEV = ROOT / "dev"
@@ -33,32 +39,47 @@ SNAP = (
 
 
 def copy_from_hub(host: str, data: str) -> None:
-    """A consistent copy of the hub's databases, made with SQLite's backup while it runs."""
+    """A consistent copy of the hub's databases, made with SQLite's backup while it runs.
+    The copy on the hub is removed even if fetching it fails."""
     (DEV / "data").mkdir(parents=True, exist_ok=True)
     for name in ("app.db", "energy.db"):
         snap = f"{data}/dev-copy-{name}"
         inside = f"python -c {shlex.quote(SNAP)} /data/{name} /data/dev-copy-{name}"
-        run(["ssh", host, f"cd ~/agentc-edge && docker compose exec -T jobs {inside}"])
-        run(["scp", "-q", f"{host}:{snap}", str(DEV / "data" / name)])
-        run(["ssh", host, f"rm -f {shlex.quote(snap)}"])
+        try:
+            run(["ssh", host, f"cd ~/agentc-edge && docker compose exec -T jobs {inside}"])
+            run(["scp", "-q", f"{host}:{snap}", str(DEV / "data" / name)])
+        finally:
+            run(["ssh", host, f"rm -f {shlex.quote(snap)}"])
         print(f"Copied {name} from {host}.")
 
 
-def dev_config(fakes: dict[str, str], write: list[str]) -> Path:
-    """config.toml with every plug pointed at its fake, and --write devices set to write."""
-    text = (ROOT / "config.toml").read_text()
+def plug_names(source: Path) -> list[str]:
+    """Every plug in the config's [plugs] table, however its key is written."""
+    return list(tomllib.loads(source.read_text()).get("plugs", {}))
+
+
+def dev_config(source: Path, fakes: dict[str, str], write: list[str], out: Path) -> Path:
+    """The config with every plug pointed at its fake and --write devices set to write.
+    Exits unless the written file loads and every plug in it is a fake."""
+    text = source.read_text().rstrip("\n") + "\n"
     for plug, address in fakes.items():
-        text = re.sub(rf'^("{re.escape(plug)}"\s*=\s*)"[^"]*"', rf'\1"{address}"', text, flags=re.M)
+        key = rf'(?:"{re.escape(plug)}"|{re.escape(plug)})'
+        text = re.sub(rf"^(\s*{key}\s*=\s*)\"[^\"]*\"", rf'\1"{address}"', text, flags=re.M)
     for plug in write:
         section = f'[devices."{plug}"]'
         if section not in text:
             text += f'\n{section}\nname = "{plug}"\n'
-        text = re.sub(rf"^(\[devices\.\"{re.escape(plug)}\"\]\n(?:(?!\[).*\n)*?)access = .*\n",
-                      r"\1", text, flags=re.M)  # fmt: skip
-        text = text.replace(section, f'{section}\naccess = "write"', 1)
-    path = DEV / "config.toml"
-    path.write_text(text)
-    return path
+        head, _, rest = text.partition(section + "\n")
+        body, nxt, tail = rest.partition("\n[")
+        body = "\n".join(x for x in body.split("\n") if not x.strip().startswith("access"))
+        text = f'{head}{section}\naccess = "write"\n{body}{nxt}{tail}'
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text)
+    real = sorted(p for p, ip in config.load(out).plugs.items() if ip not in fakes.values())
+    if real:
+        out.unlink()
+        sys.exit(f"Not started: {', '.join(real)} would point at a real plug. Check [plugs].")
+    return out
 
 
 def run(cmd: list[str]) -> None:
@@ -76,16 +97,15 @@ def main() -> None:
         copy_from_hub(args.from_hub, args.hub_data)
     if not (DEV / "data" / "app.db").exists():
         sys.exit("No data yet. Run with --from-hub edge-hub first.")
-    plugs = re.findall(r'^"(Plug-[^"]+)"\s*=', (ROOT / "config.toml").read_text(), flags=re.M)
     fakes = {}
-    for n, plug in enumerate(plugs):
+    for n, plug in enumerate(plug_names(ROOT / "config.toml")):
         fake = FakePlug(power_w=5.0, mac=f"DE:VE:00:00:00:{n:02X}")
         fake.relay_on = True
         fake.start()
         fakes[plug] = fake.ip
-    env = {**os.environ, "AGENTC_CONFIG": str(dev_config(fakes, args.write)),
-           "AGENTC_DATA": str(DEV / "data"), "AGENTC_SECRET": "dev-only",
-           "AGENTC_PASSWORD": "dev", "AGENTC_HUB": ""}  # fmt: skip
+    cfg = dev_config(ROOT / "config.toml", fakes, args.write, DEV / "config.toml")
+    env = {**os.environ, "AGENTC_CONFIG": str(cfg), "AGENTC_DATA": str(DEV / "data"),
+           "AGENTC_SECRET": "dev-only", "AGENTC_PASSWORD": "dev", "AGENTC_HUB": ""}  # fmt: skip
     env.pop("ANTHROPIC_API_KEY", None)
     env.pop("AGENTC_TAILSCALE_USER", None)
     print(f"Fake plugs: {len(fakes)}. Open http://127.0.0.1:{PORT}/setup (password: dev)")
