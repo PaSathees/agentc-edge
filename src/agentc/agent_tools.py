@@ -155,18 +155,21 @@ class Tools:
         rows = readings.power(self.energy, plug=plug, start=a, end=b)
         kwh = sum(w * min(_next(rows, i, b) - at, watcher.MAX_GAP).total_seconds()
                   for i, (at, w) in enumerate(rows)) / 3600 / 1000  # fmt: skip
-        cfg, parts = self.cfg, [f"{kwh:.3f} kWh"]
-        if isinstance(cfg.tariff, TimeOfUse):
-            parts.append(f"LKR {kwh * tou_rate(cfg.tariff, a, tz=cfg.tz) / (1 - cfg.levy):.1f}")
-        elif cfg.tariff:
-            parts.append(f"LKR {saving_lkr(cfg.month_kwh, kwh, cfg.tariff, levy=cfg.levy):.1f}")
-        if cfg.factor:
-            parts.append(f"{kgco2e(kwh, cfg.factor):.3f} kgCO2e")
-        missing = [
-            x for x, set_ in (("tariff", cfg.tariff), ("carbon factor", cfg.factor)) if not set_
-        ]
-        note = f" (no {' or '.join(missing)} set)" if missing else ""
-        return f"From {a:%a %H:%M} to {b:%a %H:%M}: {', '.join(parts)}{note}"
+        return f"From {a:%a %H:%M} to {b:%a %H:%M}: {worth(self.cfg, kwh, a, digits=3)}"
+
+
+def worth(cfg: Config, kwh: float, at: datetime, *, digits: int = 1) -> str:
+    """kWh as the owner reads it, with LKR (the tariff at `at`) and kgCO2e when they are set:
+    "0.900 kWh, LKR 40.1, 0.382 kgCO2e". One place, so every tool prices the same way."""
+    parts = [f"{kwh:.{digits}f} kWh"]
+    if isinstance(cfg.tariff, TimeOfUse):
+        parts.append(f"LKR {kwh * tou_rate(cfg.tariff, at, tz=cfg.tz) / (1 - cfg.levy):.1f}")
+    elif cfg.tariff:
+        parts.append(f"LKR {saving_lkr(cfg.month_kwh, kwh, cfg.tariff, levy=cfg.levy):.1f}")
+    if cfg.factor:
+        parts.append(f"{kgco2e(kwh, cfg.factor):.{digits}f} kgCO2e")
+    missing = [x for x, set_ in (("tariff", cfg.tariff), ("carbon factor", cfg.factor)) if not set_]
+    return ", ".join(parts) + (f" (no {' or '.join(missing)} set)" if missing else "")
 
 
 def _next(readings: list[tuple[datetime, float]], i: int, end: datetime) -> datetime:
