@@ -37,6 +37,9 @@ def event_words(e: Event, names: dict[str, str], *, tz: str) -> str:
         return f"Lost contact with all {n} plugs at {when}: a power cut, or the hub's Wi-Fi is down"
     if e.kind == "logger_stopped":
         return f"No readings since {when}: the logger has stopped"
+    if e.kind == "goal_drift":
+        return (f"Heading over the carbon goal: about {e.facts['projected_kg']:.2f} of"
+                f" {e.facts['goal_kg']:.2f} kgCO2e by the month's end")  # fmt: skip
     return f"{name}: timers changed on the plug (slots {e.facts['slots']})"
 
 

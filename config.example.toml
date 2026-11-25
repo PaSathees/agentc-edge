@@ -19,6 +19,12 @@ factor = 0.4242
 source = "SLSEA Sri Lanka Energy Balance 2023, Table 9.1, average emission factor"
 valid_from = "2023-01-01"
 
+# Your monthly carbon goal for the plugs AgentC meters, in kgCO2e (needs [carbon]).
+# Optional. `agentc goal` shows the month so far and where it is heading, to pick a number.
+# [goal]
+# month_kgco2e = 4.0
+# at_risk = 0.9  # heading over 90% of the goal is "at risk"; over the goal, "off track"
+
 # Model calls (decision ADR-005). Optional: these are the defaults, so leave them out
 # unless you change one. The API key goes in .env (ANTHROPIC_API_KEY), never here.
 # [llm]

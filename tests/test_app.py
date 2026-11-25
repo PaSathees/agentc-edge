@@ -4,6 +4,7 @@ import base64
 import hashlib
 import sqlite3
 import threading
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -461,3 +462,20 @@ def test_the_vendored_scripts_match_their_recorded_hashes():
     for name in ("htmx.min.js", "sse.js"):
         got = base64.b64encode(hashlib.sha256((static / name).read_bytes()).digest()).decode()
         assert f"`{got}`" in recorded, name
+
+
+def test_the_inbox_shows_the_goal_only_while_it_is_this_months_and_this_goal(client):
+    from agentc import goal  # noqa: PLC0415
+    from agentc.config import Goal  # noqa: PLC0415
+
+    c, db, _ = client
+    cfg = web.app.dependency_overrides[web.settings]()
+    web.app.dependency_overrides[web.settings] = lambda: replace(cfg, goal=Goal(4.0))
+    kept = goal.Status("2026-11", 3.0, 1.3, 7.0, 3.0, 4.0, "on track", NOW.isoformat())
+    store.set_setting(db, site_id=1, key="goal_status", value=kept.to_json())
+    assert "November: 1.3 of 4.0 kgCO2e so far" in c.get("/").text
+    web.app.dependency_overrides[web.settings] = lambda: replace(cfg, goal=Goal(3.5))
+    assert "kgCO2e so far" not in c.get("/").text  # an old goal's status
+    web.app.dependency_overrides[web.settings] = lambda: replace(cfg, goal=Goal(4.0))
+    web.app.dependency_overrides[web.clock] = lambda: NOW + timedelta(days=30)
+    assert "kgCO2e so far" not in c.get("/").text  # last month's

@@ -69,7 +69,7 @@ Later:
 - Emission factor revision by document upload; hourly carbon intensity, if available for LK
 - Voice for chat
 - Auto access level (writes without approval) for low-risk devices
-- (v2) Load test with 100 simulated plugs (was NFR-15); solver for the Planner (ADR-003 on hold)
+- (v2) Load test with 100 simulated plugs (was NFR-15)
 - Multiple sites and users; a temperature sensor for comfort
 
 Out:
@@ -102,7 +102,7 @@ Watching
 Agents and proposals
 - FR-14 [M] (J-04) Proposal contract: device, action (switch off now, timer changes, or a habit), reason, savings (kWh, LKR, kgCO2e), evidence, source, expiry. AC: schema validated before the inbox.
 - FR-15 [M] (J-04, J-12) **v2: Housemate agent. Built (Phase 3c): the core in 3c1, in the jobs in 3c2.** For one signal, the agent calls read tools (device card, power segments, usual, house now, automations, habits, past signals, cost) up to 6 times, then ignores, notes or asks; at most one question per signal. Since 5a (ADR-010) it never proposes: long-run changes are the Planner's. AC: every number in its text appears in a tool result; nothing for a device with access none; each run within 6 tool calls and USD 0.01.
-- FR-16 [S] (J-05) **v2: Planner, Phase 5.** A separate agent on the shared base (ADR-007), started weekly and on goal drift: reads the week's signals, answers and automations; proposes timer changes as one plan, and time-of-use shifts where the tariff has them. AC: on a fixture month over goal, the plan meets the goal or reports the shortfall in kWh. The solver is used only if plans need it (ADR-003 on hold).
+- FR-16 [S] (J-05) **v2: Planner, Phase 5.** A separate agent on the shared base (ADR-007), started weekly and on goal drift: reads the week's signals, answers and automations; proposes one plan to the monthly kgCO2e goal for the metered plugs: timer moves, new off times where a device is left on, and actions for the owner; CP-SAT picks the set (ADR-003, revised 2026-11-25), the model explains. AC: on a fixture month over goal, the plan meets the goal or reports the shortfall in kgCO2e; every item is priced by code from readings.
 - FR-17 [S] (J-06) **v2: Chat, Phase 5.** A separate agent on the shared base (ADR-007), started by a message, with read tools plus draft tools (habit, rule, proposal). AC: no write tools; a request touching an access-none device is refused with the reason.
 - FR-18 [M] (J-04) Inbox: questions and proposals, in the local web page and as phone notifications with one button per choice. AC: an expired item can't be answered; the local page works with the internet down.
 - FR-19 [M] (J-08) Shadow mode toggle. AC: with shadow mode on, approved proposals are recorded and the Actuator makes 0 writes.
@@ -112,7 +112,7 @@ Acting
 - FR-21 [M] (J-10) Audit every proposal, decision, write and read-back, with time, actor and reason. AC: history shows the full chain for any timer on any plug.
 
 Goal and carbon
-- FR-22 [M] (J-05) Monthly kgCO2e goal set by the owner; status (on track, at risk, off track) computed in code; a goal change only by proposal. AC: fixture months give on track, at risk and off track at the configured margins; the goal can't be edited outside a proposal.
+- FR-22 [M] (J-05) Monthly kgCO2e goal set by the owner; status (on track, at risk, off track) computed in code; set by the owner in config.toml (5b3); no agent can change it. AC: fixture months give on track, at risk and off track at the configured margins; no agent tool writes the goal.
 - FR-23 [M] (J-04, J-05) kWh, LKR and kgCO2e computed in code; each factor stored with its source and date; tariff from config. AC: unit tests against hand-worked values.
 - FR-24 **dropped** (v2): baseline from rated W × duty cycle. The setup chat and 7 days of readings are enough for one home.
 

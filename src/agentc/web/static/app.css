@@ -35,6 +35,7 @@ ul.plain li { display: flex; justify-content: space-between; align-items: center
   padding: 10px 0; border-bottom: 1px solid var(--line); }
 ul.plain li .button { flex: none; }
 .warn { color: var(--warn); }
+.goal.at-risk, .goal.off-track { border-color: var(--warn); }
 .device .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .device .who { display: flex; flex-direction: column; min-width: 0; }
 .device .row .button { margin: 0; flex: none; }

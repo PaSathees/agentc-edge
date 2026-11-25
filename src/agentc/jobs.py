@@ -16,6 +16,7 @@ from agentc import (
     agent_tools,
     calc,
     config,
+    goal,
     house,
     learn,
     notify,
@@ -37,6 +38,7 @@ LOOKBACK = timedelta(hours=24)  # how far back each pass looks for unusual runs
 WATCH_EVERY = timedelta(minutes=5)  # signals should come while it happens
 TIMERS_EVERY = timedelta(days=1)
 LEARN_EVERY = timedelta(days=1)  # learning and the change check
+GOAL_EVERY = timedelta(days=1)  # the month's status against the goal
 RECENT = timedelta(days=2)  # a change point compares these last days with the ones before
 MAX_TRIES = 3  # failed tries before an event is parked
 LOOKED = ("left_on", "unusual_use", "automation_drift", "override", "change_point")  # the rest
@@ -92,6 +94,10 @@ def run_due(
         events += _safely(app, site_id, now, "timers", lambda: timer_check(
             app, cfg, site_id=site_id, now=now)) or []  # fmt: skip
         store.set_last_run(app, site_id=site_id, job="timers", at=now)
+    if cfg.goal and _due(app, site_id, "goal", GOAL_EVERY, now):
+        events += _safely(app, site_id, now, "goal", lambda: goal_check(
+            app, energy, cfg, site_id=site_id, now=now)) or []  # fmt: skip
+        store.set_last_run(app, site_id=site_id, job="goal", at=now)
     if _due(app, site_id, "learn", LEARN_EVERY, now):
         _safely(app, site_id, now, "learn", lambda: learn_pass(
             app, energy, cfg, site_id=site_id, now=now))  # fmt: skip
@@ -465,3 +471,33 @@ def timer_check(app: Connection, cfg: Config, *, site_id: int, now: datetime) ->
         if e and store.add_event(app, site_id=site_id, event=e,
                                  dedupe=watcher.dedupe_key(e, tz=cfg.tz))
     ]  # fmt: skip
+
+
+def goal_check(
+    app: Connection, energy: Connection, cfg: Config, *, site_id: int, now: datetime
+) -> list[Event]:
+    """Daily: the month against the goal, kept for the pages. Heading over it raises goal
+    drift (FR-10) at most once a week, with a note for the inbox and the evening summary."""
+    found = goal.status(energy, cfg, now=now)
+    if found is None:
+        return []
+    store.set_setting(app, site_id=site_id, key="goal_status", value=found.to_json())
+    if found.state != "off track":
+        return []
+    local = now.astimezone(ZoneInfo(cfg.tz)).replace(hour=0, minute=0, second=0, microsecond=0)
+    monday = local - timedelta(days=local.weekday())
+    week = max(monday, local.replace(day=1))  # a new month starts its own week
+    e = Event("goal_drift", None, week, {"projected_kg": round(found.projected_kg, 2),
+                                           "goal_kg": found.goal_kg})  # fmt: skip
+    if not store.add_event(app, site_id=site_id, event=e, dedupe=watcher.dedupe_key(e, tz=cfg.tz)):
+        return []  # raised this week already
+    text = f"Heading over your carbon goal. {found.text(tz=cfg.tz)}"
+    store.add_audit(app, site_id=site_id, at=now, actor="code", action="note", ref="site",
+                    detail={"text": text})  # fmt: skip
+    return [e]
+
+
+def goal_status(app: Connection, *, site_id: int) -> goal.Status | None:
+    """The last status the daily goal job kept, or None before the first one."""
+    raw = store.setting(app, site_id=site_id, key="goal_status")
+    return goal.Status.from_json(raw) if raw else None

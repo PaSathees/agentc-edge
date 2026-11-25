@@ -19,6 +19,7 @@ from agentc import (
     calc,
     config,
     evals,
+    goal,
     house,
     jobs,
     llm,
@@ -70,6 +71,8 @@ def main(
         return show_policy(db, cfg, args.plug)
     if args.command == "look":
         return show_look(db, cfg, site_id=site_id, event_id=args.event, step=step, at=args.at)
+    if args.command == "goal":
+        return show_goal(cfg)
     if args.command == "plan":
         return show_plan(db, cfg, site_id=site_id, step=step)
     if args.command == "questions":
@@ -176,9 +179,27 @@ def _parser() -> argparse.ArgumentParser:
         metavar="EV-30",
         help="record only this case live (repeat for more); others are replayed",
     )
+    commands.add_parser("goal", help="the month so far and where it is heading, against the goal")
     commands.add_parser("plan", help="run the weekly Planner now and show its plan (costs; saves"
                         " nothing)")  # fmt: skip
     return parser
+
+
+def show_goal(cfg: Config) -> int:
+    """The month so far and its projection, against the goal if one is set."""
+    energy = readings.connect(cfg.energy_db)
+    now = datetime.now(UTC)
+    if found := goal.status(energy, cfg, now=now):
+        print(found.text(tz=cfg.tz))
+        return 0
+    name, used, projected = goal.month(energy, cfg, now=now)
+    carbon = (f" ({calc.kgco2e(used, cfg.factor):.1f} kgCO2e; heading to"
+              f" {calc.kgco2e(projected, cfg.factor):.1f})" if cfg.factor else "")  # fmt: skip
+    print(
+        f"{goal.month_name(name)}: {used:.1f} kWh so far, heading to {projected:.1f} kWh{carbon}."
+    )
+    print("No [goal] set: add month_kgco2e under [goal] in config.toml (needs [carbon]).")
+    return 0
 
 
 def show_plan(db: Connection, cfg: Config, *, site_id: int, step: llm.StepSend | None) -> int:

@@ -73,7 +73,18 @@ Done. After about 7 days of readings, each plug has a usual week, and signals be
 
 Open `http://<the hub>:8765/setup` (Devices, at the top of every page). For each plug, press **Set up** and tell it what is plugged in, in your own words. It looks at the plug's readings, asks a few short questions, and shows a card. Nothing is saved until you press **Save**. Each chat costs about USD 0.002 on Claude Haiku (the default small model); without one, set cards by hand: `docker compose exec jobs agentc house Plug-1 kind=computer room=study`.
 
-## 8. Let it switch a device (optional)
+## 8. Set a monthly carbon goal (optional)
+
+Run `docker compose exec jobs agentc goal`. It shows this month so far for your plugs and where it is heading. Pick a goal a little under that, and add it to `config.toml`:
+
+```toml
+[goal]
+month_kgco2e = 5.5
+```
+
+Then `docker compose up -d`. Once a day the inbox shows the month against the goal: on track, at risk (over 90% of it) or off track. Heading over it adds a note, at most once a week.
+
+## 9. Let it switch a device (optional)
 
 At first AgentC only asks and records your answers (shadow mode). To let a tap on "Switch off" or on a timer really change a device:
 
@@ -95,7 +106,7 @@ The Devices page then shows each such device's state with a **Switch off** or **
 
 Back up the `data` folder: it holds every reading (`energy.db`), the house model and your answers (`app.db`), and the key that signs the phone's buttons (`secret`).
 
-Nothing here switches a plug until you allow it (step 8).
+Nothing here switches a plug until you allow it (step 9).
 
 ## Away from home: Tailscale (optional)
 
@@ -120,7 +131,7 @@ Run `docker compose up -d`, then `agentc ping` again. In the ntfy app, subscribe
 - A button's address only works with its signed token: a guessed address does nothing.
 - On iPhone, ntfy.sh only relays a message id to wake the app; the text comes from the hub.
 - The housemate's prompts never contain IP or MAC addresses. ntfy never sees your API key.
-- A plug changes only after your tap, only for a device set to `write`, with shadow mode off and a login set (step 8).
+- A plug changes only after your tap, only for a device set to `write`, with shadow mode off and a login set (step 9).
 - Tailscale Serve tells the app who you are, and the app trusts that only from the hub itself. Never put another proxy in front of the app on the hub: it would be trusted too.
 
 ## If something is wrong
