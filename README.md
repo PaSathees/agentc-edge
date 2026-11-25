@@ -83,7 +83,7 @@ Built in six phases. Each ends with tests, checks and a merged pull request.
 | 1. Design v2 | The housemate design, after a review of the first version | done |
 | 2. Foundation fixes | Logger heartbeat, honest "lost contact" alerts, AI errors that never stop other jobs | done |
 | 3. Housemate v1 | Device cards from a setup chat, new signals, the agent with tools, one-tap questions; shadow mode | done; shadow mode counts run to December |
-| 4. Actions | A login, switch off now with undo, timer writes all or nothing | in review |
+| 4. Actions | A login, switch off now with undo, timer writes all or nothing | done: first real write and undo from the phone on 2026-11-25 |
 | 5. Chat and Planner | Separate agents on the same house model | |
 | 6. Review and full demo | A walkthrough of the whole system, then the demo on a real home | |
 
