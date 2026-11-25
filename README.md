@@ -31,7 +31,7 @@ flowchart LR
 | `agentc run` | The jobs service: the due jobs every minute, for good. `agentc log` is the logger service |
 | `agentc timers` | Reads every plug and shows its timers in plain words. Also reads what each plug does on its own (auto-off, rules) for the house model. Problems come last |
 | `agentc profile Plug-6` | Shows a plug's usual week, hour by hour, and the kWh it used |
-| `agentc watch` | Runs the checks that are due now and shows new signals. With an API key, the housemate looks at each one and decides: ignore, note, ask or propose. With `AGENTC_HUB` in `.env`, due questions go to your phone through ntfy: the night's as one message at 07:00, the day's notes at 21:00 |
+| `agentc watch` | Runs the checks that are due now and shows new signals. With an API key, the housemate looks at each one and decides: ignore, note or ask. With `AGENTC_HUB` in `.env`, due questions go to your phone through ntfy: the night's as one message at 07:00, the day's notes at 21:00 |
 | `agentc questions` | The housemate's open questions, numbered, with when each one reaches you (07:00 for a small load at night) |
 | `agentc answer 3 2` | Answers question 3 with choice 2, as a tap would. "That's normal" saves a habit; a switch off or a timer goes through the same checks as a tap |
 | `agentc look 12 --at "2026-11-02 02:10"` | Runs the housemate on one saved signal and shows the tools it used and its decision |

@@ -55,7 +55,7 @@ class Eval:
 
 def _stops(d: Decision | None) -> bool:
     """Asks or proposes, and offers to switch it off: it is still drawing power."""
-    return d is not None and d.action in ("ask", "propose") and any(
+    return d is not None and d.action == "ask" and any(
         c.does == "switch_off_now" for c in d.choices)  # fmt: skip
 
 
