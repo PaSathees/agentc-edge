@@ -67,6 +67,7 @@ uv sync                      # Python 3.12 and the libraries
 uv run pytest                # all tests, with coverage
 uv run ruff check . && uv run basedpyright   # style and type checks, as in CI
 uv run uvicorn agentc.app:app                # the inbox at localhost:8000
+uv run python scripts/dev.py --from-hub edge-hub   # the web app on a copy of your hub's data, with fake plugs, at localhost:8770
 docker compose up -d --build                 # the whole system, as users run it
 ```
 

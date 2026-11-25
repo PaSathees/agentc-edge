@@ -176,7 +176,7 @@ Prompt caching (re-using the unchanged start of a prompt at a lower price) cuts 
 
 | Action | How | Undo |
 |---|---|---|
-| Switch off now | One `Power Off` command, after your tap ([ADR-008](adr/008-one-off-switch-off.md)) | Switch it on at the plug or from the inbox |
+| Switch off now | One `Power Off` command, after your tap on a question or on the Devices page ([ADR-008](adr/008-one-off-switch-off.md)) | Switch back on, from the inbox, the phone's Done message or the Devices page |
 | Add or change a timer | Written as one change: the "on" timer first, each read back, all or nothing | A new proposal that restores the old timers |
 | Save a habit or rule | A row in the house model | Edit or delete on the device page |
 
@@ -266,5 +266,5 @@ New tables: `device` card fields (description, kind, must run), `habits`, `quest
 | [005](adr/005-llm-wrapper-and-tiers.md) | One `llm()` call site and model tiers | accepted |
 | [006](adr/006-two-programs-sqlite-one-hub.md) | Two programs, SQLite, one hub | accepted |
 | [007](adr/007-housemate-agent.md) | Agents with a shared house model and read tools replace code-built options | accepted |
-| [008](adr/008-one-off-switch-off.md) | One-off "switch off now" after the owner's tap | accepted |
+| [008](adr/008-one-off-switch-off.md) | One-off "switch off now" after the owner's tap; amended: on and off from the Devices page | accepted |
 | [009](adr/009-own-agent-loop.md) | Our own small agent loop on `llm()`, not LangGraph | accepted |

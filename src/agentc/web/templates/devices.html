@@ -20,13 +20,30 @@
   </form>
   {% endif %}
 </section>
-<p class="muted">What the housemate knows about each plug. Set one up by chatting.</p>
-<ul class="plain">
-  {% for d in devices %}
-  <li>
-    <span>{{ d.name }} <span class="muted">{{ d.plug }}{% if d.summary %} · {{ d.summary }}{% endif %}</span></span>
+<p class="muted">What the housemate knows about each plug, its power now and its timers. Set one up by chatting.</p>
+{% for d in devices %}
+<section class="card device">
+  <div class="row">
+    <div class="who"><b>{{ d.name }}</b><span class="muted">{{ d.plug }}{% if d.summary %} · {{ d.summary }}{% endif %}</span></div>
     <a class="button" href="/setup/{{ d.plug }}">{{ "Edit" if d.known else "Set up" }}</a>
-  </li>
-  {% endfor %}
-</ul>
+  </div>
+  <p class="state">
+    {% if d.write %}{% if d.on is none %}<span class="warn">Not answering</span>{% else %}{{ "On" if d.on else "Off" }}{% endif %} · {% endif %}
+    {% if d.watts is none %}<span class="muted">no reading now</span>{% else %}about {{ "%.0f" | format(d.watts) }} W{% endif %}
+  </p>
+  {% if d.timers %}
+  <ul class="timers">
+    {% for t in d.timers %}<li>Timer {{ t.slot }}: {{ t.text }}{% if t.why %} <span class="muted">({{ t.why }})</span>{% endif %}{% if not t.ours %} <span class="muted">· yours</span>{% endif %}</li>{% endfor %}
+  </ul>
+  {% if not d.timers_on %}<p class="warn">Its Timers switch is off, so these timers do not fire.</p>{% endif %}
+  {% else %}<p class="muted">No timers.</p>{% endif %}
+  {% if d.write and d.on is not none %}
+  <form method="post" action="/switch/{{ d.plug }}">
+    <input type="hidden" name="tok" value="{{ d.tok }}">
+    <input type="hidden" name="on" value="{{ 'off' if d.on else 'on' }}">
+    <button>{{ "Switch off" if d.on else "Switch on" }}</button>
+  </form>
+  {% endif %}
+</section>
+{% endfor %}
 {% endblock %}

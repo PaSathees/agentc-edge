@@ -69,3 +69,11 @@ def utc_bounds(start: datetime, end: datetime) -> tuple[str, str]:
     """[start, end) as UTC text, to compare with the stored times."""
     # Stored as UTC ISO text, so the bounds must be UTC text too for the comparison to hold
     return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()
+
+
+def latest(db: sqlite3.Connection, *, since: datetime) -> dict[str, float | None]:
+    """Each plug's watts in the logger's newest round since a time; None for a failed read.
+    Empty if no round came since then."""
+    sql = """SELECT plug, power_w FROM readings
+             WHERE ts_utc = (SELECT MAX(ts_utc) FROM readings WHERE ts_utc >= ?)"""
+    return dict(db.execute(sql, (since.astimezone(UTC).isoformat(),)).fetchall())

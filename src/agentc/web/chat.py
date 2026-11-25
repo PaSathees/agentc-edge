@@ -8,8 +8,9 @@ progress instead of starting another one, so no reply is paid for twice.
 
 import queue
 import threading
-from collections.abc import Iterator
-from datetime import datetime
+from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from html import escape
 from sqlite3 import Connection
 from typing import Annotated, Any
@@ -17,11 +18,12 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
-from agentc import config, llm, notify, readings, setup, store
+from agentc import actuator, config, llm, notify, readings, setup, store
 from agentc.agent_tools import Tools
 from agentc.config import Config
+from agentc.devices.base import Plug, PlugError, describe
 from agentc.llm import OverBudget, StepSend, Unreachable
-from agentc.web.deps import Cfg, Db, Model, Now, Secret, Tok, known, pages
+from agentc.web.deps import Cfg, Connect, Db, Model, Now, Secret, Tok, known, pages
 from agentc.web.login import Owner, Ways
 
 router = APIRouter(dependencies=[Owner])  # every chat page and form needs the login
@@ -69,23 +71,75 @@ RUNS_LOCK = threading.Lock()
 
 
 @router.get("/setup", response_class=HTMLResponse)
-def devices(request: Request, cfg: Cfg, key: Secret, ways: Ways, data: Db) -> HTMLResponse:
-    """Every plug, what the housemate knows about it, and a link to set it up or edit it.
-    On top, shadow mode, and which devices a tap may switch."""
+def devices(request: Request, cfg: Cfg, key: Secret, ways: Ways, now: Now, data: Db,
+            connect: Connect) -> HTMLResponse:  # fmt: skip
+    """Every plug: what the housemate knows, its power now, its timers, and a link to set it
+    up or edit it. A device set to write shows its state and a switch. On top, shadow mode."""
     db, site = data
     macs = store.plug_macs(db, site_id=site)
+    watts = _watts(cfg, now)
+    states = _states(cfg, connect)
     rows = []
     for plug in (p for p in cfg.plugs if p in macs):
-        c = store.load_card(db, mac=macs[plug])
+        mac, device = macs[plug], config.device(cfg, plug)
+        c = store.load_card(db, mac=mac)
         summary = ", ".join(x for x in (c.what, c.room) if x)
-        rows.append({"plug": plug, "name": config.device(cfg, plug).name, "known": known(c),
-                     "summary": summary})  # fmt: skip
+        timers = [{"slot": t.slot, "text": describe(t), "why": c.why.get(t.slot, ""),
+                   "ours": t.slot in device.slots}
+                  for t in store.load_timers(db, mac=mac) if t.enable]  # fmt: skip
+        rows.append({"plug": plug, "name": device.name, "known": known(c), "summary": summary,
+                     "watts": watts.get(plug), "timers": timers,
+                     "timers_on": store.timers_on(db, mac=mac),
+                     "write": device.access == "write", "on": states.get(plug),
+                     "tok": notify.token(key, "switch", plug)})  # fmt: skip
     writable = [config.device(cfg, p).name for p in cfg.plugs
                 if config.device(cfg, p).access == "write"]  # fmt: skip
     return pages.TemplateResponse(request, "devices.html", {
         "title": "Devices", "page": "setup", "devices": rows, "writable": writable,
         "shadow": store.shadow(db, site_id=site), "login": ways.set,
         "tok": notify.token(key, "shadow")})  # fmt: skip
+
+
+@router.post("/switch/{plug}", response_class=HTMLResponse)
+def switch(request: Request, plug: str, on: Annotated[str, Form()], tok: Tok, cfg: Cfg,
+           key: Secret, now: Now, data: Db, connect: Connect) -> HTMLResponse:  # fmt: skip
+    """The owner switches a device on or off from the Devices page (ADR-008, amended): the
+    same Actuator and checks as a tap on a question."""
+    if not notify.valid(key, tok, "switch", plug):
+        raise HTTPException(403, "Not a form from this hub")
+    if on not in ("on", "off") or plug not in cfg.plugs:
+        raise HTTPException(422, "A known plug, and on or off")
+    db, site = data
+    done = actuator.switch(db, cfg, site_id=site, plug=plug, on=on == "on", why="devices",
+                           now=now, connect=connect)  # fmt: skip
+    return pages.TemplateResponse(request, "done.html", {
+        "title": "Done", "page": "setup", "lines": [done], "back": "/setup",
+        "back_label": "Back to devices"})  # fmt: skip
+
+
+def _watts(cfg: Config, now: datetime) -> dict[str, float | None]:
+    """Each plug's watts in the logger's last round, if it came in the last 5 minutes."""
+    if not cfg.energy_db.exists():
+        return {}
+    energy = readings.connect(cfg.energy_db)
+    try:
+        return readings.latest(energy, since=now - timedelta(minutes=5))
+    finally:
+        energy.close()
+
+
+def _states(cfg: Config, connect: Callable[[str], Plug]) -> dict[str, bool | None]:
+    """Is each write device's relay on? Asked live, all at once; None if it did not answer."""
+    plugs = [p for p in cfg.plugs if config.device(cfg, p).access == "write"]
+
+    def ask(plug: str) -> bool | None:
+        try:
+            return connect(cfg.plugs[plug]).power()
+        except PlugError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=max(len(plugs), 1)) as pool:
+        return dict(zip(plugs, pool.map(ask, plugs), strict=True))
 
 
 @router.post("/shadow")
@@ -114,7 +168,7 @@ def setup_page(request: Request, plug: str, cfg: Cfg, key: Secret, now: Now,
     chat, talk = _open(cfg, db, site, plug, mac, now)
     return pages.TemplateResponse(request, "setup.html", {
         **_view(cfg, db, plug, mac, chat, key), "title": f"Set up {plug}", "page": "setup",
-        "saved": _saved(db, mac),
+        "saved": _saved(db, mac), "timers": _timers(db, mac),
         "talk": talk, "waiting": talk[-1][0] == "owner"})  # fmt: skip
 
 
@@ -209,6 +263,13 @@ def _saved(db: Connection, mac: str) -> setup.Draft | None:
     a device not set up yet."""
     c = store.load_card(db, mac=mac)
     return setup.Draft(c, tuple(h for _, h in store.habits(db, mac=mac))) if known(c) else None
+
+
+def _timers(db: Connection, mac: str) -> list[str]:
+    """The plug's set timers in plain words, with what each is for when known."""
+    why = store.load_card(db, mac=mac).why
+    return [f"Timer {t.slot}: {describe(t)}" + (f" ({why[t.slot]})" if t.slot in why else "")
+            for t in store.load_timers(db, mac=mac) if t.enable]  # fmt: skip
 
 
 def _view(cfg: Config, db: Connection, plug: str, mac: str, chat: int, key: str

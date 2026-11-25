@@ -20,7 +20,8 @@
 {% block main %}
 <div class="chat" id="chat">
   {% for role, text in talk %}{% include "_turn.html" %}
-  {% if loop.first and saved %}<section class="card saved"><b>Saved now</b>{% with card = saved %}{% include "_card.html" %}{% endwith %}</section>{% endif %}
+  {% if loop.first and saved %}<section class="card saved"><b>Saved now</b>{% with card = saved %}{% include "_card.html" %}{% endwith %}
+  <p class="muted">{% if timers %}Timers on the plug:<br>{{ timers | join("<br>"|safe) }}{% else %}No timers on the plug.{% endif %}</p></section>{% endif %}
   {% endfor %}
   {% if draft %}{% include "_draft.html" %}{% endif %}
   {% if waiting %}{% include "_reply.html" %}{% endif %}
