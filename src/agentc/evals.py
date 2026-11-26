@@ -19,7 +19,19 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from agentc import agent, calc, config, house, planner_agent, setup, store, watcher, words
+from agentc import (
+    agent,
+    calc,
+    config,
+    house,
+    planner,
+    planner_agent,
+    review,
+    setup,
+    store,
+    watcher,
+    words,
+)
 from agentc.agent_tools import Tools, card
 from agentc.config import Config, Device, Goal, Tier
 from agentc.devices.base import Timer
@@ -139,6 +151,11 @@ def run(send: StepSend | None, *, samples: int = 5, path: Path | None = None,
             plan = lambda s, pe=pe: _plan_sample(pe, s, cfg)  # noqa: E731
             scores.append(_score(pe.id, plan_key(tools), saved, live(pe.id), samples, pcfg, plan,
                                  tier="mid"))  # fmt: skip
+        for re_ in REVIEWS:
+            _, t = review_case(cfg)
+            talk = lambda s, re_=re_: _review_sample(re_, s, cfg)  # noqa: E731
+            scores.append(_score(re_.id, review_key(t, re_), saved, live(re_.id), samples, cfg,
+                                 talk, tier=re_.scope.tier))  # fmt: skip
     finally:  # what was asked live is kept, even if a later case cannot be replayed
         if send:
             path.write_text(json.dumps(saved, indent=1) + "\n")
@@ -393,3 +410,101 @@ def _plan_sample(pe: PlanEval, send: StepSend, cfg: Config) -> Sample:
     p = planner_agent.plan(tools, llm=brain, run_id=pe.id)
     action = f"items {len(p.items)}" if p.done else "none"
     return Sample(steps, action, pe.right(p), list(p.tools), store.llm_usd(tools.app, site_id=1))
+
+
+# EV-33 to EV-35: the weekly review chat (5c), on the EV-30 house with a plan of three items:
+# the box's start moved later (ready), the TV's off moved to 23:30 (it cut real use on 3 of
+# 14 days, so only to talk over), and the printer's wall switch.
+
+BOX_MOVE = planner.Change("move_timer", slot=1, time="09:30", from_time="06:00")
+TV_MOVE = planner.Change("move_timer", slot=2, time="23:30", from_time="01:00")
+
+
+@dataclass(frozen=True)
+class ReviewEval:
+    id: str
+    scope: review.Scope
+    owner: tuple[str, ...]  # what the owner says, in turn, until a draft
+    right: Callable[[review.Draft | None, list[str]], bool]  # (the draft, its words)
+
+
+def _keeps_for_weekends(d: review.Draft | None, said: list[str]) -> bool:
+    """It waits for the owner's decision (the second message), then keeps the TV's off time
+    with the owner's reason about weekends."""
+    return (len(said) == 2 and d is not None and d.action == "keep" and d.item == 2
+            and "weekend" in d.reason.lower())  # fmt: skip
+
+
+def _does_it_anyway(d: review.Draft | None, said: list[str]) -> bool:
+    """It first tells the owner the days the change would have got in the way (3 of 14),
+    and only after the owner says go ahead drafts the TV's own change, anyway."""
+    return (len(said) == 2 and "3" in said[0] and d is not None and d.action == "anyway"
+            and d.item == 2)  # fmt: skip
+
+
+def _answers_about_the_printer(d: review.Draft | None, said: list[str]) -> bool:
+    """A question, not a decision: no draft, and the right answer, with code's number: the
+    printer's wall switch, about 3.55 kWh a month."""
+    return d is None and len(said) == 1 and "printer" in said[0].lower() and "3.55" in said[0]
+
+
+REVIEWS = (
+    ReviewEval("EV-33", review.Scope(1, 2), (
+        "We watch TV late at weekends.", "Leave it as it is then."), _keeps_for_weekends),
+    ReviewEval("EV-34", review.Scope(1, 2), (
+        "What would it cut?", "That is fine, the late nights do not matter. Do it anyway."),
+        _does_it_anyway),
+    ReviewEval("EV-35", review.Scope(1, None), (
+        "Which change saves the most, and why?",), _answers_about_the_printer),
+)  # fmt: skip
+
+
+def review_case(cfg: Config) -> tuple[Config, planner_agent.PlanTools]:
+    """The EV-30 house on Sunday 15 Nov, with this week's plan of three items saved."""
+    pcfg, tools = plan_case(PLANS[0], cfg)
+    store.add_plan(tools.app, site_id=1, week="2026-11-09", summary="Three changes.",
+                   now=SUNDAY, items=[
+        (BOX[1], BOX_MOVE.to_json(), "Nobody uses it before 09:30.", "Saves about 0.08 kWh.",
+         True, "On at 06:00, every day", "On at 09:30, every day"),
+        (TV[1], TV_MOVE.to_json(), "It idles late.", "Saves about 0.06 kWh. In use in the new"
+         " off time on 3 of 14 days.", False, "Off at 01:00, every day",
+         "Off at 23:30, every day"),
+        (PRINTER[1], planner_agent.action_json(planner_agent.ACTION), "It idles.",
+         "Saves about 3.55 kWh.", True, "", planner_agent.ACTION)])  # fmt: skip
+    return pcfg, review.tools_for(tools)
+
+
+def review_key(t: planner_agent.PlanTools, re_: ReviewEval) -> str:
+    """Changes when the review agent's prompt, tools, brief or the owner's words change."""
+    text = review.VERSION + review.SYSTEM + json.dumps(review.TOOLS, sort_keys=True)
+    text += review.brief(t, re_.scope) + review.greeting(t, re_.scope) + json.dumps(re_.owner)
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def _review_sample(re_: ReviewEval, send: StepSend, cfg: Config) -> Sample:
+    pcfg, t = review_case(cfg)
+    steps: list[list[Block]] = []
+
+    def listen(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+               on_text: OnText | None = None) -> tuple[list[Block], str, int, int]:  # fmt: skip
+        blocks, stop, tokens_in, tokens_out = send(tier=tier, system=system, messages=messages,
+                                                   tools=tools)  # fmt: skip
+        steps.append(blocks)
+        return blocks, stop, tokens_in, tokens_out
+
+    brain = Llm(t.base.app, 1, pcfg.tz, pcfg.tiers, pcfg.budget, listen, clock=lambda: SUNDAY)
+    talk = [("agent", review.greeting(t, re_.scope))]
+    draft, used, earlier, said = None, [], [], []
+    for words_ in re_.owner:
+        talk.append(("owner", words_))
+        r = review.reply(talk, re_.scope, tools=t, llm=brain, run_id=re_.id, earlier=earlier)
+        used += r.tools
+        earlier += r.reads
+        said.append(r.text)
+        talk.append(("agent", r.text))
+        if (draft := r.draft) is not None:
+            break
+    lost = any(x == review.LOST or x.startswith("Sorry") for x in said)
+    action = "none" if lost else draft.action if draft else "answer"
+    return Sample(steps, action, re_.right(draft, said), used,
+                  store.llm_usd(t.base.app, site_id=1))  # fmt: skip

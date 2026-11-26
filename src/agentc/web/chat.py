@@ -166,8 +166,9 @@ def setup_page(request: Request, plug: str, cfg: Cfg, key: Secret, now: Now,
     db, site = data
     mac = _mac(cfg, db, site, plug)
     chat, talk = _open(cfg, db, site, plug, mac, now)
-    return pages.TemplateResponse(request, "setup.html", {
+    return pages.TemplateResponse(request, "chat.html", {
         **_view(cfg, db, plug, mac, chat, key), "title": f"Set up {plug}", "page": "setup",
+        "back": "/setup", "back_label": "Back to devices", "subtitle": f"Setting up · {plug}",
         "saved": _saved(db, mac), "timers": _timers(db, mac),
         "talk": talk, "waiting": talk[-1][0] == "owner"})  # fmt: skip
 
@@ -186,7 +187,8 @@ def say(request: Request, plug: str, text: Annotated[str, Form()], tok: Tok, cfg
         raise HTTPException(409, "Wait for the reply to your last message first.")
     store.add_turn(db, chat_id=chat, site_id=site, role="owner", text=text, now=now)
     return pages.TemplateResponse(request, "_said.html", {
-        "role": "owner", "text": text, "plug": plug, "tok": tok})  # fmt: skip
+        "role": "owner", "text": text, "plug": plug, "tok": tok,
+        "base": f"/setup/{plug}"})  # fmt: skip
 
 
 @router.get("/setup/{plug}/reply")
@@ -199,7 +201,7 @@ def reply(plug: str, tok: str, cfg: Cfg, key: Secret, now: Now, model: Model,
     chat, talk = _open(cfg, db, site, plug, mac, now)
     view = _view(cfg, db, plug, mac, chat, key)
     if talk[-1][0] == "agent":  # answered already (a reload): just show it
-        return _stream(iter([("done", (talk[-1][1], view["draft"]))]), view)
+        return stream(iter([("done", (talk[-1][1], view["draft"]))]), view)
     with RUNS_LOCK:
         run, started = RUNS.get(chat), False
         if run is None:
@@ -210,7 +212,7 @@ def reply(plug: str, tok: str, cfg: Cfg, key: Secret, now: Now, model: Model,
         draft = view["draft"]
         args = (cfg, site, plug, chat, talk, draft, now, model, run)
         threading.Thread(target=_answer, args=args, daemon=True).start()
-    return _stream(_drain(listen), view)
+    return stream(drain(listen), view)
 
 
 @router.post("/setup/{plug}/save", response_class=HTMLResponse)
@@ -278,7 +280,8 @@ def _view(cfg: Config, db: Connection, plug: str, mac: str, chat: int, key: str
     raw = found.draft if found else None
     draft = setup.Draft.from_json(raw, base=store.load_card(db, mac=mac)) if raw else None
     return {"plug": plug, "name": config.device(cfg, plug).name, "draft": draft,
-            "tok": notify.token(key, "setup", plug)}  # fmt: skip
+            "tok": notify.token(key, "setup", plug), "base": f"/setup/{plug}",
+            "draft_tpl": "_draft.html"}  # fmt: skip
 
 
 def _answer(cfg: Config, site: int, plug: str, chat: int, talk: list[tuple[str, str]],
@@ -331,7 +334,7 @@ def _end(chat: int, run: Run) -> None:
     run.finish()
 
 
-def _drain(listen: "queue.Queue[Event | None]") -> Iterator[Event]:
+def drain(listen: "queue.Queue[Event | None]") -> Iterator[Event]:
     """The run's events, until it ends. If it goes quiet too long, say so and stop."""
     while True:
         try:
@@ -344,7 +347,7 @@ def _drain(listen: "queue.Queue[Event | None]") -> Iterator[Event]:
         yield event
 
 
-def _stream(news: Iterator[Event], view: dict[str, Any]) -> StreamingResponse:
+def stream(news: Iterator[Event], view: dict[str, Any]) -> StreamingResponse:
     """Events as Server-Sent Events. "done" carries the finished answer, rendered."""
 
     def events() -> Iterator[str]:

@@ -1410,5 +1410,283 @@
     ]
    ]
   ]
+ },
+ "EV-33": {
+  "key": "d6c4775eb75cbd9a",
+  "model": "claude-haiku-5-5",
+  "samples": [
+   [
+    [
+     {
+      "signature": "CAQSowsKEAgUGAI4AUIIdGhpbmtpbmcSDFaN+t7it0hGMXGkxxoM9oBsSabdDHX6sR+BIjDWLtFnRHFKH13Ocb248jzIMjjzTRmEjB+/XTqiq7YvDA34CL1Ua+vU8yCohfiiztIqwArPlgjU0KtUgKxHqhYSUGJ1s93PNL5Xwjz7/18TyCA8/cVIu0eGIWd3lMW+wjVsXRwZeEdJbWmt37zijYKlyEbgyopy2t5S6zqcDDQHqCyo5boPr6AxnzGb+ADZIH+03KhwD2UlT7/2e6gcb9IbrtOaVExnbFxFWj0Yx8P+MDsO6U/2Zen4MsE6FLKPE8g7VTz8Jq+ckgLS6Q5FVggBTqhq2qXJ0WcIwq/QbpE0zwvlxhyug0dgToYpeydFYflJlfVRoTh7ajud0lyvc82LHzZ40pJs/enQgb3xx/RFHTjf+8tjuL6YPG4el7ZhYi/OB8FiFd0RvG+JpKA30lBgi6uiBjPFNk5uPyNXgjo2SBT7XJckHTKaYczMbnj0V6nrV8YWzKjSlKa83djvZhUSOwX+k9gzkx3D21TFbFWk/aS5maHC0+bXFV/qNGwgzOqgTjfqFPhW7OczlcpS6qMbapizNjh01EDCpJondGhFEn1t+VK58h/R29XumQZ3SFQpYSAL+6UfHKiJA0qTJdH0beC1HUO1NgflqSJoiW/vFviMi5Quy0teExDWwKxcfUVSrYw2UC+A0fApYZYZU8Gwnp2BjIqP3VxZRvkVvuJ4A5DaTVe0zaMp7bNUrI2ZnMsB2JxiyoyxDbOTejzXMmObBbWEpbD03lhObeGjz+qsEUuyGSxd7keXLKt/RNQD+aVcv/jnlSX+XYseWXO/vDTU2HO/bXpFTMViKzkW9c8GSlzNVtcLJ8HPul3GN1D3hekaYxeDhcnxGNhDrDsoQFTE2AsoCZbbUmRhT59F225XKxz1bPx7G0dkgiYF4W7MmG7hWngnq98jMu2cyqIxRmOb3WEYlz9rXaJCghh8PTjcJCPRtgUFf/RIN9s+50kyKHn92Qt2ApMC6kKp5pKlYJh+azoejvfNG0GN+PpNBstEfq97GAHL+ARbdTsvkrAF1amgeH0ZHRFuPaHs0grDfQHFQOETTXOpO6PDANwzPBYj9nZF+pkZcFzALmjqRwaHtlF61Bl7gbDaPE7Bn6dk0K/IkxFSDKXCJu4XzRvIAuVWQRKFpgF6Rae6IIOvlONEdIBTZJktDint0FE4Ql4n3I+hqLgDK3RKNyMQSQvuWQkAu/zV29cCYs0KgsiUNvVo+QDOAWBXQv6zT3RkI5ryjSr8LCvMFWfYEPa7IN93zRhpodFm+QmdP/CgVxnjLgC9sGfk48GKh/hjgRHANt+nbDeBQCWBQ9BxehR61h5/qZsPPgQi8F1GbKUjR7HopN1LpdE+PwjRNHY8G3zQbLERQ8gyF6Th/h73LRk5LqhYEGlo6pV4l/QExK0ZpZqNwJ64zT8ZZY5s1avGw8FgKCNGK5mQ8i5t2NJqr4gmD6tTFFycmMVN3T6HdfHtzOIL+ubR/DHPVFYsNWGBEpIXKgNgfgfV3J7oIa7Ww14FF6Eb3wBEq1ulON8gwcRRNOxicKUQPBagdNrJyluWYSFuvWKL0j8opvOHhbLTr5+R26vfUcr141uG3fg7fg1Ca+oWZ0yJjOMghtDxnwnNp0a1WQhUjw/x5K+lJm9aPFhsegw4WL5T8i+Or1So8J0NHAnE1Cq3p1iEBQj3du4kSYCk/oblc7qkEL0obvLVTeLBgfiDNdeRxNDn7zi4RFvQBFnVw5XiSpvfQ8G/BvjaCZKH0B6BN2ADAkaesRZbJEtphr7jSNifnGjAPbq5HBuo6j+UiMpZ/nVv5z7IfhM7BtFtnL3FAn8eyX+HxxIkDCZafJz01EZQg6fQhsmAALBrg00EWba+vL14AzsYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "Got it, so the 23:30 cutoff would catch your weekend viewing. Do you also watch past 23:30 on weekday nights, or only Friday and Saturday?",
+      "type": "text"
+     }
+    ],
+    [
+     {
+      "id": "toolu_01GXBHQs7n2muQcdEcxmvDVz",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "keep",
+       "item": 2,
+       "device": "LG TV",
+       "kind": "move_timer",
+       "timer": 2,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [],
+       "reason": "We watch TV late at weekends.",
+       "message": "We'll leave the LG TV timers as they are, since you watch late at weekends. The off time stays at 01:00 every day."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "CAQSngsKEAgUGAI4AUIIdGhpbmtpbmcSDOC0y2yNzMr2MYw9mhoMtq8U/I9v+lsnunmPIjAWsVzSVJVPwKCvvra1Q72JFQIsQ6PvsXbHztnB1DkaPy0lp1VjPifn082/6q1qMJEquwowN6bBBv3bODHYC0HlYvwInfN2kBncrHtR1k09qKLmX5i0IBjspLHtlOEzgreF039Y0CI94Evx9Ne2yHbHVF/jhC6sLKUlPw1Fz/Fh0xS2oLj3FF/ZYZf9D+VtHVC+87Ze/fegfWiVn15t3n9yinndKIG+Ke21f9Sgnfwtl5tQ94F/m6OGfhbffFhCkxI3y8KfjF167XBuHeUsOvqclTBo//jEpeeKiuEL7qR+tWzr+xgNNqtPiQ4qqXUOWwvGE1OQURDd+ST821tyhH01VqX0UXWIBUbJqNE+gbasVD0iQAJCgDA87uszvvpx1Ap7pSim9/nfY9JWRkDOoBCqZ+faDVdCkIKgQpWoBeQEBZ3v8d47phD/pxUeMFrW0G7ECqryeEfez+H6muUMQjVhALigaj32QWcGu3yPoA4CkPiOJ97px3VNeakju0p2KfWvGrHBvktlaN1Vls6FbTuq4eAjCqKdDd9S0uQb+nKBOaC4sfnAitrGF2S/8ALTuci2ybJde78lw0SPRKBROsCMNADkS/iRh6E6TN6ym9AOBsuD9g10kVo3TdaNh4OdkQ+a0EADkEHmUXcsIUlqDLtdOvSzeIHmge2HZgdn/4YVEkBwQlw7kzAmHnccOV3UzMY+IBryxMcDcHwAFiEOC7dDhtjLkUdLmGH1MbA77oxNu/nUPrqoMOhutc5U5od1pyCfdajdza3X6KFy6uoFXs63it9Fl7RqmY2bEBvGkloG7Xu5WCJA/cxjOJU0F6+5LRvIk1mKDD5GdF9rnMqlZY1POplOtbIRJ9uf17eomASRMFvJ9YU9CHyD6fBRta5B2iGvGH97s7TrYvbXmABH1dl5KU2IKTt9A8BvG1tQ+Rn8QpF2Y0GWC/J6xohOVNMvZBWxqN3ukdybgtCf5rOhagTgSK0qsp8Xy1NUZvlncf7fKSoAu3/KT6fx6vXH3ug+ns59j3gEAY7Bu+jqVrZtpfRdeiOcVCheWnaj7wHLPik42Ch8mITrCkzeMDis+8acJP/vmYye6C9WfdlIJtATYQ1KOZZsb3UBNCHKOJhnFs9kJh8o+H+YrnXfl0Xc4FCZxgFm9Em/Y5j6F3xATZkuNlY2sMhqyNzbx2cWUXO+kiAoWOzWgDbG18FlVhAU+3M0SGZbJ5SqxfB+ELegNRuE43As4HY7ITyBVpWz1WRMc7nJvgu3/B5IRI4EmWvjKMAH3WmvAhm8xIYROMGqsHBD+cqfVZyoHTfapiv/JaPf0N7CW8d8LRHLhvV72i4zfRci3Odg3Jdr9ij1qLRSY0lNm0n9JSa9LOPj3Etl/omzu2saAIoUeMeRrkMC82gPuaDHD3H0/dl7GbIYQBgCo3ZXC6Y0DI28UXWjYTxK4ans4e6CXo/IIF3CaUAbXVwqU/VmFvYL26U2nm8cHIu4NuVxAwZdEF/To8i81GueRx8Gw9dLD+b9Z/m2vmW6uUu0+BymGm7QCqiVx+FhyciyNxmP/jBjtRE5wFVXixtCb8pwIzyePb2VISk//7ABaPrXW+t/UZIQGXp4ZfFzhxc8oduNakyoVzvbYmPjwvYPFsloBE7vVTrYVnG6h8yaHHHNkIm/2l3DbprK7TvsOR1m227pecHQYO8QfNPaFFHOnzy0xLdECs6drYi29Hy8aSkwSyUd3xQJN64yxuK2yM2PuZ8aPwrXSbGPHnIuTq4n6e/6kJdDxImJx/jmyZwfymIUOjA/mfPhNhj20BjZiavEZgY0ifpjm0Wh6WKaVJ/tH2pYDrgGUdfuwkLIrit5gErdFUP8GAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "Got it, so late weekend viewing would clash with an earlier 23:30 off time. What time do you usually switch the TV off on weekend nights?",
+      "type": "text"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSsQcKEAgUGAI4AUIIdGhpbmtpbmcSDN7fLJTqHJ7u1nEjLxoMMav4/0ZXRety7X76IjBx9Wavquv+xyvkbLdLm65vsgLfR617S/RuetaYBx2kb6gE7AfBFHNNKd3yT58Np2IqzgYoDUaTVLPEsb/3IZt4VJ1Web52dJA2JXEndG7loP9AJLSfv0LSMR1G3pz1+IE7F+TxidLkjRBCWagS3qRX3PlCvVSqm1NFf07CwIVECIFuCMiy2cwsu/E/3bM3VeLqr9MhVelnRi8jW4hGdpBy3vJ/KwihMvqESEfHgNEBeHzQRQjajHCbOtYsdeNz2MUdVRHVrmaqYSxo9/LDXr6VVhSPNR9woVKfPVruw2cM2jZAUcfyadM4NeIO0gNPeXIxQNkK/KpiNJK61jWT6Ft/CszjFctMRaC7HWNPu5m6OFQwIzZyJaJ89O++Qn9qv2tC+wJAMNHXukHOwYG/8SwxxE9rNHMIAcSJVR1BU9NTXHOvte1oKrS5GpRXeWIwe1HnxNTIjvQKhh2I0Zjf6U2VvNkI5eq8X8VxCu5uq30gQr/CnoAYbF9gxKX3CVbUwOvuzOy1VO8wmhxAsPiPXBxKkp+FICqRz43oe4f+cyYcc4T0krFqW7GqZwmhJnVJtLq37Z4jMyDfWm6QqEPIQBZf/WeOsgQZD6w22JyomTdrZQeCntz0QnfuTfkhQbIpAjVhN63GvWiJqugnExZlWc//nbSSXJy2EPZkcIeBX0tQqhfp51jd7sAhNyQx7iIvJAlrOGKp3bteOTWpZXImWJ4YnxZ3PUIM0xVs1lJpbrvKoCt4AKjHMWQAWZAGrpR3ALZKIXHMMlxnI2nHTfFu5m+SE4os07u+bEqIH62na0stTIiwmTsqs8uu9dhw92bZLuLoqyEVCYzJzXlL4ehmBNa5QR40r1Rz4RafMQuQx44qKPjT0MLTUuw3i3rssv2EgMAmcoWV0vk6bsVre3ccQQ/Ap1Tv2CnE0z+jtEbMoAzO6OSuW1jtdZMeYvRReuu4BNUIOQB+oennn+Uu7Hv79sIYP1pIkP8LePH6IcY7bqtXK6+f2n1kzqeRjEfKfIn5+7lNs+fkxHk7R8KcD/pzHvpa54ksr7xy2r13RVjI/EYEfiuPsiLVK+Tc/lc3SG6aj0TMjiFbecQ+vOlAdMw8MtcsNLXVcLCXBCBPY3grKDJsXqum97pJ2aNpw17WEJWU1W9gVVy7VAfQabPZWmhB4XfG95gKpIbIMVnX0xhamY9sZksYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01Ji7VoFD5Hb54LH15AEiPR9",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "keep",
+       "item": 2,
+       "device": "LG TV",
+       "kind": "move_timer",
+       "timer": 2,
+       "time": "23:30",
+       "off": "",
+       "on": "",
+       "days": [],
+       "reason": "We watch TV late at weekends.",
+       "message": "Got it, the LG TV stays on its current timers: off at 01:00 every day, so late weekend viewing isn't cut short. You can tap to confirm."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "CAQSsAsKEAgUGAI4AUIIdGhpbmtpbmcSDAqaWrWQSqAVC4Fu0xoMCJn/72cDSH24g5IKIjAG05TZr+7SfufOVvFpDFUY+8eF26fXK8KPTDGVh88Ubh17fS0rEBvGp0kcD8wt5AUqzQpyab//n78b2ITI13x5JtUVkmS89xukz+kFniLTBevCzuBUO9mVhM8d5e5MEG5KvmN2aKW6YI/cSLA89F9Qsn7uD35r+BIZcdyfbSksbBjw6RB7WzzuGmGnTSwsKdtHx7nktxU8NWLttbqbbhiDPVpzXkpK6u3UeSeowpzbVovRpi3D1e5Sy+Opnroz/bosVkK49xrIpyce5zg6sxcLvOuVTbzLAs0++UYF8JKerAU62wD4EF1Ds6dDHnr2JWx4Au7B3TKyA8RHfOKbnrazeRRY4tz/LoRlMTasGbbqP/vibUFoy5IOc4Mbu3y5kQk8jbTJm77ClwGVemZOepO22etU0bjLD84P6Sl/TB5eOi2phkIhNIfJKd6kyiEmoWFTjmFHlV5lI4xGLikQ8WncT9hy8F2IPU/J50cor4NNO3ZyZ/RW9W1u2w+K1FAIVf+ODEfWoANaghpDYkxCzkuQXpRnLMIazLa9OBDiVOP6zPg56Bm8qU/bXHbY+lixL/dtva35X/tM5w6nIlD2hVu9zobViYhvJUm9vIAPlVOJYjqenOkikqBNmkcEHas1xL01Fbcr17X+WEWQRSmm4OqQwuZn0NFNqZM+Yran5zJgCp3YEqvP0BQ9VXPuQ5nckiJ88aRhnLn5FaRupEQSgRSm6LvcaXS4U6NuAcI/AlUzwhMVGbRWXIvCdK79/qHPA9PuBimEZ4gIf7kG1eapdMzMUSBiflitOSnvNRuLg5kFNmY/8Gk2ohJz9JUGJrv1jvqczDVkUgw7FOxCbgWQsXb1TjESzjMt1XusKq+05L9JFv/AnNiwIVYJGnGcI0r1wbewMELTrmFDBBPiJzHJi7Qq10PmcZAxaJnH1+CFAqvEAvLPFUxNxT7oa10Peks2QR1znbZc5erUlHah5BDHlxtw2NUhO/pu6+BegdAjh7fTmGveYJ37ZPq59jnIS5VP4v1wqrGlx60GGlofJ9ErlNlc3N54cB88GKKJZ7ewo5xSG6AwNqBAW8W85OCTDYXhslzkD5loQ48XEnjjIZnpmnX7K0gPg489XuIyaZ3PzXi+khydjFKj6eMjbYNGhYMom69/DIVDBtqMclqj0rGN3293vgmKUwMOHoLyuBvuflYDPtyuRgQd9mvKDymR8DW/l8Ei2FEjwxbQjhIxnCiEZCJ/OPfcOfiSj53J2blagmauDZv3I+M3/HEctSJIcg5uCeuI2LroXfmzsP0nIKp6uR8a5iIxs1fkxxFxwVewEZqF8aCz+XUHzjGqr6irZZvEdELLekixxPTaRpitzw7UG+Hc2HnX2iTP8xM34EwYy4LzIVLMl8xrMa+19wPBWbAMxEegT9Yr6ZDcI5ddxr/3mS1NdLePa8q0FYoVdgQug0uqb/HweTiSg4sXj96BHC4FfiR1869XMGR8Lxl12r95nYnAglj1gTdglHfFvBSedY+eCItY8PkZdslERq3eY9ZuCaLqrMF3Z/CtK4hoK2ZtF2wgPvwEtxoYyCfkRGVEmSSa46sMyA/4x5cjCbbZqtI0xn882d994fZqY6DOHYJhccwmVnuEILncJ3MuH3iEwylKrPHkY0AAhGUHBQMbY6KbaStz5CYYPiq3jGq3yS4gQf8qpXOwWcAh0mncOEk+Y3QpowhBF0zTZrbExqB+H3ItFkL5qtC2otg+b/VKaVSfBv+Hih7MssUC4LThZzw7XlbVDeeRQ2KoulqT7PZyInz/Ei6gUg4SX9upa9ApgHX3ZNv1o83/N8oLAO1ycYuFA/KTcVRnsCWr5zyt2wdbt/14U7An9t4cncI5K5e3WuKzeYWqGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "Thanks, that matters. The 23:30 off time would have cut into your late viewing on 3 of the last 14 days. Do you usually watch past 23:30 on both Saturday and Sunday nights?",
+      "type": "text"
+     }
+    ],
+    [
+     {
+      "id": "toolu_01ExBxf4GY28RgRmeFy8MwYH",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "keep",
+       "item": 2,
+       "device": "LG TV",
+       "kind": "move_timer",
+       "timer": 2,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [],
+       "reason": "We watch TV late at weekends.",
+       "message": "Okay, the LG TV stays as it is, with the 01:00 off time. That keeps your late weekend viewing working."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ]
+  ]
+ },
+ "EV-34": {
+  "key": "cd739f3922f43452",
+  "model": "claude-haiku-5-5",
+  "samples": [
+   [
+    [
+     {
+      "signature": "CAQSkgkKEAgUGAI4AUIIdGhpbmtpbmcSDBBZAwbTiULIxjANUBoMWKVMY0hIJHf6kGw4IjAcTa2u8mu9FcAL9msnW8Nx35a/aXaanWs/DVXc0BWwZsXcgTHaMjhs7bItWVXuiI8qrwiBkm7FtUbIPaM/d9XGK32xln4vV0CanR291qQZDik4ZKheuff1Cm489SKWJTRe5nTKoh0Yh21py6klaG+tmm+WNlRI2IlWTcX0Uq/63ZusNOdhKRTn1R+rZjyFbhVmUdJ7pFmIUtHl2d4SkCthjDP0GleMc27fGkbfk+WRDXgK+pz0Fxm8aYJ1KYvoQqwKDNVkU98i7kCRo8LHB0k+y+VhPWryIzbXdvJKl1oUQh/nIUSG1gZOFvJr+VhkCAh4zKSedZ6ombOPK9TLsFo7PODR9Tgzc0BAhQY4OD+n9oVFgrqkXbAx0PUX6VYSAhwgtbiYP7iYWh0lg856uHBT5wCQdeExgu32Q5/bHzC1EtLkcMhFg9FwykGjUxGBgYuZ+NGqis5pi9e7ksRorwCSe9vNtxCvr77djUwQmk10ifF9UZ+LYYQ6a3KBwXU9UWqE443tucFg4Lk0yLWESF62k9IGvOeWrrIYSRm/fa5iLj0ex5AYVXAcPPnnEC1ve7dwomH8lyzILyX6hFeAxfqPceamsFAj4V4C7ODSqh+naRMFji+jHi+RZIXbbf/SvVUR/v+6YjACZX1s6jIaMpoQ5KRJrZazG4AvIqFm0XepfIUG74BpAF1+/rdYTl8AnaSo2509RpYgvjfDhkAf2vptn5h02moERxuA//bpMcXBZBmWmaqSGDx8Le+gEn9H4xYJ7NCP0L6ATAocxLPJxpmf+xhSHTOxsLz6LPhsWH1nWr7pzta7bR+8ZOAdDJDBKhZFa3IxzuBmEiFc1zpiJnoPByPP0S/XHwb/D6IRCksRhvTu2KYFAPREn5QUUEymYhnRVavBDAnkvNk+VfVV3w1caOoU79sVk3BEhT17C9zm+ahdnFRwONHhYLkC//r024tHX1lCzrpgMIbS6u8KaY9+lwQ2ZXP7AxAr9J+qLLLb98e9d4Xt7Avf7/D4F/u411Im2YU8zji+Pv7pw727yT1HmWi0dE+4fNlU7iq53z8O0VG4qhnYDRlry3gefOA7nimAGAMFwK+AmF51m08P+7mbqoXyIA7e1KOlrPQKbf88+DQuVoua7bf5cg3jqDnccRk2DLr+i5/pRonoQpBDVNVuvY/u8g7GmcYrGgBKXgcKkLVHYKXkb8zPLPUOD9ZGfIZiMW6SldwAbSKFzAAvEjWlNdlG/WkyDCE4mwQzvIPkB0nNYJN5h5xYKbPkZ17J6X3mKmSLhrIAcGsErPrvsgzJ108CCkbSgi18IHBBKeRptyv10xDNjU6LvMlJtxA59d/L9ekO0LsapVvNVWn5pzmLq4qFWzNEftj6N5AwNzZppTpcMMNuLuzfzFiRwKAnl/KRZEAFGfnYgGJXjqIKTMnCZI1ibzRqHb2nA493BxPQHs4g3SEwlj0nyMPrwWX0c1hG//S540Di7m2xfkcu2RK2QmcYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "It would cut about 0.06 kWh by switching the TV off at 23:30 instead of 01:00. On 3 of the last 14 days, the TV was in use at that new time, so it would have got in the way on those days.",
+      "type": "text"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSjQcKEAgUGAI4AUIIdGhpbmtpbmcSDP6m3dtbs/jWO4i33hoMcQgveNIBFqt+fdiwIjBXrlh9QuzNw22CxNzMfWkhN6DYOs9jCEaZqijT7hbpJhn/ivnuG8+BxuSNGfimuFoqqgZe94ogFdl1EF+glUoLt8lyZvAi9sPCQXEMAAVabF7KtmL8Gk1XFyBEgwbcJxBZiJ5KLpgqagkJkB8jUSfnxTwx+tLi8SdSM1ROuc0fgmCPHq/XbhTJbJmBMPfhJ5ikSo0pl9NUnhxDKdfnbWkCGZHk2kKWzxYFCTjeEnT6QHKaLEmu0Ha19s1dytk9TMljtcD3dn0tk8jue5gQNOY7Sz8TGXgFkyIU4gDvjC27PT0RXw4PFaFEdIo9YU1zlXWSzUFGbNFqIzaWnWflmtH+Bfx8IHJ2GFYalcNKXFOsIMP6gNTSjsN3xUiXMU+D0W7jCo4Fryn9iMX9UWIi0s4lAWNn29GTJM5+0WLwuh4jAsHJNm1sqr1ns+vRnWZYrQL9zK2lhZnTnD8p21URfVz4KfAoGVbLVxisgEAAkfBGguxwzNpkB9IA7MB05UDEU1MKhhW2nipGzLZ4Aqf7GI2r6MvzrTfwceYVuSIWpqNeXQIRDBNO0RqYJBq9cf/FDIy/L5BVI8cY0W0hDI0D+1V1ZTcAhA57C844SMpWQ61IFINCnYqfqHhbz1bbIjbJxM/YNVYEFauCe7+PU6f7IqOqk4yFX5Jnay5Ry9LxcAc4+YNESiftS0CmvVplGTUMqbr773Rj+8VX032oNWg71rAuw9LlrgTDI5oBNcl6FupQJWhDb7lpJ/9eD5JPTxb8HLUpRAo2USrHVLup+0OrBmH9F1oszPhGwkGNsqUva2y8ovFLo5cwOHGK4zOmlVxJ46SpGaWgmlyHte/ofbQbGzBPKMPFnDhaFcjiwtzwfpFxS5zhw3rMgqoV5ZP0Qqxg2yuE6/l2DzXUYmtzgcZnmtoBjvXdglYAncD1aVmC75AevKX+xlEliUXSDvjz6J8H7AB9QL4dN+y8+6K8PR7j4I7Gow/d1oYrVp6aCcIzu3micFsNWBtTA6QXSPGArZDLU5TmoC0n4dx7yVgAHkuGGdwrFskCPNP6aTbROq0znvrrH2RHSVVymIfQY1iLHqGHr9Ld/vkUWh9SYKP70OJgXC9NKz4dbXESU9M0M+1voNQjyQo342GS6vqowAhz57EYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01EjXepmsU5RDdhWLoVoWW6D",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "anyway",
+       "item": 2,
+       "device": "LG TV",
+       "kind": "move_timer",
+       "timer": 2,
+       "time": "23:30",
+       "off": "",
+       "on": "",
+       "days": [],
+       "reason": "",
+       "message": "Moving the LG TV's off time to 23:30 as planned, even though it will be in use at that time on 3 of the last 14 days. Late nights are fine with you, so this goes ahead."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "CAQS2QkKEAgUGAI4AUIIdGhpbmtpbmcSDItsbH1QN+rTMpQXzBoMCWxNt1YlB9GP/O9/IjAqsodyNCD94CKUD35dA6LK0S6pk/cflGALHrR8vq5TVMWbAG0wnVKC09EVgzDMQq8q9gj0pQmxTKtQuoBfomvc9f0FbpVOXUUVcVsQQ3WWxJYAxuUV2CqHwPpS89UAtDjA85oNYJIjQb5eEaHDZPAEizi2qAdI/s3l8xrZNOrJS+xSs+hrMBEEPiyG01+pXp2AhYU2k1aMB6q4+s9eE0rni1SuzXFHAbBIty0Vd417nF5nNBSmGbidBFjg2byGKwqBPdsvr6OiP80d6dicJcx20WBlzykBMJJ83M5Wbahx5tXjn2xHPQ62IIYF7809nyVJW1BzpxiY7dfoFd4Qk+9tIFLZBAZNPn7l4Yf9eBoR0Vovs0URkgopzkP6WAzjl7GaZpWBulhhwTAGM29d7LNXnSdKzS+aOuxOPhQladiWe2Um7hEx2xcyowfxBCiwM0QE7gs2LqhHXNj63TXk75542r8fb4e3My9CnyiIZCEhPYczcjNKTwJFZfqTk0LVxip71cAkz4cOoZZQGhQjOs0iptAzVxei78bJ9JuRg3maCDo32a7ybxkD/GRjkfNHN8dHa0a7lm7hLJpg7XVfnIsQpVUh8hwZzgUGPNu0CbdGcfdQvW51njX5A+pQvvKlBxNgU10fZH2aUBEJKre9IeCy5r2V7Z6z5B3mbUXuu9rDbFPEc6ZM+RuMZ+BCEVPKozY0kt1ROa0FSDuwZKnl9q9tEu3Kdt9mHW4z6yEiU4i/TbhGjCkgEsIXAl5DqItf3JeKTakQ/bO6caakMfRXvXjKod9QXxdrUrVHenpsNtLyXUXc13WAegg23RKqMbfCla+wVwB80fwtFsyaMxQpMBqua9tDALlrvLO299ane8mpm5Wv+HqOmTcwTrpKZz1H/LxeD43DGP6cFPF/hlaJ5qsVOW6wVOKXVE2paWgK1vihwt/MbwB+JaU6Rnd6IfV659U4yQYDBbnlS7Pmq2Bl2Po1Q/F2TQ/YdjE+ua5FC84/g9EY/P/6zs5fcZ4g8wpzG1hTUR/P18vsZ67cv4nkuJlsKtvw9kdPThj4GulQUgtA5khdLSMrsBPOkB1pU9O8qvOnOgw9qKHs5HqNGB7cYr/aqTXxZENsMpo3pxGq5v0V5Ou6yKQqwU3bSF7JPG+7N6VSEhbNyMuxzdyMMiTtv300npe50n31B/ud6SvJqdfTwr+0fVgxhelW//SXlHJ3iYXgAOkSIuKezJaDkP+/C/yphC85wfrGqdCzm9drZDfdZUEZtZkt2TNUtPhao6POSMGAZ6XHmbQrOfV2qrnEGi+yKq6/Y5tAhjuFc7J8ZjL/fjMuUFeFrpmb0FZONz4t90CvH7zvX5nJNk13EHV/Qa4IayITvtHcvA3QwWCNCEgciHV6yi51cTKqBF8WV6Pmt6lX72Ni0tbag1fh46PUhRInogD9x7/AqJogeBmuYPACpAc8CPFcG1HQ1vsKa4oKkuj962koYwVyJzqDQVrrTwILxERB5JGzS80mVNrrlHy/M5Q4268db8yeRJS6J7h/5xOkdeaygGKvW0aUmt6Zht6YpTt2MOHYILI19Mwremqu3WRyTVgV2+3KkxgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "It would cut about 0.06 kWh. On 3 of the last 14 days the TV was in use at the new 23:30 off time, so it would have got in the way on those days.",
+      "type": "text"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSigcKEAgUGAI4AUIIdGhpbmtpbmcSDHIJg8KS+pC5/rghYRoMPyW5sM/BBoTtAdGVIjBcUuhh552VE2dSjxpu2bOgCZ/3iGsFV7GR8SPVirxwB3CcIZULCIAOfoAzFsmiqpgqpwb48Rvsw5Nzu4E6iRyIyqC2n5KAufZWuLABt7m+7aeyZQmPKMCSNiZ5dfntnroiEJpFDOYAyhQcQsdWwocutByJMJx4Yq6nDPK/MEvw/IKPxsBjDjs4LOwOM7J0XwPVvfR7GlYwq+P/J++JiO7plynVY8N6oYdFIGzng3BLCG3tnBmk7Pt1Ze50b/LwR+H7yM6HHxnOsxjQGVb9VKpVaipSOuz9+52dTxKIXra/V7qTwhcUfiVo/UtJaafostTRxPiV0oQ0lS0sE6GjkpOshQ8u9J7mf2NUCngb38IECspvhaJYl0T4I1NDI0yG8we804XK4ioiUKtALAvcY3ZyM9XGKAm0YOKlyz+xSCYCRQeSloFaXfQFqg+ppiW+40Qr5JzvpyT09iYula4uwEdvIOJjQTYOLm9u7AB0om/2AxmGelvhDPSCdevJVzthdqt6V/yADjI+K3DBzSxW6t7UJz9rS5gZqN6ndiaHsXXEKvYjf8N6E3gGj9Iv5kfpymaz84/OfJt2QbkSuPB3brA6lhQGA+gJMLOkNhYE7HQeCobzaBgqncsroqyNCnejSK8NHxOpS4CUXvud9+4n1YEVPoqIf1EomCJjyJa1ZKER/cBG3aowkd7FkPIQID+UmCynOuGLpllY+/zHlKuHeCLQFhmL7TkQIxoeNjMdHi8Dnfl2gQa6/+VHqAMMydh0pcxnzarDAJnTYkIUzqNXmph84nDwt32IPgHC8Ux5+p4L0u+IiK1A/Iv+kqL79vp2UamZe4/XcJzZ0LJr2n7u6b4u2K1pu9CaQK4UEgcivuN0bWsvXoCm0dmG3jqlS+seil0KQSO89VjMVM2KeZ3p8s0AQ10fuYLLyXl3VY5/q1apZVGF28a8b1jJkkXY0R2uKv/2bc39HeLwsq9u20ncb3QGsDulxOTDneO2KILBYCaNyoOw+WXB5t6Z1/t5O0bnGyxVxpivmQcLN8oopRtFKC/p0iI+E2F9jOtJsvWP/ouQriZpWIvoZjiC3/PT8UxPY3z8P744JPrxdKO1vJaAvFI5csPUyBgosoxpjObj4F0tReuoMtnUYPqNRbUYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_018HagNMm88VGLu9FuEkJ55G",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "anyway",
+       "item": 2,
+       "device": "LG TV",
+       "kind": "move_timer",
+       "timer": 2,
+       "time": "23:30",
+       "off": "",
+       "on": "",
+       "days": [],
+       "reason": "",
+       "message": "The LG TV's late switch-off moves from 01:00 to 23:30 as planned, even though it will be cut short on 3 of the last 14 days. Late nights are fine with you, so this goes ahead."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "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",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "It would save about 0.06 kWh. The TV was in use at the new 23:30 off time on 3 of the last 14 days, so it would get in the way on those days. Do you want to go ahead with that change?",
+      "type": "text"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSnwgKEAgUGAI4AUIIdGhpbmtpbmcSDEYr31mDtT9dZ6kBIxoMggAYO/6sujiZVgfAIjCPSHyhXwb0DaZMQoUwo6wNghT+L8MpcEUVsk0Sazx+zytoDiLNwkDErC22L63B/PIqvAdhW1DGp7vWwa2khkLkpqjYfNUZ2vpYIgkJ2wpunLjl+jeI6IGipdFgCEAQsfstxnnY/hfqkJfUimqdMUET63lN/rRnSr04HfbOBxIL4fevbqsG0wcI5/MuaauTl+DWelft906FN2k0y8/XiAQ0z/lQNlBB8fiV8emrBbRVNR7Vmm0nns3Omf+SdUAji9ksVf8eZucSRVVYl89A3Ry4rZX0mRXstUPZpmLNyB/osj93z7GKdgyhWxI8iozIpdKPh4w3wzX2T1tupYIL0rQdHElk4cqdk4KVzLMxDzyzywUviRfQI+kd8W9CVt836j7itxBumgCfYc4bFrAcA9zuoyTPY0q8/WBn1TgnLK07CXiBaPvoYAF/0pwf0NFw/Mz2gINO05whIl/PrpTBXxS0rhlms/BOuPp+h2yizj2tbi5sgELhPMRqOclQj3CEkV/BiVJkGENARK/YOjM99ZHr5H91HZ04xXqfvhopi70cA9IPSZAfpavQsiNlVQ08RZ2rluO6tvzsfTeDHgFwrkO5uUzCs+ohec4xhrhR326eBZZ4ZoOm8afLSEU7rE3GJcGF81LEUxBZjKHGe1YVTws1BOG7FpKJOuKFxkXe/afM6oIwag7qQCc16jjpPInzxYAPM/fhKVEr5kKI+PsEefI26GWOd/yshjOZiv5d521ESI0aC5o1PEgV5X5Xsnp8CviM/ytT8CR82voaCJ/vbQmrdkCalkeqp266eKXJpC/XLv73Ti4cE7GYuPoIpYp7ff30MKI0GBB18l7wJGMcqQXj9YOtptSnBZgF4HljdnL/11W03xJ61FGTAHvKd3Ss/5EInEOIDgUlLSvrxhM4kan9NxkXBhxXWyeMwdCmUK4mwJv7NM1OlqcaHOWpHOcm0XSVgHMeCZnMl9KULMkyTRU6vFFLl0vKkMb+Wx4xKY8XJLJ9bbe6f+6XzAV3/jiTG8xLzBUvXmi5lVK3G7KXiBIKftsb2e5hnn9LrYw1L3iDDEQTqKkE4mmuBbzted3oP736zRAGEMVX8hQHlWIhCl7uwAypbIvQ5OBi6gI8aAd69DkEG7mwkS95Ef938T5GkwyoVP2OsitClXV5kQydxW3IJlBrkQiFMV16s/Sj2an978Wm9rdwWjd5EIO+NGRh7NmMKJxi+M0dDzf2MQhWqrmgA3iJiFiGAfKuuyhajpJltFyn3Wu5I0Czg0FZQ/MSWuGp76SCyH/QPwduWBOdPrtAp24Qc0G0TB2ZVT0Cb0p6wXWmVG43T8MyaYARlSFCkRgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01BEvhWnJX2CLGfuer9gSux3",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "anyway",
+       "item": 2,
+       "device": "LG TV",
+       "kind": "move_timer",
+       "timer": 2,
+       "time": "23:30",
+       "off": "",
+       "on": "",
+       "days": [],
+       "reason": "",
+       "message": "The LG TV's off time moves from 01:00 to 23:30 every day, as you asked. It may cut the TV off on the 3 days it was in use at that time."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ]
+  ]
+ },
+ "EV-35": {
+  "key": "4d1f893354196869",
+  "model": "claude-sonnet-5-5",
+  "samples": [
+   [
+    [
+     {
+      "text": "Item 3, the 3D printer, saves the most. It would save about 3.55 kWh, because the printer idles and uses power when you aren't using it. The other two items save about 0.08 kWh (PeoTV box) and 0.06 kWh (LG TV).\n\nDo you often leave the printer on when you're not printing?",
+      "type": "text"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "text": "Item 3, the 3D printer, saves the most. It would save about 3.55 kWh, because it idles when you're not using it. The other two save about 0.08 kWh (the PeoTV box) and about 0.06 kWh (the LG TV).\n\nDo you often leave the printer on between prints?",
+      "type": "text"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "text": "Item 3, the 3D printer, saves the most. It's about 3.55 kWh, because it idles when nobody is using it. The other two save about 0.08 kWh (PeoTV box) and 0.06 kWh (LG TV).\n\nDo you want to talk through the printer? If so, how often do you use it, and is it usually in the same part of the day?",
+      "type": "text"
+     }
+    ]
+   ]
+  ]
  }
 }

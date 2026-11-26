@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from agentc import agent, cli, evals, setup
+from agentc import agent, cli, evals, review, setup
 from agentc.house import Card
 
 OFF = [{"label": "Switch off", "does": "switch_off_now"},
@@ -38,6 +38,8 @@ class Wise:
                 1000,
                 100,
             )
+        if any(t["name"] == "try_change" for t in tools):  # the review chat: by what is said
+            return review_reply(messages[-1]["content"]), "tool_use", 1000, 100
         if any(t["name"] == "propose_card" for t in tools):  # the setup chat: usual, then a card
             read = any(isinstance(m["content"], list) for m in messages)  # a tool result came
             name, args = ("propose_card", TV_CARD) if read else ("usual", USUAL)
@@ -49,6 +51,22 @@ class Wise:
             )
         desk = messages[0]["content"].startswith("Signal: Desk 2:")
         return (decide("ask", OFF) if desk else decide("ignore")), "tool_use", 1000, 100
+
+
+def review_reply(said):
+    """The review chat's right answers: keep for weekends, anyway when told, else explain."""
+    base = {"item": 2, "device": "LG TV", "kind": "move_timer", "timer": 2, "time": "",
+            "off": "", "on": "", "days": [], "reason": "",
+            "message": "Here it is."}  # fmt: skip
+    if "Leave it" in said:
+        args = {**base, "action": "keep", "reason": "We watch TV late at weekends."}
+    elif "anyway" in said:
+        args = {**base, "action": "anyway"}
+    else:
+        text = {"weekends": "Shall I leave it as it is?", "cut": "Late TV on 3 of 14 days.",
+                "saves the most": "The 3D printer: about 3.55 kWh."}  # fmt: skip
+        return [{"type": "text", "text": next(v for k, v in text.items() if k in said)}]
+    return [{"type": "tool_use", "id": "r1", "name": "propose", "input": args}]
 
 
 USUAL = {"device": "LG TV", "day": "Monday", "start": "18:00", "end": "23:00"}
@@ -87,7 +105,7 @@ def test_ev22_is_the_tv_on_at_midday():
 
 def test_a_model_that_decides_well_passes(tmp_path):
     scores = evals.run(Wise(), samples=2, path=tmp_path / "r.json")
-    assert [s.passed for s in scores] == [True] * 7
+    assert [s.passed for s in scores] == [True] * 10
     assert scores[0].line() == "EV-01: right 2/2, actions ask 2, 1.0 steps each, USD 0.0003: PASS"
 
 
@@ -166,7 +184,7 @@ def test_a_stale_recording_is_reported(recorded, capsys, monkeypatch):
 
 
 def test_the_recorded_live_steps_still_pass():  # free on every commit
-    assert [s.passed for s in evals.run(None)] == [True] * 7
+    assert [s.passed for s in evals.run(None)] == [True] * 10
 
 
 def test_ev13_is_a_new_tv_on_real_readings():
@@ -204,3 +222,15 @@ def test_a_shortfall_check_needs_a_shortfall_and_the_exact_number():
     says = evals._says_shortfall  # pyright: ignore[reportPrivateUsage]
     assert says(good) and not says(replace(good, shortfall="", summary="Short by ?"))
     assert not says(replace(good, summary="Short by 10.17 kgCO2e."))
+
+
+@pytest.mark.parametrize(
+    ("case", "draft", "said", "right"),
+    [(0, review.Draft("keep", 2, "Plug-3", "LG TV", None, "x", "", "Late at weekends."),
+      ["Shall I?"], False),  # drafted before the owner decided
+     (1, review.Draft("anyway", 2, "Plug-3", "LG TV", evals.TV_MOVE, "x", "s"),
+      ["It saves a little.", "Here."], False),  # never said the days
+     (2, None, ["The 3D printer saves the most."], False)],  # no number
+)  # fmt: skip
+def test_the_review_cases_need_the_right_moment_and_words(case, draft, said, right):
+    assert evals.REVIEWS[case].right(draft, said) is right

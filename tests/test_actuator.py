@@ -459,3 +459,12 @@ def test_a_device_set_to_none_is_never_put_back_either(home):
     cfg = replace(cfg, devices={"Plug-6": Device("Desk 2", access="none")})
     r = actuator.put_back(app, cfg, site_id=1, plug="Plug-6", write_id=1, old="[]", now=NOW)
     assert r == "Not sent: Desk 2 is never changed (its access is none)." and plug.commands == []
+
+
+def test_a_pair_on_any_days_goes_in_with_its_own_days(home):
+    app, cfg, plug = home
+    r = timer(app, cfg, days="1111100")  # Sunday to Thursday
+    assert r == ("Done: Desk 2 now switches off at 01:30, on at 07:00, Sunday to Thursday"
+                 " (timers 9 and 10).")  # fmt: skip
+    assert plug.timers[9]["Days"] == plug.timers[10]["Days"] == "1111100"
+    assert timer(app, cfg, days="0000000").endswith("needs HH:MM times and known days.")

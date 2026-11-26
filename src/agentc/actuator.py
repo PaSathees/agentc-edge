@@ -27,7 +27,7 @@ from zoneinfo import ZoneInfo
 from agentc import config, house, store
 from agentc.checks import breaks
 from agentc.config import Config, Device
-from agentc.devices.base import DAY_SETS, Plug, PlugError, Timer, days_words
+from agentc.devices.base import Plug, PlugError, Timer, day_bits, days_words
 from agentc.devices.tasmota import TasmotaPlug
 
 WRITES_A_DAY = 4  # a plug switching more than this in a day is a bug, not a plan
@@ -69,10 +69,10 @@ def set_timer(
     why: str, now: datetime, connect: Connect = TasmotaPlug,
 ) -> str:  # fmt: skip
     """Add a timer pair for the owner: off at `off`, on again at `on`, on `days` (a DAY_SETS
-    key). Written in two free slots the device allows; the owner's own slots are never
-    touched. Returns what happened, in words for the owner."""
+    name, or 7 chars Sunday first). Written in two free slots the device allows; the owner's
+    own slots are never touched. Returns what happened, in words for the owner."""
     device = config.device(cfg, plug)
-    when = f"off at {off}, on at {on}, {days_words(DAY_SETS.get(days, '0000000'))}"
+    when = f"off at {off}, on at {on}, {days_words(day_bits(days) or '0000000')}"
     act = f"set {device.name}'s timer ({when})"
     detail = {"does": "set_timer", "why": why, "off": off, "on": on, "days": days}
     if stop := _checks(app, cfg, site_id, plug, act, detail, now, off=True, timer=(off, on, days)):
@@ -89,7 +89,7 @@ def set_timer(
                    " page first" if not found.enabled else
                    f"it has no 2 free timer slots of {_slots(device)}")  # fmt: skip
         return _refused(app, site_id, plug, detail, now, f"Not sent: {device.name}: {why_not}.")
-    bits = DAY_SETS[days]
+    bits = day_bits(days) or ""  # checked in _rules
     pair = (
         Timer(free[0], True, 0, on, 0, bits, True, 1, 1),  # the "on" timer first: a half
         Timer(free[1], True, 0, off, 0, bits, True, 1, 0),
@@ -258,7 +258,7 @@ def _rules(device: Device, card: house.Card, *, off: bool,
     if timer is None:
         return ""
     t_off, t_on, days = timer
-    if not (HHMM.match(t_off) and HHMM.match(t_on)) or days not in DAY_SETS:
+    if not (HHMM.match(t_off) and HHMM.match(t_on)) or not day_bits(days):
         return f"Not sent: {name}'s timer needs HH:MM times and known days."
     if hard := [r for r in device.rules if r.hard and breaks(t_off, r)]:
         return f"Not sent: {hard[0].text}."

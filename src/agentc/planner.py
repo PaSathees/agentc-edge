@@ -21,7 +21,7 @@ from agentc import learn, readings
 from agentc.agent_tools import worth
 from agentc.checks import breaks
 from agentc.config import Config, Device
-from agentc.devices.base import DAY_SETS, Timer, days_words, describe
+from agentc.devices.base import DAY_SETS, Timer, day_bits, days_words, describe
 from agentc.house import Card, runs_always
 
 DAYS = 14  # days of readings a change is replayed on
@@ -41,7 +41,8 @@ class Change:
 
     move_timer: timer `slot` to `time`, same days and action; `from_time` is its time when
     planned, so a later hand change is never written over. add_pair: off at `off`, on at
-    `on`, on `days` (a DAY_SETS key), in free slots the device allows. remove_timer: timer
+    `on`, on `days` (a DAY_SETS name or 7 chars, Sunday first), in free slots the device
+    allows. remove_timer: timer
     `slot` is cleared."""
 
     kind: str
@@ -52,14 +53,20 @@ class Change:
     days: str | None = None
     from_time: str | None = None
 
+    def __post_init__(self) -> None:
+        """One spelling for days, so a Not now matches however they came: a set's name
+        when one fits ("0111110" is kept as "weekdays")."""
+        named = next((n for n, b in DAY_SETS.items() if b == self.days), None)
+        if named:
+            object.__setattr__(self, "days", named)
+
     def to_json(self) -> str:
         return json.dumps({k: v for k, v in asdict(self).items() if v is not None},
                           sort_keys=True)  # fmt: skip
 
     def apply(self, timers: Sequence[Timer]) -> list[Timer]:
         """The plug's timers after this change. Slot 0 marks a pair's not-yet-chosen slots."""
-        if self.kind == "add_pair" and self.off and self.on and self.days in DAY_SETS:
-            bits = DAY_SETS[self.days]
+        if self.kind == "add_pair" and self.off and self.on and (bits := day_bits(self.days or "")):
             return [*timers, Timer(0, True, 0, self.on, 0, bits, True, 1, 1),
                     Timer(0, True, 0, self.off, 0, bits, True, 1, 0)]  # fmt: skip
         out = []
@@ -214,8 +221,9 @@ def _shape(change: Change, timers: Sequence[Timer], device: Device) -> str | Non
             if change.time == t.time:
                 return "format: the new time is the same as now"
         return None
-    if not (_hhmm(change.off) and _hhmm(change.on)) or change.days not in DAY_SETS:
-        return f"format: a pair needs off and on as HH:MM and days from {', '.join(DAY_SETS)}"
+    if not (_hhmm(change.off) and _hhmm(change.on)) or not day_bits(change.days or ""):
+        return (f"format: a pair needs off and on as HH:MM, and days: {', '.join(DAY_SETS)}"
+                " or 7 of 0 and 1, Sunday first")  # fmt: skip
     if change.off == change.on:
         return "format: off and on are the same time"
     free = [s for s in device.slots if s not in by_slot]
@@ -238,7 +246,7 @@ def before_after(change: Change, timers: Sequence[Timer]) -> tuple[str, str]:
     """The change in the owner's words: what it is now, and what it will be."""
     by_slot = {t.slot: t for t in timers}
     if change.kind == "add_pair":
-        days = days_words(DAY_SETS[change.days or "every_day"])
+        days = days_words(day_bits(change.days or "") or "1111111")
         return "No timer", f"Off at {change.off}, on at {change.on}, {days}"
     t = by_slot[change.slot or 0]
     if change.kind == "remove_timer":

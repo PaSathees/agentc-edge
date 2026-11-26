@@ -95,18 +95,32 @@ def describe(t: Timer) -> str:
     return ", ".join(parts)
 
 
+def day_bits(days: str) -> str | None:
+    """A timer's days as Tasmota's 7 chars, Sunday first: a DAY_SETS name, or the 7 chars
+    themselves ("1111100": Sunday to Thursday). None if neither, or no day at all."""
+    bits = DAY_SETS.get(days, days)
+    return bits if len(bits) == 7 and set(bits) <= {"0", "1"} and "1" in bits else None  # noqa: PLR2004
+
+
 def days_words(days: str) -> str:
-    """Tasmota's 7 chars, Sunday first ('0111110') -> 'Monday to Friday'."""
+    """Tasmota's 7 chars, Sunday first ('0111110') -> 'Monday to Friday'. A run of 3 or more
+    days may go round the week's end: '1111100' -> 'Sunday to Thursday'. A set's name works
+    too ('weekdays'); anything else is said as it is."""
+    days = DAY_SETS.get(days, days)
+    if len(days) != 7:  # noqa: PLR2004
+        return days
     on_sun_first = [c not in "0-" for c in days]
     # Re-index Monday first: Monday is position 1 in Tasmota's string, Sunday wraps to 6
     on = [i for i in range(7) if on_sun_first[(i + 1) % 7]]
-    if len(on) == 7:
+    if len(on) == 7:  # noqa: PLR2004
         return "every day"
     if on == [5, 6]:
         return "weekends"
     if not on:
         return "no days"
-    if len(on) >= 3 and on == list(range(on[0], on[-1] + 1)):
-        return f"{WEEK[on[0]]} to {WEEK[on[-1]]}"
+    if len(on) >= 3:  # noqa: PLR2004
+        for start in on:  # the day the run starts: the one whose day before is off
+            if (start - 1) % 7 not in on and {(start + k) % 7 for k in range(len(on))} == set(on):
+                return f"{WEEK[start]} to {WEEK[(start + len(on) - 1) % 7]}"
     names = [WEEK[i] for i in on]
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
