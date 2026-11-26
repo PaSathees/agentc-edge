@@ -4,7 +4,7 @@
 
 Helps a small site meet a monthly carbon goal, starting with a home. The site's carbon comes from the electricity it uses, so plain code watches every smart plug all the time. When something looks off, an AI agent takes a look with what it knows about the home's devices and habits, and asks the owner a short question while it is happening. A person approves every change before it reaches a device.
 
-> Status: in development, running in one home. It watches and asks; it switches a plug only after the owner's tap, and only a device the owner set to `write` (shadow mode, on by default, records instead). Built in the open, step by step (`docs/`). Words and codes are explained in the [glossary](docs/glossary.md).
+> Status: in development, running in one home. It watches and asks, plans each week towards the carbon goal, and answers questions; it changes a plug only after the owner's tap, and only a device the owner set to `write` (shadow mode, on by default, records instead). Built in the open, step by step (`docs/`). Words and codes are explained in the [glossary](docs/glossary.md).
 
 ## How it works
 
@@ -14,7 +14,8 @@ flowchart LR
   DB --> S["Signals<br/>code"]
   S -- "signal" --> A["Housemate<br/>AI agent"]
   A -- "question" --> O["Your phone<br/>and inbox"]
-  O -. "approved change (Phase 4)" .-> X["Actuator<br/>code"] -.-> P
+  DB --> W["Planner<br/>weekly, to the goal"] -- "plan" --> O
+  O -- "your tap" --> X["Actuator<br/>code"] --> P
 ```
 
 - **AI only when needed:** plain code checks the readings every few minutes. The AI runs only when it finds something, so a quiet day costs nothing.
@@ -42,6 +43,8 @@ flowchart LR
 | `agentc learn` | Learns each plug's usual week and standby level now (the jobs do it daily) |
 | `agentc policy [Plug-1]` | Every threshold: its value, where it came from, and why |
 | Devices page (`/setup` in the inbox) | Set up each device by chatting: it reads the plug, asks a few questions, shows a card; only your Save writes it. Talk instead of type on https |
+| Plan tab (`/plan`) | The week's plan to the monthly goal: Do it, Done or Not now on each change, a day's undo for timer changes, and a chat to talk each item or the whole plan over |
+| Ask tab (`/ask`) | Ask about the home's electricity; the Assistant answers from the readings and drafts a habit, a timer change or a switch off, done only on your tap |
 | `agentc house` | Shows what the system knows about each device: its card, timers and habits, as the agent will read it |
 | `agentc house Plug-6 kind=computer room=study` | Changes a device's card. Keys: kind, room (where it is), what, notes, must_run, why.N (why timer N is set) |
 
@@ -87,7 +90,7 @@ Built in six phases. Each ends with tests, checks and a merged pull request.
 | 2. Foundation fixes | Logger heartbeat, honest "lost contact" alerts, AI errors that never stop other jobs | done |
 | 3. Housemate v1 | Device cards from a setup chat, new signals, the agent with tools, one-tap questions; shadow mode | done; shadow mode counts run to December |
 | 4. Actions | A login, switch off now with undo, timer writes all or nothing | done: first real write and undo from the phone on 2026-11-25 |
-| 5. Chat and Planner | Separate agents on the same house model | |
+| 5. Chat and Planner | A monthly carbon goal; a weekly Planner (CP-SAT picks, AI explains) with a Plan tab; a review chat; an Assistant on an Ask tab | done 2026-11-26 |
 | 6. Review and full demo | A walkthrough of the whole system, then the demo on a real home | |
 
 ## How it is built
