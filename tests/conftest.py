@@ -16,3 +16,13 @@ def plug():
     p.start()
     yield p
     p.stop()
+
+
+@pytest.fixture
+def quiet_jobs(monkeypatch):
+    """The slow job passes (watch, look, learn, change check) do nothing: for tests of when
+    another job runs, not of what these do."""
+    from agentc import jobs  # noqa: PLC0415
+
+    for name in ("watch_pass", "look_pass", "learn_pass", "change_check", "timer_check"):
+        monkeypatch.setattr(jobs, name, lambda *a, **k: [])  # noqa: ARG005
