@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from agentc import __version__, actuator, config, jobs, notify, store
 from agentc.config import Config
 from agentc.notify import Message, NotSent, Publish
-from agentc.web import chat, login, plan, review
+from agentc.web import assistant, chat, login, plan, review
 from agentc.web.deps import (  # noqa: F401 (re-exported: tests override these)
     WEB,
     Cfg,
@@ -40,6 +40,7 @@ app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
 app.add_middleware(login.HostCheck)
 app.include_router(login.router)
 app.include_router(chat.router)
+app.include_router(assistant.router)
 app.include_router(review.router)  # before plan: /plan/talk/... must not match /plan/{id}/...
 app.include_router(plan.router)
 

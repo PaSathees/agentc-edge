@@ -298,5 +298,5 @@ def test_a_pair_on_any_days_can_be_tried_and_drafted(house):
     bad = review.try_change(change(kind="add_pair", timer=0, off="23:30", on="07:00", days=()),
                             t, review.Scope(1, None))  # fmt: skip
     assert bad == "Error: days: one or more day names, Monday to Sunday"
-    every = review._days(list(reversed(WEEK)))  # pyright: ignore[reportPrivateUsage]
-    assert (every, review._days(["Saturday", "Sunday"])) == ("every_day", "weekends")  # pyright: ignore[reportPrivateUsage]
+    every = review.days(list(reversed(WEEK)))  # pyright: ignore[reportPrivateUsage]
+    assert (every, review.days(["Saturday", "Sunday"])) == ("every_day", "weekends")  # pyright: ignore[reportPrivateUsage]

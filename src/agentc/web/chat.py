@@ -8,7 +8,7 @@ progress instead of starting another one, so no reply is paid for twice.
 
 import queue
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from html import escape
@@ -292,7 +292,7 @@ def _answer(cfg: Config, site: int, plug: str, chat: int, talk: list[tuple[str, 
     db = energy = None
     if not AT_ONCE.acquire(blocking=False):
         run.put(("done", ("Busy with another reply. Send it again in a moment.", None)))
-        _end(chat, run)
+        end(chat, run)
         return
     try:
         if model is None:
@@ -324,10 +324,10 @@ def _answer(cfg: Config, site: int, plug: str, chat: int, talk: list[tuple[str, 
         for conn in (db, energy):
             if conn is not None:
                 conn.close()
-        _end(chat, run)
+        end(chat, run)
 
 
-def _end(chat: int, run: Run) -> None:
+def end(chat: int, run: Run) -> None:
     with RUNS_LOCK:
         if RUNS.get(chat) is run:
             del RUNS[chat]
@@ -374,3 +374,70 @@ def _event(kind: str, data: str) -> str:
     """One SSE event. A carriage return would end a line early, so it is dropped."""
     lines = "".join(f"data: {line}\n" for line in data.replace("\r", "").split("\n"))
     return f"event: {kind}\n{lines}\n"
+
+
+Work = Callable[[Any, "llm.Llm", Sequence[tuple[str, str]], Callable[[str, str], None]], Any]
+
+
+def answer_with(cfg: Config, site: int, chat_id: int, now: datetime, model: StepSend | None,
+                run: Run, work: Work) -> None:  # fmt: skip
+    """Run one reply of the review chat or the Assistant in its own thread, with its own
+    database connections. work(tools, llm, earlier reads, on_event) gives a talk.Reply. The
+    reply, its reads and its draft are saved; a failure is said, not saved, so sending again
+    retries it."""
+    db = energy = None
+    if not AT_ONCE.acquire(blocking=False):
+        run.put(("done", ("Busy with another reply. Send it again in a moment.", None)))
+        end(chat_id, run)
+        return
+    try:
+        if model is None:
+            raise LookupError("No ANTHROPIC_API_KEY in .env: the chat needs the model.")
+        db, energy = store.open_app(cfg.app_db), readings.connect(cfg.energy_db)
+        brain = llm.Llm(db, site, cfg.tz, cfg.tiers, cfg.budget, model)
+        found = store.chat(db, chat_id=chat_id)
+        tools = planner_tools(Tools(db, energy, cfg, site, now))
+        r = work(tools, brain, found.reads if found else (),
+                 lambda kind, text: run.put((kind, text)))  # fmt: skip
+        store.add_reads(db, chat_id=chat_id, reads=r.reads)
+        store.add_turn(db, chat_id=chat_id, site_id=site, role="agent", text=r.text, now=now)
+        store.set_draft(db, chat_id=chat_id, draft=r.draft.to_json() if r.draft else None)
+        run.put(("done", (r.text, r.draft)))
+    except OverBudget as err:
+        why = ("This month's model budget is used up." if "month" in str(err)
+               else "That reply hit its cost cap. Try a shorter message.")  # fmt: skip
+        run.put(("done", (why, None)))
+    except Unreachable:
+        run.put(("done", ("I can't reach the model now. Send it again later.", None)))
+    except Exception as err:  # e.g. no key: say it, keep the chat
+        run.put(("done", (f"Something went wrong: {err}", None)))
+    finally:
+        AT_ONCE.release()
+        for conn in (db, energy):
+            if conn is not None:
+                conn.close()
+        end(chat_id, run)
+
+
+def planner_tools(base: Tools) -> Any:  # noqa: ANN401
+    """The Planner's tools for this week, which both chats read with."""
+    from agentc import review  # noqa: PLC0415 (review imports the planner: only when needed)
+
+    return review.tools_for(base)
+
+
+def start_reply(chat_id: int, talk: list[tuple[str, str]], view: dict[str, Any],
+                begin: Callable[[Run], None]) -> StreamingResponse:  # fmt: skip
+    """The reply stream for a chat: the last answer again if there is one (a reload), else
+    one run per chat, joined by every stream that asks. begin(run) starts its thread."""
+    if talk[-1][0] == "agent":
+        return stream(iter([("done", (talk[-1][1], view["draft"]))]), view)
+    with RUNS_LOCK:
+        run, started = RUNS.get(chat_id), False
+        if run is None:
+            run, started = Run(), True
+            RUNS[chat_id] = run
+    listen = run.listen()
+    if started:
+        begin(run)
+    return stream(drain(listen), view)

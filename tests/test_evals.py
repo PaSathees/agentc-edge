@@ -38,6 +38,8 @@ class Wise:
                 1000,
                 100,
             )
+        if any(t["name"] == "month" for t in tools):  # the Assistant: by what is asked
+            return ask_reply(messages[0]["content"], messages), "tool_use", 1000, 100
         if any(t["name"] == "try_change" for t in tools):  # the review chat: by what is said
             return review_reply(messages[-1]["content"]), "tool_use", 1000, 100
         if any(t["name"] == "propose_card" for t in tools):  # the setup chat: usual, then a card
@@ -51,6 +53,26 @@ class Wise:
             )
         desk = messages[0]["content"].startswith("Signal: Desk 2:")
         return (decide("ask", OFF) if desk else decide("ignore")), "tool_use", 1000, 100
+
+
+def ask_reply(said, messages):
+    """The Assistant's right answers: a Friday habit, Desk 2, the box switched off."""
+    said = said.split("The owner says:")[-1]  # not the brief, which names every device
+    base = {"device": "LG TV", "kind": "", "timer": 0, "time": "", "off": "", "on": "",
+            "days": [], "start": "", "end": "", "text": "", "message": "Here it is."}  # fmt: skip
+    if "Fridays" in said:
+        args = {**base, "action": "habit", "days": ["Friday"], "start": "19:00", "end": "01:00",
+                "text": "Late TV"}  # fmt: skip
+    elif "PeoTV" in said:
+        args = {**base, "action": "switch_off", "device": "PeoTV box"}
+    else:
+        read = any(isinstance(m["content"], list) for m in messages)
+        return ([{"type": "text", "text": "Desk 2 used the most."}] if read else
+                [{"type": "tool_use", "id": "c1", "name": "cost", "input": COST}])  # fmt: skip
+    return [{"type": "tool_use", "id": "a1", "name": "propose", "input": args}]
+
+
+COST = {"device": "Desk 2", "start": "2026-11-09 00:00", "end": "2026-11-15 02:30"}
 
 
 def review_reply(said):
@@ -105,7 +127,7 @@ def test_ev22_is_the_tv_on_at_midday():
 
 def test_a_model_that_decides_well_passes(tmp_path):
     scores = evals.run(Wise(), samples=2, path=tmp_path / "r.json")
-    assert [s.passed for s in scores] == [True] * 10
+    assert [s.passed for s in scores] == [True] * 13
     assert scores[0].line() == "EV-01: right 2/2, actions ask 2, 1.0 steps each, USD 0.0003: PASS"
 
 
@@ -184,7 +206,7 @@ def test_a_stale_recording_is_reported(recorded, capsys, monkeypatch):
 
 
 def test_the_recorded_live_steps_still_pass():  # free on every commit
-    assert [s.passed for s in evals.run(None)] == [True] * 10
+    assert [s.passed for s in evals.run(None)] == [True] * 13
 
 
 def test_ev13_is_a_new_tv_on_real_readings():
@@ -234,3 +256,19 @@ def test_a_shortfall_check_needs_a_shortfall_and_the_exact_number():
 )  # fmt: skip
 def test_the_review_cases_need_the_right_moment_and_words(case, draft, said, right):
     assert evals.REVIEWS[case].right(draft, said) is right
+
+
+def test_the_ask_cases_need_the_right_window_and_answer():
+    from agentc import assistant, house  # noqa: PLC0415
+
+    def habit(days, start, end):
+        return assistant.Draft("habit", "Plug-3", "LG TV", "x",
+                               habit=house.Habit("Late TV", days, start, end, "chat"))  # fmt: skip
+
+    friday, most = evals.ASKS[0].right, evals.ASKS[1].right
+    assert friday(habit("0000010", "19:00", "01:00"), "", [])
+    assert not friday(habit("0000010", "00:00", "01:00"), "", [])  # Thursday night
+    assert not friday(habit("1111111", "19:00", "01:00"), "", [])  # every day
+    assert most(None, "Desk 2 used the most; then the LG TV.", ["cost"])
+    assert not most(None, "The LG TV used the most; Desk 2 used less.", ["cost"])
+    assert not most(None, "Desk 2 used the most.", [])  # never worked it out

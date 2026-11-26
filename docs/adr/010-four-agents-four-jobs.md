@@ -31,4 +31,4 @@ The housemate no longer proposes and never offers a timer. Anything about the lo
 - At most one weekly message for plans, plus questions only for waste happening now.
 - The housemate is simpler to test: its evals score one job.
 - Timer writes from a tap on a question are no longer offered. The Actuator keeps its timer code for the Planner.
-- In 5d, decide whether the setup agent stays separate or becomes one mode of the Assistant.
+- Decided in 5d (2026-11-26): the setup agent stays separate. It works, it has its own eval (EV-13), and the chat page is already shared. Look again in Phase 6.
