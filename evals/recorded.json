@@ -1075,68 +1075,41 @@
   ]
  },
  "EV-30": {
-  "key": "afcef671323de6c3",
+  "key": "a1309de9c3fa4923",
   "model": "claude-sonnet-5-5",
   "samples": [
    [
     [
      {
-      "id": "toolu_018SYeTrtVT2KCfMk1UELZjZ",
+      "id": "toolu_01UEm6z2mkkdDkYCFx4YBtZa",
       "caller": {
        "type": "direct"
       },
       "input": {},
       "name": "week_notes",
       "type": "tool_use"
-     },
-     {
-      "id": "toolu_01WFvDJPwVsMkiupYC37HnwH",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "3D printer"
-      },
-      "name": "device",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_015vkSc3PBG5Bq7gcL2zpraf",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "PeoTV box"
-      },
-      "name": "device",
-      "type": "tool_use"
      }
     ],
     [
      {
-      "signature": "CAQSpAYKEAgUGAI4AUIIdGhpbmtpbmcSDLrUwBGW+oEgr+u78xoMw6I2oUdeGrKsPDmIIjBiiUTeyK1TyaRHU513kRySsX+txI+3xv7HR40P7tOPOYJi4cwjhAZVatDzupJEZVMqwQUwLD0JDVtHtC3p/ai77y5wu30J+HdQUfUEBhtrG8+Y18rWaKRIgByObw5qfZu+khD2lNWQcq9Nq7guE0Oa+P3wtyJ1/Vipk20Vz1sjTPzuUcIGy/vNSELdeURQ20eMhd2GT/O8rmeR7+jF5rfA30/OGK5Xi2M+skHEWNuwia2qbmo8+QaPCf1eQMgdoXcHyXoyUmaVeq5MvXbvcieM89J6MkscY5U9wWzh4kqodzyiHGarLw8+d41VNNh/lEpL2Q9bE85uoYdH1bFoi9/wPlYG/bRVagF+h1GtOzDI6vrANwIrzVDfXTM1HrOOSBUu99IP23YPcGMOZlf0sOBEMVbdu3IHaFbB9j6DVZXpridx3pjAGwcn8ELpU4cxMMNdE1+i6KnG7GrW3VmjzD08OtPtJCDWQl9TuHoPUncQGV3v+uXkydvhEFJZI0JAYEPTMp64hsrdcWOGP5ssG9hw5PVKbUUrU+jOQ0nYyBOmlKJ1GxyeP5Luj6xZY9Uj8CScTjvlkqr5/jUqA5xekxOmxrojpf2nCFJYm1yF5lZcOddh6vCMmoLE7zm8fTYbVQ01TF3OE43rXWtNfqWtITQYYo2sotl1mPfK0VNd6gmteIyDHg1cnQyWTDP7osXc4IDgQPobK1l91d0gaDMsxG/h7IroGYRMyoRdYX+W3BB8UvekAKb3ZjD9Ef05ZtQ57olikyLkfusq/TIGZ8jOoWlRGpDSCu16PNmYhmUzg6iUQW4bzoEB0GT7pj3YUErguNQkfnUmNB38vkQ1QI4uDFJ30WLThicgo/8eFDxRHHDurARjbr38qm66dEp1COc4K1lbaZtiuBWial9vHVdGaAVlDYncTKfsYKCco9sJu5dlIG2K5If28AlBor/ZfyLBDLFTLXslmfU2Vw758ETxsN3BzirKosLM99R4i2lksnWW2qz8CXUYAQ==",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_0188piLvN3Dgwhs3Tvmj7fob",
+      "id": "toolu_01LSerbzDMfQXEqz5vU1YiTz",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "November is at 2.0 of 3.7 kgCO2e so far and is heading for 4.4 kgCO2e by 30 Nov, which is 0.67 over. These three changes are the smallest set that closes the gap.",
+       "summary": "November is heading to 4.4 kgCO2e against your 3.7 goal, 0.67 over. These three changes are meant to close that gap.",
        "items": [
         {
          "id": "c2",
-         "why": "The 3D printer sat idle and drawing power on 13 days, so switch it off at the wall when you are done. That also cuts power to its Raspberry Pi, and you will need to do this by hand because I cannot change its timers."
+         "why": "The 3D printer keeps drawing power while idle, so switching it off at the wall when you are not using it stops that."
         },
         {
          "id": "c5",
-         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and nobody used it in that window on any of the 13 days."
+         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and it was not in use in that window on any of the last 13 days."
         },
         {
          "id": "c7",
-         "why": "The PeoTV box will now turn off at 00:30 instead of 01:00, and nobody used it in that half hour on any of the 13 days."
+         "why": "The PeoTV box will now switch off at 00:30 instead of 01:00, and it was not in use in that half hour on any of the last 13 days."
         }
        ],
        "left_out": []
@@ -1149,7 +1122,7 @@
    [
     [
      {
-      "id": "toolu_01GU4NybZLkxCo3nYvzSStQZ",
+      "id": "toolu_015JGP4S27ze8pwKmE84xQGJ",
       "caller": {
        "type": "direct"
       },
@@ -1158,18 +1131,7 @@
       "type": "tool_use"
      },
      {
-      "id": "toolu_01DHMZ4FiVHxiFs2qgsrnZVM",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "3D printer"
-      },
-      "name": "device",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01JvFDKy4rSsmp956hc8nUCF",
+      "id": "toolu_01MhMCwQqzWmoJYXuNGF5FX8",
       "caller": {
        "type": "direct"
       },
@@ -1178,33 +1140,39 @@
       },
       "name": "device",
       "type": "tool_use"
-     }
-    ],
-    [
-     {
-      "signature": "CAQS1wYKEAgUGAI4AUIIdGhpbmtpbmcSDMvTAJxRBvFTmHb62xoMnanWsk/0i5ULcSPIIjBTZZlyjtFih8w73agRO/KPOakqjU7bGUh7j3uiBmV1oool+eRfSni3lxNyZftMIOsq9AU/opTYYcPmlmo2VQOugBLzwxixl/OHwZhz6vW4jFM171wSO/BYMGcRs5ToGBvDMMiQRfh0WQmCYzlH9TfWDaUEInmqBbUtCcWlvM/JECpkaJdwu4BTYja6JfsFQvkhOcZ3TaOwnIAtoTZBV/AA7BJVHAAF8t7yidNkIG3lpEpx+LtT+sdPWQHm3Ih0fO4R3+D0fD2/yvsRQ7XmozCiuMGAkigjEaTrbGPWDRHPUO1UwCcfEqF3cIy5J66CfCTJHvfW1FYoVH5bBVT8yBkE0kr6CfahADvbjH8vKHAfA0g1bGccw5Jqj36kGrjL4M+WiuR/efJcBmo8UnldIiLgCkFD7DH0umzrA4BuHRf3lVt/BwpWQ/C9Wq/7FvOdc2p15AF5CG9EGd456yFg4PdU+XZuL3hCNFZmOpbOxqasa15VgfJo58BSapKGfxvIqlYs6uA4fDMQfoexTIufae+va7g8iHPLGX3G1TQq2jm8rD1TyDNAbuVnfa7N+EHndzt+c/CAJJgMDLoylg8Rax/k52Pbu9mMr8pzJ8EzJgsgmAAVBNy0ENZLZHlq4Plaqb/ZKRPWAw/nf0z9GtYg32STDQDtK9y7bKxPlNQjUg/6H3boen4Ppr26uRQHvm/00zao1QSlF6aHIKDw4nTBvWAjfUG8/CuDqTQaMBclykEam/2jpsoahU34oCL/sn994h7Ja9Eq65beMwcegEfUMU+gBPVV2iTHmkds2sxUTf+bGy2nJWH9GYD1DLDymMHPYWpS9WAhK7XecuK+Gj7AjIBYutEONRs1eSNTq9An86RH+wBuWhzc3AGFsyMAuEBuh/ggFBCA7zagp1gJJ4gXHmzbH7d/RZ5I02TcI0NPAZGrEybLgOGia84L6dq5vxxYHw9VuU5Xw6e6dBYseEzS4irvNEoq5u/zZTQZCyi3SLKygq7ajhDNBao3NFUcwUv3fgL45islhmclO7JInlXs9WzLJKPBqy79pX+1adfew8HcwrSXPXg49pcYAQ==",
-      "thinking": "",
-      "type": "thinking"
      },
      {
-      "id": "toolu_01KPzHoThZKWDbBYQiA3zfbk",
+      "id": "toolu_01CuYGheuy7iVpXdqMUbjEZV",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "November is at 2.0 of 3.7 kgCO2e and heading for 4.4, which is 0.67 over, so you are off track. These three changes are the smallest set that closes the gap.",
+       "device": "3D printer"
+      },
+      "name": "device",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "id": "toolu_01RFuq2osMF1zK98Kw6eA9RP",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "summary": "November is off track: heading to 4.4 kgCO2e against the 3.7 goal, 0.67 over. These three changes are all ready and should cover the gap.",
        "items": [
         {
          "id": "c2",
-         "why": "You switch the 3D printer and its Raspberry Pi off at the wall when you are not using it, since I cannot change its timers and it drew power while idle on all 13 days."
+         "why": "The 3D printer and its Raspberry Pi kept drawing power while idle over 13 days, so switching them off at the wall when you are done stops that."
         },
         {
          "id": "c5",
-         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and nobody used it in that window on any of the 13 days."
+         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and it was not in use in that time on any of the 13 days."
         },
         {
          "id": "c7",
-         "why": "The PeoTV box now turns off at 00:30 instead of 01:00, and nobody used it in that half hour on any of the 13 days."
+         "why": "The PeoTV box will now switch off at 00:30 instead of 01:00, and it was not in use in that time on any of the 13 days."
         }
        ],
        "left_out": []
@@ -1217,62 +1185,35 @@
    [
     [
      {
-      "id": "toolu_01AWD9YSwtJD1ZuahFNttzjp",
+      "id": "toolu_0128eFdt5Uryvqyw8peqX9Th",
       "caller": {
        "type": "direct"
       },
       "input": {},
       "name": "week_notes",
       "type": "tool_use"
-     },
-     {
-      "id": "toolu_018yo1gQDSotaFAQaEJoVQLL",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "3D printer"
-      },
-      "name": "device",
-      "type": "tool_use"
-     },
-     {
-      "id": "toolu_01BJVhsQsP6DsiqDeKF8uWdE",
-      "caller": {
-       "type": "direct"
-      },
-      "input": {
-       "device": "PeoTV box"
-      },
-      "name": "device",
-      "type": "tool_use"
      }
     ],
     [
      {
-      "signature": "CAQSwwYKEAgUGAI4AUIIdGhpbmtpbmcSDMDP3dqKl4grLRQHNxoMIAqO8i0LUCmhM5w/IjA4GePUVb99HJ9Aqrm7dhXtFd0GmW1oLOV6XsoDMKYJ2VHo0GFmTFNcwrQALV9BuEEq4AWTZeNhzGUUa86IFtGzcbdHtQmhRDF0J/6iGP3bM3Zu4xM0NpogncZwbJVB0GRX3HgLPV8/UjRWJipOT1kO1gmNMyaKtm+OhsI4HVoxWZKFJewc1V9rPgwUDg67fLPcqUM/46xdoFVySIDasEqf8e7c52ZqSWb5MMeHlSoQNn88Y37/qDJDbsAswGUvt6HuAP94z7FSsGqPXBPlfv8q0n+fHIoMj8AFZJ+F9nzmR9J9eKcMwvNTVAnhU+JCxjD9DbMXn+fjIysJWrmyFajmf+OmF6RknVpZguk0BAQ9IvqYw1mpkJUFtpPolrfV2GI/2Rxr43disnozbbXco9DgPKrUYTDH7WlTGr5mSyGtE/1PmbRNX231QH8i8YLYpAHLDqVXJfWwNn1/nTbbzW5w6zcR3M572s3DD7e4vXNzTTkayvktSz7NIEkDIJu2ZN3TWxRTLC04FL+eMkjk2xaqAoa7EpQOe9JNTF/BHw9sj1enFK45WdhLiwatzXzhZSqElgYQ+TY2QUmgc1DcdPjLdIjTXO+pGhDt3gc0iMIE9BzSpHGlcCmIZf/KEnmr1nahGPXue8Ptf563kpOqQvGDpUCYpYx9aY8RTezsLb2E1ubIQZwR5+s1N/E1WcJOWl6PqKF47G9NczKxq5lb1zj3X4+yfgQg3fZqYXWnMudHD5DHUyqq9FJ02H5vo4vBfQYr4NARwy4Cv+wZq7OYKyBVRMYjmvoix0aiXJE+WNLbQPrtEHU3CVrP+r+k9sdA4vJiZcaxhAGDTFYC50L9yDnkIXzxwoNv/XEnu604I4O/pnb3u+IE+yBZHAUTEW/zaGN+z+WfhPMgBKM5ZJlF5Kg2guKF/OPxoFhmA6IHndDT4niBvXywZESA/bkZGMTkiRmiJTD+uUhmMih2t/gMiiCcrZS9gyBWATFJX+vgzgSXEJv2JYJqmCZta+uPULlbm1AbVpvankAgcCpKNC1RVDyHCmYUGAE=",
-      "thinking": "",
-      "type": "thinking"
-     },
-     {
-      "id": "toolu_0164r5LSXvjgY5mNUSo8XGGW",
+      "id": "toolu_01AN8KSky4saJbrASsWneiyS",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "November is at 2.0 of 3.7 kgCO2e and heading to 4.4 by 30 Nov, which is 0.67 over. These three changes are ready, and the printer one does most of the work.",
+       "summary": "November is at 2.0 of 3.7 kgCO2e and heading to 4.4 by 30 Nov, 0.67 over. These three changes are the least disruptive way to close that gap.",
        "items": [
         {
          "id": "c2",
-         "why": "Switch the 3D printer off at the wall when you are not using it, since it drew power while idle on all 13 days; this also turns off the Raspberry Pi plugged in with it."
+         "why": "The 3D printer keeps drawing power while idle, so switching it off at the wall when you are not printing stops that draw."
         },
         {
          "id": "c5",
-         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and nobody used it between those times on any of the 13 days."
+         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and it was not in use in that window on any of the last 13 days."
         },
         {
          "id": "c7",
-         "why": "The PeoTV box will now go off at 00:30 instead of 01:00, and nobody used it in that half hour on any of the 13 days."
+         "why": "The PeoTV box now turns off at 00:30 instead of 01:00, and it was not in use in that half hour on any of the last 13 days."
         }
        ],
        "left_out": []
@@ -1285,13 +1226,13 @@
   ]
  },
  "EV-31": {
-  "key": "26b71b15812d9d7e",
+  "key": "59e506e6694feca9",
   "model": "claude-sonnet-5-5",
   "samples": [
    [
     [
      {
-      "id": "toolu_01LMhb1Z8nDf1RKpQ7bcda2b",
+      "id": "toolu_01MR6nbGgSrimatpWkRTQ6GE",
       "caller": {
        "type": "direct"
       },
@@ -1308,7 +1249,7 @@
    [
     [
      {
-      "id": "toolu_015FVnzWGj97yD5e85Rwa7hU",
+      "id": "toolu_01RsHZW4kgCYddMuB2K1i9tp",
       "caller": {
        "type": "direct"
       },
@@ -1325,12 +1266,12 @@
    [
     [
      {
-      "id": "toolu_01TZqiCPzAcQL77QVXKBiPz2",
+      "id": "toolu_01NtYGMBtCVGQWXA9S6ZE2im",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "November is on track: 2.0 of 50.0 kgCO2e so far, heading to 4.4 kgCO2e by 30 Nov. No changes are needed this week.",
+       "summary": "November is on track: 2.0 of 50.0 kgCO2e used so far, heading to 4.4 kgCO2e by 30 Nov. No changes are needed this week.",
        "items": [],
        "left_out": []
       },
@@ -1342,13 +1283,13 @@
   ]
  },
  "EV-32": {
-  "key": "7d3ff92d67c38f1f",
+  "key": "8fffa30a4535783d",
   "model": "claude-sonnet-5-5",
   "samples": [
    [
     [
      {
-      "id": "toolu_01VBaEVMmoi4ydr3nw9V9cNV",
+      "id": "toolu_01Qdgex6Fawvap6sbhHv3sgP",
       "caller": {
        "type": "direct"
       },
@@ -1359,24 +1300,24 @@
     ],
     [
      {
-      "id": "toolu_01L1gf55cHeQWHV2AjTgYEgo",
+      "id": "toolu_01D51g8GXXwUiyReYnWvo6JB",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "November is at 2.0 kgCO2e against a 0.5 goal and is heading to 4.4 by 30 Nov, so you are off track. These three changes do not close the gap: about 2.65 kgCO2e (6.25 kWh, LKR 320.5) would still be over the goal.",
+       "summary": "November is off track: 2.0 kgCO2e used against a 0.5 goal, heading to 4.4 kgCO2e by 30 Nov. Even with these three changes you would still be about 2.65 kgCO2e over the goal.",
        "items": [
         {
          "id": "c1",
-         "why": "Switch Desk 2 off at the wall when you are not using it, so it stops drawing power while idle."
+         "why": "Desk 2 keeps drawing power while idle, so switching it off at the wall when you are done stops that."
         },
         {
          "id": "c2",
-         "why": "Switch the 3D printer off at the wall when you are not using it, so it stops drawing power while idle."
+         "why": "The 3D printer keeps drawing power while idle, so switching it off at the wall when you are done stops that."
         },
         {
          "id": "c5",
-         "why": "The PeoTV box will turn on at 09:30 instead of 06:00, and it was not in use between those times on any of the last 13 days."
+         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and it was not used in that window on any of the last 13 days."
         }
        ],
        "left_out": []
@@ -1389,7 +1330,7 @@
    [
     [
      {
-      "id": "toolu_01UxHfAq3LpeexvqzgqaVswP",
+      "id": "toolu_01XYepyXtdqChhjDRSPRwJ3A",
       "caller": {
        "type": "direct"
       },
@@ -1400,24 +1341,24 @@
     ],
     [
      {
-      "id": "toolu_01LKAUKjjV2DNt445h8hqbuX",
+      "id": "toolu_01F43CXJDeFXvQxckQBb1xhk",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "November is at 2.0 kgCO2e against a 0.5 goal and is heading for 4.4 by 30 Nov, so you are off track. These three changes are not enough: they still leave about 2.65 kgCO2e over the goal.",
+       "summary": "November is at 2.0 kgCO2e against a 0.5 goal and is heading for 4.4 by 30 Nov. These three changes cut some of that, but about 2.65 kgCO2e would still be over the goal.",
        "items": [
         {
          "id": "c1",
-         "why": "Switch Desk 2 off at the wall when you are not using it, so it stops drawing power while idle."
+         "why": "Desk 2 kept drawing power while idle, so switching it off at the wall when you are done stops that."
         },
         {
          "id": "c2",
-         "why": "Switch the 3D printer off at the wall when you are not using it, so it stops drawing power while idle."
+         "why": "The 3D printer kept drawing power while idle, so switching it off at the wall between prints stops that."
         },
         {
          "id": "c5",
-         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and it was not used in that window on any of the last 13 days."
+         "why": "The PeoTV box will now come on at 09:30 instead of 06:00, and it was not in use in that window on any of the 13 days."
         }
        ],
        "left_out": []
@@ -1430,7 +1371,7 @@
    [
     [
      {
-      "id": "toolu_01Uks579PjeojYTZn4CHSjq7",
+      "id": "toolu_0143y6MkLmtVnTgXAVu17ps2",
       "caller": {
        "type": "direct"
       },
@@ -1441,24 +1382,24 @@
     ],
     [
      {
-      "id": "toolu_01P6cTz5muC96pejF8eJ2Y3p",
+      "id": "toolu_018UaDc8HG9W94XB2aiZ38qe",
       "caller": {
        "type": "direct"
       },
       "input": {
-       "summary": "November is at 2.0 kgCO2e against a 0.5 goal and is heading to 4.4 by 30 Nov, which is 3.87 over. These three changes cannot close the gap and still leave about 2.65 kgCO2e over the goal.",
+       "summary": "November is at 2.0 of 0.5 kgCO2e and heading to 4.4 by 30 Nov. These three changes cannot close the gap, and about 2.65 kgCO2e would still be over the goal.",
        "items": [
         {
          "id": "c1",
-         "why": "Switch Desk 2 off at the wall when you are not using it, because it keeps drawing power while idle."
+         "why": "Desk 2 keeps drawing power while idle, so switching it off at the wall stops that."
         },
         {
          "id": "c2",
-         "why": "Switch the 3D printer off at the wall when you are not using it, because it keeps drawing power while idle."
+         "why": "The 3D printer keeps drawing power while idle, so switching it off at the wall stops that."
         },
         {
          "id": "c5",
-         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and it was not in use in that window on any of the last 13 days."
+         "why": "The PeoTV box now turns on at 09:30 instead of 06:00, and nobody used it in that window on any of the 13 days."
         }
        ],
        "left_out": []

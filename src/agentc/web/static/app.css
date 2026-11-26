@@ -99,3 +99,11 @@ footer.say textarea { flex: 1; min-width: 0; font: inherit; height: 44px; max-he
 #mic.listening .mic { display: none; }
 #mic.listening .stop { display: inline; fill: currentColor; stroke: none; }
 .listening-note { margin: 0 auto 6px; max-width: 680px; color: var(--rec); font-size: 14px; }
+
+/* The Plan tab: a tag on each item for what it needs from you */
+.item .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.tag { font-size: 13px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line);
+  color: var(--muted); flex: none; }
+.tag.ready { color: var(--accent); border-color: var(--accent); }
+.tag.you-do-it { color: var(--text); }
+.item.done, .item.not_now, .item.expired { opacity: 0.7; }

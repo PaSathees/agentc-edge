@@ -193,8 +193,11 @@ def test_a_timer_pair_goes_in_two_free_slots_on_first_then_read_back(home):
     assert why[10] == why[11] == ("set by AgentC after your tap: off at 01:30, on at 07:00,"
                                   " Monday to Friday")  # fmt: skip
     ((_, d),) = rows(app, "write")
+    old, new = json.loads(d.pop("old")), json.loads(d.pop("new"))
+    assert [(t["slot"], t["time"]) for t in new] == [(10, "07:00"), (11, "01:30")]
     assert d == {"does": "set_timer", "why": "question:2", "off": "01:30", "on": "07:00",
                  "days": "weekdays", "slots": "10,11"}  # fmt: skip
+    assert [(t["slot"], t["enable"]) for t in old] == [(10, False), (11, False)]  # to put back
 
 
 def test_the_owners_own_slots_are_never_used(home):
@@ -342,3 +345,117 @@ def test_a_put_back_that_does_not_read_back_is_reported(home):
 
     r = timer(app, cfg, connect=lambda ip: Drifts())
     assert r.endswith("Putting the old timers back failed too: check the plug's Timers page.")
+
+
+# a plan item's Do it: one timer moved, and put back (5b5)
+
+
+def owners(app, plug, slot=2, time="06:00", action=1):
+    """The owner's own clock timer on the plug, as the plan saw it (stored)."""
+    plug.timers[slot].update(Enable=1, Time=time, Days="1111111", Repeat=1, Action=action)
+    found = actuator.TasmotaPlug(plug.ip).timers()
+    store.save_timers(app, site_id=1, mac="AA", timers=found.timers, now=NOW)
+
+
+def move(app, cfg, slot=2, time="07:30", **kw):
+    return actuator.move_timer(app, cfg, site_id=1, plug="Plug-6", slot=slot, time=time,
+                               why="plan:1", now=NOW, **kw)  # fmt: skip
+
+
+def test_the_owners_own_timer_is_moved_read_back_and_put_back(home):
+    app, cfg, plug = home
+    owners(app, plug)
+    assert move(app, cfg) == "Done: Desk 2's timer 2 now runs at 07:30 (was 06:00)."
+    assert plug.timers[2]["Time"] == "07:30" and plug.timers[2]["Action"] == 1
+    assert {t.slot: t.time for t in store.load_timers(app, mac="AA") if t.enable} == {2: "07:30"}
+    assert store.load_card(app, mac="AA").why[2] == ("moved to 07:30 by AgentC after your tap"
+                                                     " (was 06:00)")  # fmt: skip
+    ((wid, p, d, _),) = store.timer_undoable(app, site_id=1, since=NOW - timedelta(hours=1))
+    assert (p, d["does"], d["slot"]) == ("Plug-6", "move_timer", "2")
+    store.set_shadow(app, site_id=1, on=True, now=NOW)  # an undo still goes through
+    r = actuator.put_back(app, cfg, site_id=1, plug=p, write_id=wid, old=d["old"], now=NOW)
+    assert r == "Done: Desk 2's timers are back as they were."
+    assert plug.timers[2]["Time"] == "06:00" and 2 not in store.load_card(app, mac="AA").why
+    assert store.timer_undoable(app, site_id=1, since=NOW - timedelta(hours=1)) == []
+
+
+def test_a_pair_is_put_back_to_empty_slots(home):
+    app, cfg, plug = home
+    timer(app, cfg)
+    ((wid, _, d, _),) = store.timer_undoable(app, site_id=1, since=NOW - timedelta(hours=1))
+    actuator.put_back(app, cfg, site_id=1, plug="Plug-6", write_id=wid, old=d["old"], now=NOW)
+    assert plug.timers[10]["Enable"] == plug.timers[11]["Enable"] == 0
+    assert store.load_card(app, mac="AA").why == {}
+
+
+def test_a_timer_changed_since_the_plan_is_not_moved(home):
+    app, cfg, plug = home
+    owners(app, plug)
+    plug.timers[2]["Time"] = "06:15"  # the owner changed it on the plug
+    assert move(app, cfg).startswith("Not sent: Desk 2's timer 2 changed since the plan")
+    assert plug.timers[2]["Time"] == "06:15" and rows(app, "write") == []
+
+
+@pytest.mark.parametrize(
+    ("slot", "time", "why"),
+    [(3, "07:30", "Not sent: Desk 2 has no clock timer 3 to move."),
+     (2, "7:30", "Not sent: Desk 2's timer needs an HH:MM time.")],
+)  # fmt: skip
+def test_a_missing_timer_or_a_bad_time_is_refused_before_the_plug(home, slot, time, why):
+    app, cfg, plug = home
+    owners(app, plug)
+    plug.commands.clear()
+    assert move(app, cfg, slot=slot, time=time) == why and plug.commands == []
+
+
+def test_an_off_timer_moved_against_a_hard_rule_is_refused(home):
+    app, cfg, plug = home
+    late = config.Rule("latest_off", "02:00", True, "Desk 2 may run until 02:00")
+    cfg = replace(cfg, devices={"Plug-6": Device("Desk 2", access="write", rules=(late,))})
+    owners(app, plug, time="02:30", action=0)
+    assert move(app, cfg, time="01:30") == "Not sent: Desk 2 may run until 02:00."
+    owners(app, plug, slot=4, time="06:00", action=1)  # an on timer: the rule is about off
+    assert move(app, cfg, slot=4, time="01:30").startswith("Done")
+
+
+def test_shadow_mode_records_a_move(home):
+    app, cfg, plug = home
+    owners(app, plug)
+    store.set_shadow(app, site_id=1, on=True, now=NOW)
+    assert move(app, cfg).startswith("Recorded: move Desk 2's timer 2 to 07:30.")
+    assert plug.timers[2]["Time"] == "06:00"
+
+
+def test_a_lost_move_puts_the_old_time_back(home):
+    app, cfg, plug = home
+    owners(app, plug)
+    plug.lost = {2}
+    r = move(app, cfg)
+    assert r.startswith("Could not move Desk 2's timer 2 to 07:30: timer 2 reads back as 06:00")
+    assert r.endswith("The old timers were put back.") and plug.timers[2]["Time"] == "06:00"
+
+
+def test_a_plug_that_does_not_answer_moves_and_puts_back_nothing(home):
+    app, cfg, plug = home
+    owners(app, plug)
+    plug.offline = True
+    assert move(app, cfg).startswith("Could not move Desk 2's timer 2 to 07:30: the plug did not")
+    old = json.dumps([{"slot": 2, "enable": True, "mode": 0, "time": "06:00", "window": 0,
+                       "days": "1111111", "repeat": True, "output": 1, "action": 1}])  # fmt: skip
+    r = actuator.put_back(app, cfg, site_id=1, plug="Plug-6", write_id=1, old=old, now=NOW)
+    assert r.startswith("Could not put Desk 2's timers back: the plug did not answer")
+    plug.offline = False
+    plug.lost = {2}
+    plug.timers[2]["Time"] = "09:00"
+    r = actuator.put_back(app, cfg, site_id=1, plug="Plug-6", write_id=1, old=old, now=NOW)
+    assert (
+        r == "Could not put Desk 2's timers back: they read back different. Check the plug's"
+        " Timers page."
+    )
+
+
+def test_a_device_set_to_none_is_never_put_back_either(home):
+    app, cfg, plug = home
+    cfg = replace(cfg, devices={"Plug-6": Device("Desk 2", access="none")})
+    r = actuator.put_back(app, cfg, site_id=1, plug="Plug-6", write_id=1, old="[]", now=NOW)
+    assert r == "Not sent: Desk 2 is never changed (its access is none)." and plug.commands == []

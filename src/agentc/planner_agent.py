@@ -9,8 +9,9 @@ Code checks its words: every number from the brief or a tool, no system words.
 """
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -23,12 +24,12 @@ from agentc.devices.base import describe
 from agentc.house import runs_always
 from agentc.llm import Llm, private
 
-VERSION = "planner-v4"  # change it with any change to SYSTEM or TOOLS
+VERSION = "planner-v5"  # change it with any change to SYSTEM or TOOLS
 MAX_STEPS = 6  # model calls a week; the last one may only propose
 TRIES = 2  # plans a run: one retry after a block
 PAIR_OFF = [f"{h:02d}:{m:02d}" for h in (22, 23, 0, 1, 2) for m in (0, 30)]  # night offs tried
 PAIR_ON = "07:00"  # a new pair switches back on in the morning
-ACTION_MIN_WH = 50  # an action must save at least this much a month to be worth asking
+ACTION_MIN_WH = 2 * planner.DISRUPTION_WH  # an action (disruption 2) must save at least this
 ACTION_MIN_DAYS = 7  # and be seen idling over at least this many days of readings
 ACTION = "Switch it off at the wall when you are not using it"
 
@@ -41,7 +42,9 @@ call propose_plan once:
 - summary: one or two sentences on the month and the plan, for a phone. If the changes \
 cannot close the gap, say so plainly with the shortfall the brief gives.
 - items: for each chosen change you keep, its id and why: one sentence in plain words \
-about what happens now (e.g. "It idles at 2 W from 06:00 and nobody uses it before 07:00").
+about what happens now (e.g. "It idles at 2 W from 06:00 and nobody uses it before 07:00"). \
+For an action the owner does, say what happens now, not the action: the owner sees it \
+already.
 - left_out: for each chosen change you leave out, its id and the reason. Leave one out only \
 if the notes or answers show it would get in the way.
 
@@ -175,9 +178,12 @@ class PlanTools:
             dev = config.device(b.cfg, plug, store.learned(b.app, mac=mac))
             if runs_always(store.load_card(b.app, mac=mac)):
                 continue
-            if dev.access == "write":
-                found += self._moves(plug, mac) + self._pair(plug, mac)
-            elif (act := self._action(plug, mac)) is not None:
+            changes = (
+                self._moves(plug, mac) + self._pair(plug, mac) if dev.access == "write" else []
+            )
+            if changes:
+                found += changes
+            elif (act := self._action(plug, mac)) is not None:  # nothing to change: by hand
                 found.append(act)
         return [replace(c, id=f"c{n}") for n, c in enumerate(found, 1)]
 
@@ -189,7 +195,8 @@ class PlanTools:
             steps = range(1, 13) if t.action == 1 else range(-1, -9, -1)  # later on, earlier off
             ready = discuss = None
             for n in steps:
-                c = planner.Change("move_timer", slot=t.slot, time=_shift(t.time, 30 * n))
+                c = planner.Change("move_timer", slot=t.slot, time=_shift(t.time, 30 * n),
+                                   from_time=t.time)  # fmt: skip
                 if (r := self._ok(plug, mac, c)) is None:
                     continue
                 if planner.ready(r):
@@ -213,7 +220,8 @@ class PlanTools:
         return []
 
     def _action(self, plug: str, mac: str) -> planner.Candidate | None:
-        """For a device AgentC may not change: switching it off at the wall when idle."""
+        """For a device AgentC may not change, or has no timer change for: switching it off
+        at the wall when idle."""
         b = self.base
         dev = config.device(b.cfg, plug, store.learned(b.app, mac=mac))
         wh, days = planner.idle_wh(b.energy, dev, plug, end=b.now)
@@ -261,6 +269,17 @@ def _shift(hhmm: str, minutes: int) -> str:
     return f"{total // 60:02d}:{total % 60:02d}"
 
 
+PLAN_AT = time(18, 0)  # the week's plan comes on Sunday at this time (ADR-010)
+
+
+def plan_week(now: datetime, *, tz: str) -> str:
+    """The week a plan made now is for, as its Monday ("2026-11-30"): from Sunday 18:00, the
+    coming week; before that, this one (a plan made early, on goal drift)."""
+    local = now.astimezone(ZoneInfo(tz))
+    ahead = local.weekday() == 6 and local.time() >= PLAN_AT  # noqa: PLR2004 (Sunday)
+    return (week_start(now, tz=tz) + timedelta(days=7 if ahead else 0)).date().isoformat()
+
+
 def week_start(now: datetime, *, tz: str) -> datetime:
     """The Monday 00:00 (local) that began the week `now` is in."""
     local = now.astimezone(ZoneInfo(tz))
@@ -275,6 +294,21 @@ class Choice:
     brief: str
     chosen: tuple[planner.Candidate, ...]
     shortfall: str
+    rate: int = 0  # the gap as Wh a month
+    share: float = 1.0  # the part of a month left in this one
+    last: str = ""  # the month's last day, e.g. "30 Nov"
+
+
+def shortfall_text(cfg: Config, now: datetime, chosen: Sequence[planner.Candidate], *,
+                   rate: int, share: float, last: str) -> str:  # fmt: skip
+    """What the chosen changes leave over the goal by the month's end, in words; "" if
+    nothing, or too little to show (under 0.005 kgCO2e)."""
+    wh = planner.shortfall_wh(chosen, gap_wh=rate) * share
+    kg = wh / 1000 * cfg.factor.value if cfg.factor else 0.0
+    if kg < 0.005:  # noqa: PLR2004 (half the last digit shown)
+        return ""
+    lead = "These changes leave" if chosen else "Nothing here closes the gap:"
+    return f"{lead} about {worth(cfg, wh / 1000, now, digits=2)} over the goal by {last}."
 
 
 def decide(t: PlanTools) -> Choice:
@@ -290,13 +324,11 @@ def decide(t: PlanTools) -> Choice:
         gap_wh = round(status.gap_kg / b.cfg.factor.value * 1000)
     first = b.now.astimezone(zone).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     end = (first + timedelta(days=32)).replace(day=1)
-    share = max((end - b.now) / timedelta(days=30), 1 / 30)  # of a month, left this month
+    share = (end - b.now) / timedelta(days=30)  # of a month, left this month (never 0)
     rate = round(gap_wh / share)
     chosen = planner.choose(t.candidates(), gap_wh=rate)
-    short_wh = round(planner.shortfall_wh(chosen, gap_wh=rate) * share)
-    last = end - timedelta(days=1)
-    shortfall = (f"These changes leave about {worth(b.cfg, short_wh / 1000, b.now, digits=2)}"
-                 f" over the goal by {last:%d %b}." if short_wh else "")  # fmt: skip
+    last = f"{end - timedelta(days=1):%d %b}"
+    shortfall = shortfall_text(b.cfg, b.now, chosen, rate=rate, share=share, last=last)
     month = status.text(tz=b.cfg.tz) if status else "No monthly goal is set."
     lines = [f"Now: {b.now.astimezone(zone):%a %d %b %H:%M}", f"Goal: {month}",
              t.house_week(), "Chosen changes:"]  # fmt: skip
@@ -312,7 +344,7 @@ def decide(t: PlanTools) -> Choice:
         lines.append("None: nothing saves energy without getting in the way.")
     if shortfall:
         lines.append(f"Shortfall: {shortfall}")
-    return Choice("\n".join(lines), tuple(chosen), shortfall)
+    return Choice("\n".join(lines), tuple(chosen), shortfall, rate, share, last)
 
 
 def plan(tools: Tools, *, llm: Llm, run_id: str) -> Plan:
@@ -384,8 +416,13 @@ def _check(raw: dict[str, Any], t: PlanTools, choice: Choice) -> tuple[Plan, lis
             dropped.append(f"{cid} ({by_id[cid].device}): left out: {str(out['reason']).strip()}")
             by_id.pop(cid)
     kept = tuple(_item(c, words.get(c.id, ""), t) for c in by_id.values())
-    plan_ = Plan(summary or _summary(kept, choice.shortfall), kept, (), (*why, *dropped),
-                 chosen=tuple(c.id for c in choice.chosen), shortfall=choice.shortfall,
+    short = choice.shortfall
+    if dropped:  # what is left over grows with each change left out
+        b = t.base
+        short = shortfall_text(b.cfg, b.now, list(by_id.values()), rate=choice.rate,
+                               share=choice.share, last=choice.last)  # fmt: skip
+    plan_ = Plan(summary or _summary(kept, short), kept, (), (*why, *dropped),
+                 chosen=tuple(c.id for c in choice.chosen), shortfall=short,
                  plain=tuple(c.id for c in by_id.values() if c.id not in words))  # fmt: skip
     return plan_, why
 
@@ -440,7 +477,8 @@ def save(app: Any, plan_: Plan, *, site_id: int, cfg: Config, now: datetime) -> 
     """Keep the week's plan. None if the Planner did not finish, or the week has one."""
     if not plan_.done:
         return None
-    week = week_start(now, tz=cfg.tz).date().isoformat()
-    items = [(i.mac, i.change_json(), i.why, i.saving, i.ready) for i in plan_.items]
+    week = plan_week(now, tz=cfg.tz)
+    items = [(i.mac, i.change_json(), i.why, i.saving, i.ready, i.before, i.after)
+             for i in plan_.items]  # fmt: skip
     return store.add_plan(app, site_id=site_id, week=week, summary=plan_.summary, items=items,
                           now=now)  # fmt: skip

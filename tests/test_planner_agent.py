@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import pytest
 
-from agentc import cli, evals, llm, planner, planner_agent, store
+from agentc import cli, evals, jobs, llm, notify, planner, planner_agent, store
 from agentc.house import Card
 from agentc.llm import Llm
 from agentc.owner import Choice, Decision
@@ -81,7 +81,7 @@ def test_code_chooses_and_the_model_explains_every_chosen_change():
     assert (printer.change, printer.action, printer.ready) == (None, planner_agent.ACTION, True)
     assert printer.saving.startswith("Saves about 3.55 kWh") and printer.why == WHY["c2"]
     assert (start.before, start.after) == ("On at 06:00, every day", "On at 09:30, every day")
-    assert off.change == planner.Change("move_timer", slot=2, time="00:30")
+    assert off.change == planner.Change("move_timer", slot=2, time="00:30", from_time="01:00")
     brief = script.seen[0]["messages"][0]["content"]
     assert script.seen[0]["tier"] == "claude-sonnet-5-5" and "Chosen changes:" in brief
 
@@ -130,6 +130,24 @@ def test_the_model_may_leave_a_change_out_with_a_reason():
     assert [i.plug for i in p.items] == [evals.BOX[0], evals.BOX[0]]
     assert p.blocked == (
         "c2 (3D printer): left out: You said the Pi must stay on for remote prints.",)  # fmt: skip
+    assert p.shortfall.startswith("These changes leave about")  # without the printer, short
+
+
+def shortfall(chosen, rate, share):
+    cfg = evals.settings()
+    return planner_agent.shortfall_text(cfg, evals.SUNDAY, chosen, rate=rate, share=share,
+                                        last="30 Nov")  # fmt: skip
+
+
+def test_the_shortfall_counts_only_the_time_left():
+    printer = planner.Candidate("c2", "Plug-2", "m", "3D printer", None, "a", 3551, 2, "s", True,
+                                "")  # fmt: skip
+    half_hour = 0.5 / 24 / 30  # 30 Nov 23:30: half an hour of the month left
+    left = shortfall([printer], round(100 / half_hour), half_hour)
+    assert left == ("These changes leave about 0.10 kWh, LKR 5.0, 0.04 kgCO2e over the goal"
+                    " by 30 Nov.")  # fmt: skip
+    assert shortfall([], 10, 1.0) == ""  # 10 Wh: under 0.005 kgCO2e, not shown
+    assert shortfall([], 1000, 0.5).startswith("Nothing here closes the gap: about 0.50 kWh")
 
 
 def test_a_change_with_no_words_of_the_models_is_marked_plain():
@@ -239,6 +257,23 @@ def test_candidates_cover_moves_pairs_and_actions():
     assert all(kind != "add_pair" for _, kind, _, _ in got)  # it has timers: moves, no pair
 
 
+def test_a_write_device_with_no_timer_change_gets_the_wall_switch(monkeypatch):
+    _, tools = evals.plan_case(REACH, evals.settings())
+    store.plug_seen(
+        tools.app,
+        site_id=1,
+        mac=evals.TV[1],
+        name=evals.TV[0],
+        ip="192.0.2.13",
+        timers_on=False,
+        now=evals.SUNDAY,
+    )  # its timers do not fire: no change
+    monkeypatch.setattr(planner, "idle_wh", lambda *a, **k: (5000, 14))  # noqa: ARG005
+    t = planner_agent.PlanTools(tools, planner_agent.week_start(evals.SUNDAY, tz=evals.TZ))
+    tv = [c.change for c in t.candidates() if c.device == "LG TV"]
+    assert tv == [None]  # an action, for the owner
+
+
 def test_a_must_run_device_gets_no_candidate():
     _, tools = evals.plan_case(REACH, evals.settings())
     store.save_card(tools.app, site_id=1, mac=evals.PRINTER[1], card=Card("router"),
@@ -256,7 +291,7 @@ def test_an_action_said_not_now_to_or_seen_too_short_is_not_offered(monkeypatch)
     mac = evals.PRINTER[1]
     store.add_plan(tools.app, site_id=1, week="2026-11-02", summary="s", now=evals.SUNDAY,
                    items=[(mac, planner_agent.action_json(planner_agent.ACTION), "w", "s",
-                           True)])  # fmt: skip
+                           True, "", "")])  # fmt: skip
     store.decide_item(tools.app, item_id=1, status="not_now", now=evals.SUNDAY)
     assert t._action(evals.PRINTER[0], mac) is None  # pyright: ignore[reportPrivateUsage]
     monkeypatch.setattr(planner, "idle_wh", lambda *a, **k: (5000, 6))  # noqa: ARG005
@@ -289,7 +324,7 @@ def test_week_notes_hold_notes_answers_and_not_nows():
     store.answer_question(app, question_id=1, answer=1, now=week + timedelta(days=2))
     store.add_plan(app, site_id=1, week="2026-11-02", summary="s", now=week,
                    items=[(mac, planner.Change("remove_timer", slot=2).to_json(), "w", "s",
-                           True)])  # fmt: skip
+                           True, "", "")])  # fmt: skip
     store.decide_item(app, item_id=1, status="not_now", now=week)
     text = planner_agent.PlanTools(tools, week).week_notes()
     assert text == ("Note: The box idled all morning.\n"
@@ -368,3 +403,111 @@ def test_agentc_plan_prints_timer_changes_actions_and_what_was_left_out(home, ca
     assert "1. Desk 2 (only to talk over): It idles.\n   Now: On at 06:00, every day" in out
     assert f"2. 3D printer (ready): It idles.\n   You: {planner_agent.ACTION}" in out
     assert "Left out: c3 (TV): left out: x" in out and "Tools: usual." in out
+
+
+# the weekly job: Sunday 18:00, or on goal drift; one message with a link (5b5)
+
+EVENING = evals.SUNDAY.replace(hour=18, minute=30)  # Sunday 15 Nov, after 18:00
+
+
+class Phone:
+    def __init__(self, fail=False):
+        self.got, self.fail = [], fail
+
+    def __call__(self, m):
+        if self.fail:
+            raise notify.NotSent("ntfy is down")
+        self.got.append(m)
+
+
+def plan_pass(script, pe=REACH, sender=None, now=EVENING):
+    cfg, tools = evals.plan_case(pe, evals.settings())
+    brain = Llm(tools.app, 1, cfg.tz, cfg.tiers, cfg.budget, script, clock=lambda: now)
+    m = jobs.plan_pass(tools.app, tools.energy, cfg, brain, site_id=1, now=now, sender=sender)
+    return m, tools
+
+
+def test_the_weekly_plan_is_saved_and_sent_with_a_link():
+    phone = Phone()
+    m, tools = plan_pass(
+        Script(propose(all_items())), sender=jobs.Sender(phone, "https://hub", "k")
+    )
+    assert m is not None and phone.got == [m] and m.quiet
+    assert (m.title, m.text) == ("This week's plan: 3 changes", "A quiet week.")
+    assert m.buttons == (notify.Button("Open the plan", "https://hub/plan", post=False),)
+    assert store.has_plan(tools.app, site_id=1, week="2026-11-16")
+    assert not jobs._plan_due(tools.app, 1, EVENING, evals.TZ)  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.parametrize("phone", [None, Phone(fail=True)])
+def test_no_message_without_a_phone_or_when_it_fails_but_the_plan_is_kept(phone):
+    sender = jobs.Sender(phone, "https://hub", "k") if phone else None
+    m, tools = plan_pass(Script(propose(all_items())), sender=sender)
+    assert m is None and store.has_plan(tools.app, site_id=1, week="2026-11-16")
+
+
+def test_an_empty_plan_is_kept_and_sends_nothing():
+    phone = Phone()
+    m, tools = plan_pass(Script(propose([], "On track.")), ON_TRACK,
+                         sender=jobs.Sender(phone, "https://hub", "k"))  # fmt: skip
+    assert m is None and phone.got == [] and store.has_plan(tools.app, site_id=1, week="2026-11-16")
+
+
+@pytest.mark.parametrize("err", [llm.OverBudget("cap"), llm.Unreachable("down")])
+def test_a_run_that_cannot_reach_the_model_waits_and_keeps_nothing(err):
+    def broken(**_):
+        raise err
+
+    m, tools = plan_pass(broken)
+    assert m is None and not store.has_plan(tools.app, site_id=1, week="2026-11-16")
+    assert store.last_run(tools.app, site_id=1, job="plan") == EVENING
+
+
+def test_the_plan_is_due_on_sunday_evening_or_on_goal_drift_and_retries_after_6_hours():
+    _, tools = evals.plan_case(REACH, evals.settings())
+    app = tools.app
+
+    def due(at):
+        return jobs._plan_due(app, 1, at, evals.TZ)  # pyright: ignore[reportPrivateUsage]
+
+    assert not due(evals.SUNDAY) and due(EVENING)  # 02:30, then 18:30
+    wednesday = evals.SUNDAY + timedelta(days=3)  # a new week, no plan yet
+    assert not due(wednesday)
+    e = Event("goal_drift", None, wednesday.replace(hour=0), {"projected_kg": 6.2, "goal_kg": 5.5})
+    store.add_event(app, site_id=1, event=e, dedupe="drift")
+    assert due(wednesday)
+    store.set_last_run(app, site_id=1, job="plan", at=wednesday)  # a run that did not finish
+    assert not due(wednesday + timedelta(hours=5)) and due(wednesday + timedelta(hours=6))
+
+
+def test_one_plan_a_week_and_at_most_3_runs_for_it():
+    _, tools = evals.plan_case(REACH, evals.settings())
+    app = tools.app
+
+    def due(at):
+        return jobs._plan_due(app, 1, at, evals.TZ)  # pyright: ignore[reportPrivateUsage]
+
+    assert planner_agent.plan_week(EVENING, tz=evals.TZ) == "2026-11-16"  # the coming week
+    store.add_plan(app, site_id=1, week="2026-11-16", summary="s", items=[], now=EVENING)
+    monday = EVENING + timedelta(hours=12)
+    e = Event("goal_drift", None, monday.replace(hour=0), {"projected_kg": 6.2, "goal_kg": 5.5})
+    store.add_event(app, site_id=1, event=e, dedupe="drift")
+    assert not due(monday)  # drift on Monday: this week has its plan from Sunday
+    later = EVENING + timedelta(days=7)  # the next Sunday: a run that never finishes
+    for n in range(3):
+        assert due(later + n * jobs.PLAN_RETRY)
+        store.set_setting(app, site_id=1, key="plan_tries:2026-11-23", value=str(n + 1))
+        store.set_last_run(app, site_id=1, job="plan", at=later + n * jobs.PLAN_RETRY)
+    assert due(later + 2 * jobs.PLAN_RETRY + timedelta(hours=7)) is False  # 3 runs: it stops
+
+
+def test_the_jobs_run_the_planner_only_with_a_model(monkeypatch):
+    cfg, tools = evals.plan_case(REACH, evals.settings())
+    ran = []
+    monkeypatch.setattr(jobs, "watch_pass", lambda *a, **k: [])  # noqa: ARG005
+    monkeypatch.setattr(jobs, "look_pass", lambda *a, **k: [])  # noqa: ARG005
+    monkeypatch.setattr(jobs, "plan_pass", lambda *a, **k: ran.append(k["now"]) or "sent")  # noqa: ARG005
+    jobs.run_due(tools.app, tools.energy, cfg, site_id=1, now=EVENING)
+    assert ran == []  # no key, no model: the plan waits
+    _, _, sent = jobs.run_due(tools.app, tools.energy, cfg, site_id=1, now=EVENING, llm="brain")  # pyright: ignore[reportArgumentType]
+    assert ran == [EVENING] and sent == ["sent"]

@@ -2,6 +2,7 @@
 {% block main %}
 <h1>Inbox</h1>
 {% if goal %}<p class="card goal {{ goal_state | replace(' ', '-') }}">{{ goal }}</p>{% endif %}
+{% if plan_open %}<p class="card">This week's plan: {{ plan_open }} of {{ plan_all }} open. <a href="/plan">Open the plan</a></p>{% endif %}
 {% for q in questions %}
 <section class="card">
   <b>{{ q.device }}</b>

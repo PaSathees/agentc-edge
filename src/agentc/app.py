@@ -8,7 +8,6 @@ app (`agentc run`).
 
 from datetime import date, datetime
 from sqlite3 import Connection
-from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -17,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from agentc import __version__, actuator, config, jobs, notify, store
 from agentc.config import Config
 from agentc.notify import Message, NotSent, Publish
-from agentc.web import chat, login
+from agentc.web import chat, login, plan
 from agentc.web.deps import (  # noqa: F401 (re-exported: tests override these)
     WEB,
     Cfg,
@@ -41,6 +40,7 @@ app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
 app.add_middleware(login.HostCheck)
 app.include_router(login.router)
 app.include_router(chat.router)
+app.include_router(plan.router)
 
 
 @app.get("/health")
@@ -67,14 +67,12 @@ def inbox(request: Request, cfg: Cfg, key: Secret, now: Now, data: Db) -> HTMLRe
     notes = [d["text"] for d in store.audit_since(db, site_id=site, action="note",
                                                    since=now - jobs.NOTES_SINCE)]  # fmt: skip
     undo = _undo(db, cfg, key, site, since=now - actuator.UNDO_FOR, hub="")
-    month = jobs.goal_status(db, site_id=site) if cfg.goal else None
-    if month and cfg.goal and (month.month != f"{now.astimezone(ZoneInfo(cfg.tz)):%Y-%m}"
-                               or month.goal_kg != cfg.goal.month_kg):  # fmt: skip
-        month = None  # last month's, or for an old goal: wait for today's check
+    goal, state = plan.month_line(db, cfg, site, now)  # "" if last month's or an old goal
+    plan_open, plan_all = plan.open_count(db, site)
     return pages.TemplateResponse(request, "inbox.html", {
         "title": "Inbox", "page": "inbox", "questions": questions, "unknown": unknown,
-        "notes": notes, "undo": undo, "goal": month.text(tz=cfg.tz) if month else "",
-        "goal_state": month.state if month else ""})  # fmt: skip
+        "notes": notes, "undo": undo, "goal": goal, "goal_state": state,
+        "plan_open": plan_open, "plan_all": plan_all})  # fmt: skip
 
 
 @app.post("/answer/{question_id}/{choice}/{tok}", response_class=HTMLResponse)

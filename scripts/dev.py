@@ -13,6 +13,8 @@ The logger does not run here, so the copied readings age: 5 minutes after the co
 plug shows "no reading now". Copy again to see fresh power.
 
 --write Plug-9 sets a device to write in the copy, to try the Devices page switch.
+--plan saves a plan in the copy from code's own choice, in code's words (no model), to see
+the Plan tab. Each fake plug starts with the timers the copy has for its plug, so Do it works.
 """
 
 import argparse
@@ -47,6 +49,37 @@ app = store.connect(cfg.app_db)
 site = store.add_site(app, name=cfg.site, tz=cfg.tz)
 jobs.goal_check(app, readings.connect(cfg.energy_db), cfg, site_id=site, now=datetime.now(UTC))
 """
+
+
+PLAN_ONCE = """
+import os
+from datetime import UTC, datetime
+from agentc import agent_tools, config, planner_agent, readings, store
+cfg = config.load(os.environ["AGENTC_CONFIG"])
+app = store.connect(cfg.app_db)
+site = store.add_site(app, name=cfg.site, tz=cfg.tz)
+now = datetime.now(UTC)
+tools = agent_tools.Tools(app, readings.connect(cfg.energy_db), cfg, site, now)
+t = planner_agent.PlanTools(tools, planner_agent.week_start(now, tz=cfg.tz))
+choice = planner_agent.decide(t)
+plan, _ = planner_agent._check({}, t, choice)  # code's words: no model here
+saved = planner_agent.save(app, plan, site_id=site, cfg=cfg, now=now)
+print(f"Plan: {len(plan.items)} items" if saved else "Plan: this week has one already")
+"""
+
+
+def fake_timers(fake: FakePlug, plug: str, data: Path) -> None:
+    """Give a fake plug the timers the copy has stored for its plug, as Tasmota shows them."""
+    from agentc import store  # noqa: PLC0415 (only here)
+
+    app = store.connect(data / "app.db")
+    if (mac := store.plug_mac(app, name=plug)) is None:
+        return
+    for t in store.load_timers(app, mac=mac):
+        fake.timers[t.slot] = {"Enable": int(t.enable), "Mode": t.mode, "Time": t.time,
+                               "Window": t.window, "Days": t.days, "Repeat": int(t.repeat),
+                               "Output": t.output, "Action": t.action}  # fmt: skip
+    fake.timers_on = store.timers_on(app, mac=mac)
 
 
 def copy_from_hub(host: str, data: str) -> None:
@@ -108,6 +141,7 @@ def main() -> None:
     ask.add_argument("--write", action="append", default=[], metavar="PLUG",
                      help="set this plug's device to write in the copy")  # fmt: skip
     ask.add_argument("--goal", type=float, metavar="KG", help="a monthly kgCO2e goal in the copy")
+    ask.add_argument("--plan", action="store_true", help="save a plan in the copy (no model)")
     args = ask.parse_args()
     if args.from_hub:
         copy_from_hub(args.from_hub, args.hub_data)
@@ -117,12 +151,17 @@ def main() -> None:
     for n, plug in enumerate(plug_names(ROOT / "config.toml")):
         fake = FakePlug(power_w=5.0, mac=f"DE:VE:00:00:00:{n:02X}")
         fake.relay_on = True
+        fake_timers(fake, plug, DEV / "data")
         fake.start()
         fakes[plug] = fake.ip
     cfg = dev_config(ROOT / "config.toml", fakes, args.write, DEV / "config.toml", args.goal)
     if args.goal is not None:  # the inbox shows what the daily goal job keeps: work it out once now
         once = {**os.environ, "AGENTC_CONFIG": str(cfg), "AGENTC_DATA": str(DEV / "data")}
         subprocess.run([sys.executable, "-c", GOAL_ONCE], check=True, env=once)
+    if args.plan:
+        once = {**os.environ, "AGENTC_CONFIG": str(cfg), "AGENTC_DATA": str(DEV / "data")}
+        once.pop("ANTHROPIC_API_KEY", None)
+        subprocess.run([sys.executable, "-c", PLAN_ONCE], check=True, env=once)
     env = {**os.environ, "AGENTC_CONFIG": str(cfg), "AGENTC_DATA": str(DEV / "data"),
            "AGENTC_SECRET": "dev-only", "AGENTC_PASSWORD": "dev", "AGENTC_HUB": ""}  # fmt: skip
     env.pop("ANTHROPIC_API_KEY", None)
