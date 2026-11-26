@@ -37,7 +37,9 @@ class FakePlug:
         self.ip = f"127.0.0.1:{self._server.server_port}"  # same use as a real IP
 
     def start(self) -> None:
-        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        # it checks for stop() every 20 ms, not the default 0.5 s: a test ends at once
+        serve = lambda: self._server.serve_forever(poll_interval=0.02)  # noqa: E731
+        threading.Thread(target=serve, daemon=True).start()
 
     def stop(self) -> None:
         self._server.shutdown()

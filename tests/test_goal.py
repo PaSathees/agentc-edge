@@ -169,7 +169,7 @@ def test_without_a_goal_the_check_keeps_nothing(app, energy):
     assert jobs.goal_status(app, site_id=1) is None
 
 
-def test_the_jobs_check_the_goal_daily_when_one_is_set(app, energy):
+def test_the_jobs_check_the_goal_daily_when_one_is_set(app, energy, quiet_jobs):  # noqa: ARG001
     jobs.run_due(app, energy, CFG, site_id=1, now=MID)
     assert store.last_run(app, site_id=1, job="goal") == MID
     jobs.run_due(app, energy, replace(CFG, goal=None), site_id=1, now=MID + timedelta(days=2))

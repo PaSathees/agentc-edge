@@ -501,11 +501,9 @@ def test_one_plan_a_week_and_at_most_3_runs_for_it():
     assert due(later + 2 * jobs.PLAN_RETRY + timedelta(hours=7)) is False  # 3 runs: it stops
 
 
-def test_the_jobs_run_the_planner_only_with_a_model(monkeypatch):
+def test_the_jobs_run_the_planner_only_with_a_model(monkeypatch, quiet_jobs):  # noqa: ARG001
     cfg, tools = evals.plan_case(REACH, evals.settings())
     ran = []
-    monkeypatch.setattr(jobs, "watch_pass", lambda *a, **k: [])  # noqa: ARG005
-    monkeypatch.setattr(jobs, "look_pass", lambda *a, **k: [])  # noqa: ARG005
     monkeypatch.setattr(jobs, "plan_pass", lambda *a, **k: ran.append(k["now"]) or "sent")  # noqa: ARG005
     jobs.run_due(tools.app, tools.energy, cfg, site_id=1, now=EVENING)
     assert ran == []  # no key, no model: the plan waits
