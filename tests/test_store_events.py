@@ -151,13 +151,13 @@ def test_a_migration_stopped_half_way_does_not_block_the_next_start(tmp_path):
     db.execute("ALTER TABLE chats RENAME TO chats_new")
     db.execute(SCHEMA_12_CHATS)
     db.execute("DROP TABLE chats_new")
-    db.execute("CREATE TABLE chats_13 (id)")  # left behind by a stop half way
+    db.execute("CREATE TABLE chats_new (id)")  # left behind by a stop half way
     db.execute("PRAGMA user_version = 12")
     db.commit()
     db.close()
     db = store.connect(tmp_path / "app.db")
     assert "plan_id" in [c[1] for c in db.execute("PRAGMA table_info(chats)")]
-    assert db.execute("SELECT name FROM sqlite_master WHERE name = 'chats_13'").fetchone() is None
+    assert db.execute("SELECT name FROM sqlite_master WHERE name = 'chats_new'").fetchone() is None
 
 
 def test_a_migration_that_fails_leaves_the_old_table_as_it_was(tmp_path):
@@ -171,4 +171,4 @@ def test_a_migration_that_fails_leaves_the_old_table_as_it_was(tmp_path):
         store.connect(tmp_path / "app.db")
     db = sqlite3.connect(tmp_path / "app.db")
     assert db.execute("SELECT kind FROM chats").fetchall() == [("odd",)]
-    assert db.execute("SELECT name FROM sqlite_master WHERE name = 'chats_13'").fetchone() is None
+    assert db.execute("SELECT name FROM sqlite_master WHERE name = 'chats_new'").fetchone() is None

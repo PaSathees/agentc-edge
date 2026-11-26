@@ -1,0 +1,14 @@
+{% set label = {"habit": "Save habit", "switch_off": "Switch off", "change": "Do it",
+                "anyway": "Do it anyway"}[draft.action] %}
+<section class="card draft">
+  <b>{{ draft.device }}</b>
+  <p>{{ draft.what }}</p>
+  {% if draft.saving %}<p class="muted">{{ draft.saving }}</p>{% endif %}
+  {% if draft.action == "anyway" %}<p class="warn">It would have got in the way on the days above. Do it only if that is fine.</p>{% endif %}
+  {% if draft.action == "habit" %}<p class="muted">I won't ask about it at those times.</p>{% endif %}
+  <form hx-post="{{ base }}/act" hx-target="closest section" hx-swap="outerHTML">
+    <input type="hidden" name="tok" value="{{ tok }}">
+    <button class="primary">{{ label }}</button>
+  </form>
+  <span class="muted">Or say what to change.</span>
+</section>

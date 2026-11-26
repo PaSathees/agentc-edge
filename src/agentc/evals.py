@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 
 from agentc import (
     agent,
+    assistant,
     calc,
     config,
     house,
@@ -151,6 +152,10 @@ def run(send: StepSend | None, *, samples: int = 5, path: Path | None = None,
             plan = lambda s, pe=pe: _plan_sample(pe, s, cfg)  # noqa: E731
             scores.append(_score(pe.id, plan_key(tools), saved, live(pe.id), samples, pcfg, plan,
                                  tier="mid"))  # fmt: skip
+        for ae in ASKS:
+            _, t = review_case(cfg)
+            ask = lambda s, ae=ae: _ask_sample(ae, s, cfg)  # noqa: E731
+            scores.append(_score(ae.id, ask_key(t, ae), saved, live(ae.id), samples, cfg, ask))
         for re_ in REVIEWS:
             _, t = review_case(cfg)
             talk = lambda s, re_=re_: _review_sample(re_, s, cfg)  # noqa: E731
@@ -507,4 +512,69 @@ def _review_sample(re_: ReviewEval, send: StepSend, cfg: Config) -> Sample:
     lost = any(x == review.LOST or x.startswith("Sorry") for x in said)
     action = "none" if lost else draft.action if draft else "answer"
     return Sample(steps, action, re_.right(draft, said), used,
+                  store.llm_usd(t.base.app, site_id=1))  # fmt: skip
+
+
+# EV-36 to EV-38: the Assistant (5d), on the same house, with the owner asking once.
+
+
+@dataclass(frozen=True)
+class AskEval:
+    id: str
+    said: str
+    right: Callable[[assistant.Draft | None, str, list[str]], bool]  # (draft, words, tools)
+
+
+def _friday_habit(d: assistant.Draft | None, said: str, tools: list[str]) -> bool:
+    """A habit for the TV on Friday nights only, from the evening to 01:00: no rule, no
+    timer. A window that ends next day starts later than it ends."""
+    h = d.habit if d else None
+    return (d is not None and d.action == "habit" and d.device == "LG TV" and h is not None
+            and h.days == "0000010" and h.end == "01:00" and h.start > h.end)  # fmt: skip
+
+
+DEVICES = ("Desk 2", "3D printer", "LG TV", "PeoTV box")
+
+
+def _desk_2_most(d: assistant.Draft | None, said: str, tools: list[str]) -> bool:
+    """A question: no draft; it worked out what each used (cost), and named Desk 2 first."""
+    named = sorted((said.find(x), x) for x in DEVICES if x in said)
+    return d is None and "cost" in tools and bool(named) and named[0][1] == "Desk 2"
+
+
+def _box_off(d: assistant.Draft | None, said: str, tools: list[str]) -> bool:
+    return d is not None and d.action == "switch_off" and d.device == "PeoTV box"
+
+
+ASKS = (
+    AskEval("EV-36", "Keep the LG TV on until 1 on Fridays, we watch late.", _friday_habit),
+    AskEval("EV-37", "What used the most this week?", _desk_2_most),
+    AskEval("EV-38", "Switch off the PeoTV box now.", _box_off),
+)
+
+
+def ask_key(t: planner_agent.PlanTools, ae: AskEval) -> str:
+    """Changes when the Assistant's prompt, tools, brief or the owner's words change."""
+    text = assistant.VERSION + assistant.SYSTEM + json.dumps(assistant.TOOLS, sort_keys=True)
+    text += assistant.brief(t) + assistant.GREETING + ae.said
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def _ask_sample(ae: AskEval, send: StepSend, cfg: Config) -> Sample:
+    pcfg, t = review_case(cfg)
+    steps: list[list[Block]] = []
+
+    def listen(*, tier: Tier, system: str, messages: list[Message], tools: list[Schema],
+               on_text: OnText | None = None) -> tuple[list[Block], str, int, int]:  # fmt: skip
+        blocks, stop, tokens_in, tokens_out = send(tier=tier, system=system, messages=messages,
+                                                   tools=tools)  # fmt: skip
+        steps.append(blocks)
+        return blocks, stop, tokens_in, tokens_out
+
+    brain = Llm(t.base.app, 1, pcfg.tz, pcfg.tiers, pcfg.budget, listen, clock=lambda: SUNDAY)
+    talk = [("agent", assistant.GREETING), ("owner", ae.said)]
+    r = assistant.reply(talk, tools=t, llm=brain, run_id=ae.id)
+    lost = r.text in (review.LOST, review.loop.STUCK)
+    action = "none" if lost else r.draft.action if r.draft else "answer"
+    return Sample(steps, action, ae.right(r.draft, r.text, list(r.tools)), list(r.tools),
                   store.llm_usd(t.base.app, site_id=1))  # fmt: skip

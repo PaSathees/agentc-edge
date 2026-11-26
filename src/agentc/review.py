@@ -11,23 +11,23 @@ itself). Every number it says must come from the brief, a tool or the owner.
 """
 
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from typing import Any
 
 from agentc import config, goal, planner, store
+from agentc import talk as loop
 from agentc.agent import TOOLS as LOOK_TOOLS
 from agentc.agent import system_word, tool
-from agentc.checks import made_up
 from agentc.devices.base import DAY_SETS, WEEK, describe
-from agentc.llm import Llm, private
+from agentc.llm import Llm
 from agentc.planner_agent import PlanTools, week_start
 
 VERSION = "review-v1"  # change it with any change to SYSTEM or the tools
-MAX_STEPS = 6  # model calls per owner message
+MAX_STEPS = loop.MAX_STEPS
 TIERS = {"item": "small", "plan": "mid"}  # one item: Haiku-class; the whole plan: Sonnet-class
 REASON_MAX = 200  # characters in a kept reason: it goes into later plans' prompts
-LOST = "Sorry, I lost my words there. Could you say that again?"
+LOST = loop.LOST
 ACTIONS = ("change", "anyway", "keep")
 SENDS = ("move_timer", "add_pair")  # the changes a tap can send
 
@@ -85,8 +85,6 @@ TOOLS = [t for t in LOOK_TOOLS if t["name"] in ("device", "power", "usual")] + [
 STEPS = {"device": "reading about the device", "power": "looking at its power",
          "usual": "looking at its usual week", "try_change": "trying that change"}  # fmt: skip
 
-Event = Callable[[str, str], None]  # (kind, text): "step", "text" as the reply streams
-
 
 @dataclass(frozen=True)
 class Draft:
@@ -118,14 +116,6 @@ class Draft:
         return cls(**{**raw, "change": change})
 
 
-@dataclass(frozen=True)
-class Reply:
-    text: str
-    draft: Draft | None
-    tools: tuple[str, ...]
-    reads: tuple[tuple[str, str], ...] = ()
-
-
 @dataclass
 class Scope:
     """What a review chat is about: one item of a plan, or the whole plan."""
@@ -146,7 +136,7 @@ def greeting(t: PlanTools, scope: Scope) -> str:
         return (f"Let's talk over this week's plan: {n} open item{'s' if n != 1 else ''}. "
                 "Ask about any of them, or what else could help with the goal.")  # fmt: skip
     i = next(i for i in items if i.id == scope.item_id)
-    name = _name(t, i.plug_mac)
+    name = name_of(t, i.plug_mac)
     what = f"{i.was} to {i.becomes}" if i.was else i.becomes
     return f"Let's talk over {name}: {what}. {i.saving} What would you like to know?"
 
@@ -165,95 +155,28 @@ def brief(t: PlanTools, scope: Scope) -> str:
         macs.add(i.plug_mac)
         what = f"{i.was} to {i.becomes}" if i.was else i.becomes
         state = "ready" if i.ready else "only to talk over"
-        lines.append(f"Item {i.id}: {_name(t, i.plug_mac)}: {what}. Why: {i.why} {i.saving}"
+        lines.append(f"Item {i.id}: {name_of(t, i.plug_mac)}: {what}. Why: {i.why} {i.saving}"
                      f" ({state}; {i.status.replace('_', ' ')})")  # fmt: skip
     for mac in sorted(macs):
         timers = [f"timer {x.slot}: {describe(x)}" for x in store.load_timers(b.app, mac=mac)
                   if x.enable] or ["no timers"]  # fmt: skip
-        lines.append(f"{_name(t, mac)} now: {'; '.join(timers)}")
+        lines.append(f"{name_of(t, mac)} now: {'; '.join(timers)}")
     lines.append(f"Notes and Not nows:\n{t.week_notes()}")
     return "\n".join(lines)
 
 
 def reply(
     talk: list[tuple[str, str]], scope: Scope, *, tools: PlanTools, llm: Llm, run_id: str,
-    on_event: Event | None = None, earlier: Sequence[tuple[str, str]] = (),
-) -> Reply:  # fmt: skip
-    """The agent's answer to the owner's last message. talk: (role, text), oldest first,
-    starting with the greeting. earlier: what it read before in this chat, (asked, result).
+    on_event: loop.Event | None = None, earlier: Sequence[tuple[str, str]] = (),
+) -> loop.Reply:  # fmt: skip
+    """The agent's answer to the owner's last message (talk.reply, with this agent's part).
     Raises OverBudget or Unreachable."""
-    say = on_event or (lambda kind, text: None)
-    first = brief(tools, scope)
-    facts = [first, *(text for _, text in talk), *(r for _, r in earlier)]
-    messages = _messages(talk, first, earlier)
-    used: list[str] = []
-    read = {asked for asked, _ in earlier}
-    new: list[tuple[str, str]] = []
-    for step in range(MAX_STEPS):
-        offer = TOOLS if step < MAX_STEPS - 1 else [PROPOSE]
-        r = llm.step(tier=scope.tier, agent="review", run_id=run_id, prompt_version=VERSION,
-                     system=SYSTEM, messages=messages, tools=offer,
-                     on_text=lambda words: say("text", words))  # fmt: skip
-        messages.append({"role": "assistant", "content": r.blocks})
-        text = "".join(b.get("text", "") for b in r.blocks if b.get("type") == "text").strip()
-        calls = [b for b in r.blocks if b.get("type") == "tool_use"]
-        if not calls:
-            if not text or r.stop_reason == "refusal":
-                return Reply(LOST, None, tuple(used), tuple(new))
-            if not (bad := _words(text, tools, facts)):
-                return Reply(text, None, tuple(used), tuple(new))
-            say("step", "checking its numbers")
-            messages.append(
-                {
-                    "role": "user",
-                    "content": f"Not shown to the owner: {bad}. Say"
-                    " it again with only numbers from the brief, a tool or the owner.",
-                }
-            )
-            continue
-        results = []
-        for c in calls:
-            if c["name"] == "propose":
-                try:
-                    draft = parse(c["input"], tools, scope)
-                    message = str(c["input"]["message"]).strip()
-                    if bad := _words(message, tools, facts):
-                        raise ValueError(bad)
-                    return Reply(message, draft, tuple(used), tuple(new))
-                except (KeyError, TypeError, ValueError) as err:
-                    out, error = f"Not shown: {err}. Fix it and call propose again.", True
-            else:
-                out, error = _look(c, tools, scope, facts, (read, used, new), say)
-            results.append({"type": "tool_result", "tool_use_id": c["id"],
-                            "content": private(out), "is_error": error})  # fmt: skip
-        messages.append({"role": "user", "content": results})
-    return Reply("Sorry, I could not finish that. Could you say it another way?", None,
-                 tuple(used), tuple(new))  # fmt: skip
-
-
-def _look(c: dict[str, Any], tools: PlanTools, scope: Scope, facts: list[str],
-          seen: tuple[set[str], list[str], list[tuple[str, str]]], say: Event
-          ) -> tuple[str, bool]:  # fmt: skip
-    """One read tool call: its result, and whether it is an error. seen: what was read in
-    this chat, the tools used, and the new reads to keep."""
-    read, used, new = seen
-    if c["name"] == "try_change":
-        say("step", STEPS["try_change"])
-        out = try_change(c["input"], tools, scope)
-        facts.append(out)
-        used.append("try_change")
-        return out, False
-    if (asked := _asked(c["name"], c["input"])) in read:
-        return "You read this already in this chat. Use that result.", False
-    read.add(asked)
-    say("step", STEPS.get(c["name"], "looking"))
-    out = tools.run(c["name"], c["input"])
-    facts.append(out)
-    used.append(c["name"])
-    error = out.startswith("Error:")
-    if not error and c["name"] != "power":  # power changes each minute: read it again later
-        new.append((asked, out))
-    return out, error
+    names = [config.device(tools.base.cfg, p).name for p in tools.base.cfg.plugs]
+    spec = loop.Spec("review", VERSION, SYSTEM, scope.tier, TOOLS, brief(tools, scope),
+                     lambda raw: parse(raw, tools, scope), names, STEPS,
+                     {"try_change": lambda raw: try_change(raw, tools, scope)})  # fmt: skip
+    return loop.reply(spec, talk, tools=tools, llm=llm, run_id=run_id, on_event=on_event,
+                      earlier=earlier)  # fmt: skip
 
 
 def try_change(raw: dict[str, Any], t: PlanTools, scope: Scope) -> str:
@@ -262,8 +185,8 @@ def try_change(raw: dict[str, Any], t: PlanTools, scope: Scope) -> str:
         item, plug, change = _change(raw, t, scope)
     except (KeyError, TypeError, ValueError) as err:
         return f"Error: {err}"
-    r, bad = _checked(t, plug, change)
-    head = f"{_what(t, plug, change)}: {r.text()}"
+    r, bad = checked(t, plug, change)
+    head = f"{in_words(t, plug, change)}: {r.text()}"
     if bad:
         return f"{head} Not allowed: {bad}."
     ok = (
@@ -281,7 +204,7 @@ def parse(raw: dict[str, Any], t: PlanTools, scope: Scope) -> Draft:
         raise ValueError(f"action is one of {', '.join(ACTIONS)}")
     item = _item(t, scope, int(raw["item"]))
     plug = _plug(t, item.plug_mac)
-    name = _name(t, item.plug_mac)
+    name = name_of(t, item.plug_mac)
     if action == "keep":
         reason = str(raw["reason"]).strip()
         if not reason or len(reason) > REASON_MAX:
@@ -298,31 +221,45 @@ def parse(raw: dict[str, Any], t: PlanTools, scope: Scope) -> Draft:
             raise ValueError("this change cannot be done from the chat yet")
     else:
         _, plug, change = _change(raw, t, scope, item)
-    r, bad = _checked(t, plug, change)
+    r, bad = checked(t, plug, change)
     if bad:
         raise ValueError(f"not allowed: {bad}")
     if action == "change" and not planner.ready(r):
         raise ValueError("it would have got in the way on some days: use anyway, after the"
                          " owner agrees, or find another time")  # fmt: skip
-    return Draft(action, item.id, plug, name, change, _what(t, plug, change), r.text(),
+    return Draft(action, item.id, plug, name, change, in_words(t, plug, change), r.text(),
                  used=r.used_days)  # fmt: skip
 
 
 def _change(raw: dict[str, Any], t: PlanTools, scope: Scope, item: store.PlanItem | None = None
             ) -> tuple[store.PlanItem, str, planner.Change]:  # fmt: skip
     """The change the agent named, for one of the chat's items on that device."""
+    plug, mac, change = build_change(raw, t)
     name = str(raw["device"])
-    plug = next((p for p in t.base.cfg.plugs if config.device(t.base.cfg, p).name == name), None)
-    mac = store.plug_mac(t.base.app, name=plug) if plug else None
-    if mac is None:
-        raise ValueError(f"no device named {name!r}")
     if item is None:
         items = [i for i in _items(t, scope) if i.plug_mac == mac]
         if not items:
             raise ValueError(f"{name} has no item in this chat")
         item = items[0]
     elif item.plug_mac != mac:
-        raise ValueError(f"item {item.id} is about {_name(t, item.plug_mac)}, not {name}")
+        raise ValueError(f"item {item.id} is about {name_of(t, item.plug_mac)}, not {name}")
+    return item, plug, change
+
+
+def device_plug(t: PlanTools, name: str) -> tuple[str, str]:
+    """A device's plug and MAC from its name, as the agent says it. ValueError if none."""
+    plug = next((p for p in t.base.cfg.plugs if config.device(t.base.cfg, p).name == name), None)
+    mac = store.plug_mac(t.base.app, name=plug) if plug else None
+    if plug is None or mac is None:
+        raise ValueError(f"no device named {name!r}")
+    return plug, mac
+
+
+def build_change(raw: dict[str, Any], t: PlanTools) -> tuple[str, str, planner.Change]:
+    """A timer change from the agent's words: a move of one of the device's timers, or a new
+    off and on pair on the days it names. Returns (plug, mac, change)."""
+    name = str(raw["device"])
+    plug, mac = device_plug(t, name)
     if raw["kind"] == "move_timer":
         timers = {x.slot: x for x in store.load_timers(t.base.app, mac=mac) if x.enable}
         slot = int(raw["timer"])
@@ -332,13 +269,13 @@ def _change(raw: dict[str, Any], t: PlanTools, scope: Scope, item: store.PlanIte
                                 from_time=timers[slot].time)  # fmt: skip
     elif raw["kind"] == "add_pair":
         change = planner.Change("add_pair", off=str(raw["off"]), on=str(raw["on"]),
-                                days=_days(raw["days"]))  # fmt: skip
+                                days=days(raw["days"]))  # fmt: skip
     else:
         raise ValueError("kind is move_timer or add_pair")
-    return item, plug or "", change
+    return plug, mac, change
 
 
-def _days(names: Any) -> str:  # noqa: ANN401 (the model's JSON)
+def days(names: Any) -> str:  # noqa: ANN401 (the model's JSON)
     """Day names as a timer's days: a DAY_SETS name when one fits ("weekdays"), else Tasmota's
     7 chars, Sunday first ("1111100": Sunday to Thursday)."""
     if not isinstance(names, list) or not names or not set(names) <= set(WEEK):
@@ -347,7 +284,7 @@ def _days(names: Any) -> str:  # noqa: ANN401 (the model's JSON)
     return next((name for name, b in DAY_SETS.items() if b == bits), bits)
 
 
-def _checked(t: PlanTools, plug: str, change: planner.Change) -> tuple[planner.WhatIf, str]:
+def checked(t: PlanTools, plug: str, change: planner.Change) -> tuple[planner.WhatIf, str]:
     """The change's what_if, and why it is not allowed ("" if it is): the plan item checks."""
     b = t.base
     mac = store.plug_mac(b.app, name=plug) or ""
@@ -361,7 +298,7 @@ def _checked(t: PlanTools, plug: str, change: planner.Change) -> tuple[planner.W
     return r, (bad or "").split(": ", 1)[-1]
 
 
-def _what(t: PlanTools, plug: str, change: planner.Change) -> str:
+def in_words(t: PlanTools, plug: str, change: planner.Change) -> str:
     mac = store.plug_mac(t.base.app, name=plug) or ""
     before, after = planner.before_after(change, store.load_timers(t.base.app, mac=mac))
     return f"{before} to {after}"
@@ -384,40 +321,9 @@ def _plug(t: PlanTools, mac: str) -> str:
                  if m == mac), "")  # fmt: skip
 
 
-def _name(t: PlanTools, mac: str) -> str:
+def name_of(t: PlanTools, mac: str) -> str:
     plug = _plug(t, mac)
     return config.device(t.base.cfg, plug).name if plug in t.base.cfg.plugs else "?"
-
-
-def _words(text: str, t: PlanTools, facts: list[str]) -> str:
-    """What is wrong with words for the owner; "" if nothing."""
-    names = [config.device(t.base.cfg, p).name for p in t.base.cfg.plugs]
-    if term := system_word(text, names):
-        return f"{term!r} is a system word"
-    if missing := made_up(text, "\n".join(facts)):
-        return f"numbers not in the brief, a tool or the owner's words: {', '.join(missing)}"
-    return ""
-
-
-def _asked(name: str, args: dict[str, Any]) -> str:
-    return f"{name} {json.dumps(args, sort_keys=True)}"
-
-
-def _messages(talk: list[tuple[str, str]], first: str, earlier: Sequence[tuple[str, str]]
-              ) -> list[dict[str, Any]]:  # fmt: skip
-    """The chat as model messages. The first holds the brief, what was read before in this
-    chat, and the greeting, which code wrote."""
-    head = f"{first}\n\nYou opened the chat with: {talk[0][1]}"
-    if earlier:
-        head += "\n\nWhat you read earlier in this chat (still true):\n" + "\n\n".join(
-            f"{asked}:\n{result}" for asked, result in earlier)  # fmt: skip
-    messages: list[dict[str, Any]] = []
-    for role, text in talk[1:]:
-        kind = "user" if role == "owner" else "assistant"
-        if not messages:
-            text = f"{private(head)}\n\nThe owner says: {text}"
-        messages.append({"role": kind, "content": text})
-    return messages
 
 
 def tools_for(base: Any) -> PlanTools:  # noqa: ANN401 (agent_tools.Tools)

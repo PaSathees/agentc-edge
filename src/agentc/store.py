@@ -22,7 +22,8 @@ from agentc.watcher import Event
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
 # 7: questions.sent. 8: unused v1 tables dropped. 9: chats. 10: chats.reads. 11: plans
 # 12: plan_items.was and becomes. 13: review chats (chats.plan_id, item_id), plan_items.reason
-SCHEMA_VERSION = 13
+# 14: assistant chats
+SCHEMA_VERSION = 14
 UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
@@ -173,8 +174,8 @@ CREATE TABLE IF NOT EXISTS questions (
 CREATE TABLE IF NOT EXISTS chats (
     id       INTEGER PRIMARY KEY,
     site_id  INTEGER NOT NULL REFERENCES sites(id),
-    plug_mac TEXT REFERENCES plugs(mac),  -- setup: its plug; review: NULL
-    kind     TEXT NOT NULL CHECK (kind IN ('setup', 'review')),
+    plug_mac TEXT REFERENCES plugs(mac),  -- setup: its plug; review, assistant: NULL
+    kind     TEXT NOT NULL CHECK (kind IN ('setup', 'review', 'assistant')),
     status   TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'saved', 'closed')),
     draft    TEXT,  -- JSON: what the agent proposed last (a card, or a plan change); NULL: none
     created  TEXT NOT NULL,
@@ -244,8 +245,7 @@ def connect(path: str | Path) -> sqlite3.Connection:
     if version < 8:  # version 1 tables, never used now; Phase 4 adds back what it needs
         for table in UNUSED:
             db.execute(f"DROP TABLE IF EXISTS {table}")
-    cols = [c[1] for c in db.execute("PRAGMA table_info(chats)")]
-    if cols and "plan_id" not in cols:  # before 13: a CHECK can change only by a new table
+    if _old_chats(db):  # before 14: a CHECK can change only by a new table
         _rebuild_chats(db)
     db.executescript(SCHEMA)
     if "tries" not in [col[1] for col in db.execute("PRAGMA table_info(events)")]:
@@ -263,24 +263,32 @@ def connect(path: str | Path) -> sqlite3.Connection:
     return db
 
 
+def _old_chats(db: sqlite3.Connection) -> bool:
+    """An older chats table: without the review columns (13) or the assistant kind (14)."""
+    row = db.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chats'")
+    sql = (row.fetchone() or [""])[0]
+    return bool(sql) and ("plan_id" not in sql or "'assistant'" not in sql)
+
+
 def _rebuild_chats(db: sqlite3.Connection) -> None:
-    """Version 13's chats table, with every chat kept: SQLite's way to change a CHECK. All
-    in one transaction, so a stop half way leaves the old table as it was."""
+    """Today's chats table, with every chat kept: SQLite's way to change a CHECK. All in one
+    transaction, so a stop half way leaves the old table as it was."""
     db.execute("PRAGMA foreign_keys = OFF")  # chat_turns points at chats while it is swapped
     try:
         db.execute("BEGIN IMMEDIATE")  # a second process waits, then finds it done
         try:
-            if "plan_id" not in [c[1] for c in db.execute("PRAGMA table_info(chats)")]:
+            if _old_chats(db):
                 start = SCHEMA.index("CREATE TABLE IF NOT EXISTS chats (")
                 table = SCHEMA[start : SCHEMA.index("\n);", start) + 3]  # a comment has ");"
-                db.execute("DROP TABLE IF EXISTS chats_13")
-                db.execute(table.replace("IF NOT EXISTS chats", "chats_13"))
+                db.execute("DROP TABLE IF EXISTS chats_new")
+                db.execute(table.replace("IF NOT EXISTS chats", "chats_new"))
                 have = [c[1] for c in db.execute("PRAGMA table_info(chats)")]
                 cols = ", ".join(c for c in ("id", "site_id", "plug_mac", "kind", "status",
-                                             "draft", "created", "reads") if c in have)  # fmt: skip
-                db.execute(f"INSERT INTO chats_13 ({cols}) SELECT {cols} FROM chats")
+                                             "draft", "created", "reads", "plan_id",
+                                             "item_id") if c in have)  # fmt: skip
+                db.execute(f"INSERT INTO chats_new ({cols}) SELECT {cols} FROM chats")
                 db.execute("DROP TABLE chats")
-                db.execute("ALTER TABLE chats_13 RENAME TO chats")
+                db.execute("ALTER TABLE chats_new RENAME TO chats")
             db.commit()
         except BaseException:
             db.rollback()
@@ -776,6 +784,24 @@ def open_review(db: sqlite3.Connection, *, site_id: int, plan_id: int, item_id: 
     return cur.lastrowid or 0
 
 
+def open_assistant(db: sqlite3.Connection, *, site_id: int, now: datetime) -> int:
+    """The site's open Assistant chat, or a new one. Returns its id. The look and the new
+    chat are one step, so two pages opened at once share one chat."""
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        sql = """SELECT id FROM chats WHERE kind = 'assistant' AND status = 'open'
+                 AND site_id = ? ORDER BY id DESC LIMIT 1"""
+        row = db.execute(sql, (site_id,)).fetchone()
+        found = row[0] if row else db.execute(
+            "INSERT INTO chats (site_id, kind, created) VALUES (?, 'assistant', ?)",
+            (site_id, now.astimezone(UTC).isoformat())).lastrowid or 0  # fmt: skip
+        db.commit()
+    except BaseException:  # pragma: no cover (a failed insert: nothing half done)
+        db.rollback()
+        raise
+    return found
+
+
 def add_turn(db: sqlite3.Connection, *, chat_id: int, site_id: int, role: str, text: str,
              now: datetime) -> int:  # fmt: skip
     with db:
@@ -815,6 +841,12 @@ def chat(db: sqlite3.Connection, *, chat_id: int) -> Chat | None:
     reads = tuple((a, r) for a, r in json.loads(row[3])) if row[3] else ()
     return Chat(row[0] or "", row[1], json.loads(row[2]) if row[2] else None, reads, row[4],
                 row[5])  # fmt: skip
+
+
+def clear_reads(db: sqlite3.Connection, *, chat_id: int) -> None:
+    """Forget what the agent read in this chat: after a tap changed the house, it reads again."""
+    with db:
+        db.execute("UPDATE chats SET reads = NULL WHERE id = ?", (chat_id,))
 
 
 def add_reads(db: sqlite3.Connection, *, chat_id: int, reads: Sequence[tuple[str, str]]) -> None:

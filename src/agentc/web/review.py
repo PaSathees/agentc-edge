@@ -14,10 +14,10 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
-from agentc import config, llm, notify, readings, review, store
+from agentc import config, notify, readings, review, store
 from agentc.agent_tools import Tools
 from agentc.config import Config
-from agentc.llm import OverBudget, StepSend, Unreachable
+from agentc.llm import StepSend
 from agentc.web import chat, plan
 from agentc.web.deps import Cfg, Connect, Db, Model, Now, Secret, Tok, pages
 from agentc.web.login import Owner
@@ -63,18 +63,9 @@ def reply(scope: str, tok: str, cfg: Cfg, key: Secret, now: Now, model: Model,
     s = _scope(db, site, scope)
     chat_id, talk = _open(cfg, db, site, s, now)
     view = _view(cfg, db, site, scope, s, chat_id, key)
-    if talk[-1][0] == "agent":  # answered already (a reload): just show it
-        return chat.stream(iter([("done", (talk[-1][1], view["draft"]))]), view)
-    with chat.RUNS_LOCK:
-        run, started = chat.RUNS.get(chat_id), False
-        if run is None:
-            run, started = chat.Run(), True
-            chat.RUNS[chat_id] = run
-    listen = run.listen()
-    if started:
-        args = (cfg, site, s, chat_id, talk, now, model, run)
-        threading.Thread(target=_answer, args=args, daemon=True).start()
-    return chat.stream(chat.drain(listen), view)
+    args = (cfg, site, s, chat_id, talk, now, model)
+    return chat.start_reply(chat_id, talk, view, lambda run: threading.Thread(
+        target=_answer, args=(*args, run), daemon=True).start())  # fmt: skip
 
 
 @router.post("/plan/talk/{scope}/act", response_class=HTMLResponse)
@@ -83,11 +74,11 @@ def act(scope: str, tok: Tok, cfg: Cfg, key: Secret, now: Now, data: Db,
     """The owner's tap on the draft: do the change, do it anyway, or keep it as it is."""
     _check(key, tok, scope)
     db, site = data
-    chat_id, _ = _open(cfg, db, site, _scope(db, site, scope), now)
-    with chat.RUNS_LOCK:
-        if chat_id in chat.RUNS:
-            raise HTTPException(409, "Wait for the reply first.")
     with plan.SENDING:  # one tap at a time, as on the Plan tab
+        chat_id, talk = _open(cfg, db, site, _scope(db, site, scope), now)
+        with chat.RUNS_LOCK:
+            if chat_id in chat.RUNS or talk[-1][0] == "owner":  # a reply is due: its draft
+                raise HTTPException(409, "Wait for the reply first.")
         found = store.chat(db, chat_id=chat_id)
         if found is None or found.draft is None:
             raise HTTPException(409, "Nothing to do: no draft in this chat.")
@@ -105,6 +96,7 @@ def act(scope: str, tok: Tok, cfg: Cfg, key: Secret, now: Now, data: Db,
             if text.startswith("Done"):
                 store.decide_item(db, item_id=d.item, status="done", now=now)
         store.set_draft(db, chat_id=chat_id, draft=None)
+        store.clear_reads(db, chat_id=chat_id)
         store.add_turn(db, chat_id=chat_id, site_id=site, role="agent", text=text, now=now)
     return HTMLResponse(f'<section class="card"><p>{escape(text)}</p>'
                         '<a href="/plan">Back to the plan</a></section>')  # fmt: skip
@@ -181,45 +173,7 @@ def _view(cfg: Config, db: Connection, site: int, scope: str, s: review.Scope, c
 
 def _answer(cfg: Config, site: int, s: review.Scope, chat_id: int, talk: list[tuple[str, str]],
             now: datetime, model: StepSend | None, run: chat.Run) -> None:  # fmt: skip
-    """Run one reply in its own thread, with its own database connections. The reply and
-    its draft are saved; a failure is said, not saved, so sending again retries it."""
-    db = energy = None
-    if not chat.AT_ONCE.acquire(blocking=False):
-        run.put(("done", ("Busy with another reply. Send it again in a moment.", None)))
-        _end(chat_id, run)
-        return
-    try:
-        if model is None:
-            raise LookupError("No ANTHROPIC_API_KEY in .env: the chat needs the model.")
-        db = store.open_app(cfg.app_db)
-        t, energy = _tools(cfg, db, site, now)
-        brain = llm.Llm(db, site, cfg.tz, cfg.tiers, cfg.budget, model)
-        found = store.chat(db, chat_id=chat_id)
-        r = review.reply(talk, s, tools=t, llm=brain, run_id=f"review:{chat_id}:{len(talk)}",
-                         on_event=lambda kind, text: run.put((kind, text)),
-                         earlier=found.reads if found else ())  # fmt: skip
-        store.add_reads(db, chat_id=chat_id, reads=r.reads)
-        store.add_turn(db, chat_id=chat_id, site_id=site, role="agent", text=r.text, now=now)
-        store.set_draft(db, chat_id=chat_id, draft=r.draft.to_json() if r.draft else None)
-        run.put(("done", (r.text, r.draft)))
-    except OverBudget as err:
-        why = ("This month's model budget is used up." if "month" in str(err)
-               else "That reply hit its cost cap. Try a shorter message.")  # fmt: skip
-        run.put(("done", (why, None)))
-    except Unreachable:
-        run.put(("done", ("I can't reach the model now. Send it again later.", None)))
-    except Exception as err:  # e.g. no key: say it, keep the chat
-        run.put(("done", (f"Something went wrong: {err}", None)))
-    finally:
-        chat.AT_ONCE.release()
-        for conn in (db, energy):
-            if conn is not None:
-                conn.close()
-        _end(chat_id, run)
-
-
-def _end(chat_id: int, run: chat.Run) -> None:
-    with chat.RUNS_LOCK:
-        if chat.RUNS.get(chat_id) is run:
-            del chat.RUNS[chat_id]
-    run.finish()
+    chat.answer_with(cfg, site, chat_id, now, model, run, lambda t, brain, earlier, say:
+                     review.reply(talk, s, tools=t, llm=brain,
+                                  run_id=f"review:{chat_id}:{len(talk)}", on_event=say,
+                                  earlier=earlier))  # fmt: skip

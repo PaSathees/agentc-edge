@@ -1688,5 +1688,480 @@
     ]
    ]
   ]
+ },
+ "EV-36": {
+  "key": "5160ad00e8e77d0b",
+  "model": "claude-haiku-5-5",
+  "samples": [
+   [
+    [
+     {
+      "signature": "CAQSnwkKEAgUGAI4AUIIdGhpbmtpbmcSDP+/8IO1n5IuvO9ZrRoMeNIn550PFgznGK9OIjCp6Ox1GQhLNmfBvomZkIDutPr6djQt4UST+KvYb4k8p0XRF1OwOchuiL75qe/4WsIqvAhcTOetn8v73wtD4WvJBG9ni1qL5sYpzCfAm/B4AOXaQrKh1NSfAEB5CrZMYfxW/gkpE2DzBxZhxf8ZjgKkCmNlVDrUFM8aKm/CT4wtlOilpO38mrJCIWbPEyB78ae/PgFWzV69qBZKXuqyQEcJ+YPGSX787h0fwoy+N8WZrs63RrcNTiT7Y4LaB/WHfWml2pgYkFwNz00aGlMyCObXB6i9DMt3B5GXUx5qBQ5Kmj1r6DpfA+9+9vS0nR299bQbMqsjMamHNMz9zqbmXvQSAP07GDQlqMYRhq109wqAzY0IyG424XveRjI0fWqSh30/z8BOy4oTi5EPZeGasveQVsh61519DQrRkS58sSSf37/v3RPzWaD7V/u0eOyrfRRCReulko+yw+2lRePwnJLVTWlxmg7R0O7PdKSdWg0X4DYg0aiLrirC2YpenYF3w0q7WdKXyna5tHLMkahAX5Zr92SPhI8zbyKG7xABuEroWWKQR5+syLYsFhNhffC9arf/bUqO/eLCWIqvn9qcv5Dyi0K/7AiwUWuw8mbOT2gUomZ9M9oMmMa4uGdl3f3Wq0W5aB5vH5dunIFDbyKHCbXF8kyr5U6LmcoUFDsA2IXbhpuDFwQC5Zh8irforjaic8fkjtP0xf61O2SQtP/ll77PIUwPQ/41QFHAyqoT3X6VJ3aXqD1hb4/ckvyrf5xda23SUASA/k2yQfDIcmMCaKePSvhPGlqYk5VnPWD+log5H4Olb6aXO2qtHdYWwC1p38dPdLFlGZnHNVb1alfCbMDYeEA5SpOMLsELSIW1W0YZEvRExDhm0Br/nB3ccIuoE4QLh6qoUevpyNbJghwaTsO5xe+L8bb6zCz9FXtKLK5leVS4luGUxvgrjtRe/Q70WqGalbSm90ADXwpIbkvzAAWVp70kPLHTKiyIIc/F+Z6O83bHjsL49v9WwR/Q2Uu6X87Y/Bxx8jHe6deK+ClEOzBnTWYs0qRb6YEYNPgb8Eg/9dYNv11aQAEobclGFfwknbpKNDIH0Lgo1DRMM4QCjbzGmp+FwA6JulrUsC6WYQ6xUNit/Lw8+bO599mpqHwxIZ915VTQRpryTjKnMwIS4FrAD+ebBk3z/SYQ4+UIPe8WHMj8vf7GHghi1qCYVTRHBghuYTOJzr8ay4ZfvQzfepLH+oU30dgw4DiYfOC/SJGIEAg9F7saRrqXJ2gs3P9skR98zrjPIylr61Q/XnK9bSNK7mHWufrbZEZ6YYMluM+GA5bA9demcbg2mLdoW9AXPYy67GJfx3Mc21w7DRC6bW52FUggEB34b+3rxKYdRPr7gBKQAzUCSsCK5GI0AxGvgXqIes7e1hMOyeMLGU/uQS1JYsCwIDpZymGuJ6P5+icFHCU6+ccxPc7XpiwF8JCj5XPYDsVVFU3CDVfLEtt2aOJNmiB0e2rL/82CGIL0d9QkGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01HLeL2mQF5NTQXH59RaVW5M",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV",
+       "day": "Friday",
+       "start": "00:00",
+       "end": "23:59"
+      },
+      "name": "usual",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSxQYKEAgUGAI4AUIIdGhpbmtpbmcSDEZRN4BAiS++3JvsOBoMr2KZJM84IvH7pkEXIjAjcQyUbgIsugVNeqrlwabZ0EZrMZrsrObN5eFlpWM5sG4T0FQTNoZD+HPscLGcKR0q4gWrn4ULtgB7leX1dcaz4yRbht6FKKDxgL/kngMlKSKGIQeUQF9ROrjzpl0HUT/sgsVqMRFDSKno1mYxd7uZ3Bwey/EDjzvRT/m4KL/QLQXY5VLMt3EEfSYCavvt639uJ9gXw9uwH0IP5qORSxVmW/XavOQpXfMFN23oAbukfdRy524MYVTOAUospvVk4HJqCF5KqwEZ5WaXKnf+Gf1sMmg6BRXd3wGkAmR3k41N+kYo4ldPaWeSx+at5R2/bmcDlKzxgV3hBChRR/vTxz7gkBc5lRoX277xyCwOYMh9CnX0cKVhiSalvbrX607BImy9TnFD4oUy/qDXW2rzZNyQop2FOV88qCfHRbee0L6LtMlo9NbBBbRyefKDWARY6em0FVp2Ep6esOIbBtm92ZHgjYiC5WiDh47w93JDMdKKfGWwXS2GFqGbbjw2/i5oAg1qkkh633dh7NUk0wBPbSfu2t6KDJm/mHNGhKMFRH25vkKI8BgFf2Izhj1BWngxPiZkcnXOynJfa8quDqzW0y/zOLsPXQHl8UvQ2/9kGMYVCuf8Cx7lubYoPhXyVL83net0lufSuMxmcm4g+y2ulcMkO7tbyDBotqAEopbAyiKoqjCDo/BJ3+/PJiV1EukNhHe6/1GDP3KYBhyp4bgIwapkJYb7238RMjTuQDAIYrmKY1fc7SNEyiEQ12RK1IDdwydryDVuhbmfQyVcO5BJh2Sb2t9LP0pwVlvU5hEtix6IbQvtDuYfM3MuIONTURyWcUU7XtjftLmdw3yVgRdJeQsH6JJNNhSQJaC9v5RNSzrpNJTMAVFrV6HGwlehHiNAyU+4hP+aqFRqyIs9pyK6voashZwbbJ/qWTsst6lLmZ+FwgAwM+oLsdjWls8IhoD67NXOlrTzhXH212xJDF3c7xAw7hLHJcMlZhZDXXrGq8SFSIibHsV1HjfpKNmFn9JAgZTuh22IW0yFef14S+rL+17FJYgkHjIYAQ==",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01SRyvavV4Weabj8h94gQNep",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "habit",
+       "device": "LG TV",
+       "kind": "",
+       "timer": 0,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [
+        "Friday"
+       ],
+       "start": "19:00",
+       "end": "01:00",
+       "text": "watch late on Fridays",
+       "message": "Got it: on Fridays the LG TV will be treated as normal from 19:00 until 1:00, when you usually start watching. This doesn't change its timer, so it still turns off at 01:00 on other days."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "CAQSrQoKEAgUGAI4AUIIdGhpbmtpbmcSDEnv6X0SJhVLtBvB/hoM2ZJwCTF7Jw2/V6qaIjAFRL8E9DTGYMbrttGxNkJzKOaJHV1a4pZPwKv75sRNNcW3Pk+MwSxehO1Z0UKPUDcqygmftd0AF/ctRgKbhT6FgSSnBWmk4KIChwsIzDK2WeeuqPnl8yPJqGh+Y57MZWRL6MSicFRR5BcV3SkdeB3lEtmXtvQSOqPjLiz9att0g9RKy3itTHOWpEGSqlPATe464lpeVDORH5TCp+z4D/ot9u1Ua/Pr2Y7H+VWuM4sWqzczvhmbZ3AI6B/EiUo7lXkqFixlzZb51YOyFP+KZgBxzLEg2yc8Lpd25cuPhlrRCValqNYjrgUo3ybaIEROcm9Uvm8FOSlpfNW4pKhFWbrspMpRZToqIWLIqFsGiqsp99Qykn9tsPlhxbrYWhJqTLDcLZo1pDuIhxvLhkqyhkB/4bYgSgOctrnGW3Qsh5Z/9MpqXd99Qy85kXzW1j9RYGEvRoc0L4+mXALoBN3fIpvS4jrelzLvBq9TqS6ZRr0SLo8JbofsUqutGLrtI9Z7wxP6q79NkUm3PmSytGiXMrpM9uAFmbSibq7gUcg55JKcQ2SqURhn8+yMoirAaH92SPFIPT9u0vvq+ta3ZwGUAM6XvZLNkadfzcotrbodqeQwzErPSe3MjwV8gK2rOp0rpi0Mlu2vTdS1ld8urXuLEvbA4PGDjyYmH6/7KxFm7QQrKsgyP7GQWePq37a6lCuk/Hp6eYLuZezPfhshMY+EsbfMtLHYzwQPgjv0zp10WF/5811wxwjPj2c2Ry4yMZgB/ooLXpu6pZ33TvueNL/uVnK969y1z2jcQA+oOlvHaOSP4mCdjREnVXfa9LbjPdgUklB4L0Ooq0bIPEX0BYIem1l4cWyhdpFVulxqraeswPV0tOBVK0gGCKoYRvYOHazt73ndpHmEkTGDiGyi2qfOzwLnkhbZoLrkP6tdQVJKExDs1kLS+ePIcze923sUmVKafZoUNfj3oTI8irmUptH7I5bFbrJr9fkAwgUwUyehvPZmyDIJansKsOSDm1Y8A111TcO9RApWsLzAZyWtoVkg3cpu0FZWmFhuvu15ouIVNPnMptDPhV5sCZWLCJs0xQ7ZRUuzMsjkMLbd8aHKAXjRY5dzeJNlUyjF6QZ56QhWjn0lJKSvVlhu1e4/DxhBVQauGGw0KGMdbd0bmStNvECU+ouNQGap7J8Skw/YM52znPLIAAPkH6lbRNu4cw7glXgcmB9iTURQ8iJmIsQRyIUkpZuYptStkMYCCCBFdXzvYGB8ZOK+8Z5hMHvyZdkrG4j8xlF9TWLC6B89VWsI9qPadVXMwAmx9EsrlBtcXyeq3aDUEb64e0mypm01ULEj3xkK1ND8emj89AgOYmr0n3l30BfPpCTYHrwjYGzv8peCJiYlLKZFK3KJi3Q8chTBVvneo2igRtrgvqSV6jiosBDz/1nh7Uras39k9hyylShzNByqjGMUhRmsLojbs2ZsFhqNFCyUIO0g33rZhM2D75UKYHnZ318/7Lu+ydS0q8n0qYDDe+yrdrd3bKdk7d7yJGhh+dyj0eA1bZWlcNe5IhD5c7pOOHSzXcxhBGDE7S7c4FLuJyKklYAu6e7f6/9ev5r0otL4SvZ2fhHq0Gpfxs3UXrdLPQ2e73Ikb6ZBqo1j6oGm+0WXEvO2892lWs6QdNrZd2J4l1nm/CRcGK5Fkg5NHKmVSZYl/OhTZffnrQRg2BgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_013APsTMEh6cYocJVgJE1zcu",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV",
+       "day": "Friday",
+       "start": "00:00",
+       "end": "23:59"
+      },
+      "name": "usual",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQS8wUKEAgUGAI4AUIIdGhpbmtpbmcSDEyCPj82qH1tsN8KaBoMYXFPPocvJNToNxnNIjA+Ux2h1a8rhwzn+/BBL87gtttCDtUmpGq9/1ushN/QAg9yDv1QiOzUF8IofgANlbUqkAU7+HuzSrRUWDEz0+YzCzNrK7jV1riX5ibr6tn4T3X+NCeOzUBflMVsfXzsE9cmqB7YMeEprNTJIZn1pInU8J1+5/dqahyAAAkYJmYtrSd3hhu2CKbZEFHJzRt8UehTRhMbm0znNSBxFv6vFa7Ae+uWxNZQOxMMAZqtUGvyUlcteJsTBOkrWBrRYZ9YKsZyQu0wPgKNfD9WqTPjB9CvlOdQL65+qNLclPJTOVkb2D/IqXtZ/QGXuOFIsEYj1PGpcfWgnKkzJjJxa9FswyRLxOz432yizl/Xo4SWFaMho1QDd0exCsitZiwzLRc4xmg1oTQZY3oSSqlXUZUuk0au/3LjY0weoEwfm5Q8+g0UgKADUaoyxhleNH5Pwj6ms9HFxYC8rrKMVK09ACVt+XJaDb2CDuBYnc+qHFXWQ5sludqkauGu9Ff36jGuMLOtYxAPsX619LjKlrGnnlumvm6tznLZfmYCe/+fXBKYSBxIzJI/hlqaH9Oq8hKfin9D4/hApa3KbJDm3tmUiltrKIoCZpepi/4qUl1jgV0Bpqth+KlFnMC8nWW1nnK+3iX3e9uf59dUdZVCYMAoyboGk8ke/1+SWkcmWIIMlN1RnCRXCoTEHljri9ERh5CXu8i5+jnBj2unnDTxjoIHhyd7YjOkVuHDfZedLEYV/oZl/b+gNJHim0PZprqv5uc2OQ6yJD+sm6KVZZEsBCGrIK63dzoUp3KC0GwqOp1nLxTcZPIJtb0tLYOFnxsxoXakGLF8J6pCw2v0Qu2xHe3rfDGvNDS2A60QQSpXH4lZKHzU4aRSR4QluEs26KApIIw02OIGUbOSuwYS5nt/b5WKP6xMYOWJFJPPkx3tk2dPPpJp7lLQEmLPfBgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_019xXnog9tAKqC9hX5XVMNH2",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "habit",
+       "device": "LG TV",
+       "kind": "",
+       "timer": 0,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [
+        "Friday"
+       ],
+       "start": "19:00",
+       "end": "01:00",
+       "text": "watching late on Fridays",
+       "message": "I'll treat the LG TV being on from 19:00 until 01:00 on Fridays as normal, since that's when it's usually on then. Its timers stay as they are."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "CAQSoQgKEAgUGAI4AUIIdGhpbmtpbmcSDLZ1gVsN9QQqNiaGahoM0N0sGofkWsBf4wr6IjBdyweULNVgSy86XOvRVoknZkxmIh3m+FwvLaiHUSLsVbJZyjsFpIoMHgZCXBmufZUqvgdYL/vmOLrMoY9T17WOEDXoyEqcvamyn0DMw33haCaXqm7II2pgmR89C1bv9i9LAVXbidXq/w7vRIsuFB0NtgaAR7vJoFqp23NfVS+j6EMkwCGhFDnKPWQtLNxtAUsg2Z1ciVNIbnYjA4ns0zQRR/aZ5owQVh5z8CwRAEHiflLylF70k6jxVy2qRkfZkWjzPGlucO3UrHE8Gq4wHfufleWYy0J2Vz2dnSABIyer3icm/z6tqOqiLfFPpIf/2KgnLWVPkoVdQ9sgBomlHZjF2oV2Zs6EFKcETrcXzNWJR2u281MaZPCxoBwVBaHZxHSfLau+P9bR0RSASoWcS4GqDspZmnTUmKhnUMXe3ONzG3Nnt0bCzZLCsWoFGMnSnx/aCRPi37PT8pFPsFRBftsm+wG6VyoplYYO0uFB0jvTt/glt3er3pNmUPWD6ZQZff0ZjpvKDGJ/lbGmSLNF315HLGmJiEOBh4bIGwpY54VxzYQnF2Caln0Lq0+E6JYA9CSUY0flF+6xa2tGseKsDtHj7ebs37XWctCotm+rHULE66MVd+YY7vJnLENHeMlan5CHIGwmoHxwfUPsLGE0eMYQ8wimeAZ1ZxMK0Q5J7sGbuHhVkxlEsC0HYI11kGZgJJXMQqFd0RTYqCC3ClQAS+Qz+B3LhxE+JwLPC/gzBkt5m0lqYUZ5Un5r4srb1AOhhjF2pTfRZcccYP4QfgJEuXO/gnFnhbArf3bdZm8dc4pV3LBjIS/SlpCr0Zws/6boQdNQA6NQa87FfvgOtguzJaOlcLPrWVzQv9Q1E+l5EGZ8q1CIWSCMluKTLohBOgFLJk11aEbcRWB0ERZPgPEXkekDoAMsDV9dGyZOamDFBb2VSDakmnO0VWKyRk6UMFVG6cLI5ofVZpE5zzOb4o2NGJQRM7SsbP+LxieztJj4Yl/iLXi5KkSVF1VeGg7Ma6cuNn2mUtvSOWbSh0bCoEH7D1lrdIeR+tOZ4/VNTNOuBh4S9tWfgHeFAl1ZVoI0/nboxhSbx9CVh3mpzZ9qSkmuiH9xK4JFUnK2SFvul3wxSubT+U3YrINIixMoj2ZeQlVAWglCoH+9OnqWy6DJReOKmrhTvKnMEyNMm5o6IxZCshNLLWQ9V/SL2O0qEPJC5cpJ9CEeCBSGzz9lWnlf51AIjTKRrEH89YjjUoASZ91Fk9LzaGmCrvqRPilYMCdzlJvAyEC5M00BcndLoidgXddENyGrNg05THYv8r9h5/4GwFeHYVcIwHWxVFqOuC2SOMYLnUV5GAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01QuZJ8UCt6gDsFu1e155iFY",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV",
+       "day": "Friday",
+       "start": "00:00",
+       "end": "23:59"
+      },
+      "name": "usual",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSyQYKEAgUGAI4AUIIdGhpbmtpbmcSDHPyoVDQzFRjiMQO9BoMxwKYB9gd4g/jxXpyIjDfguNivDg54kc1engKGaeUMjuXqBQaNlWauA9Td0NEhDoUxSvJetuxliLDZzKv6jcq5gUwkNlgTHY1kb4qf6U8wPrSErQvaxcsrZvOaetx8LwnqqZN+mlqYszYkUKmZwU2mkrJDOCWDHRV7vTptC5qNv7997TY0cSCw613f6n95j1X/B/ub7lZQ443J60v3lCcXw9uoWXCj52PwGkKWhZzdCXGk919CyxU4Cbe6cBwIRg7NfTQX2DuRK6q8bDDWe4W8APmZtlQUopzmIwyynsZoJ4A7anQuD4NJm3HWqaCXoDwBuaNaoIA6/vG3pcRwmPGDuK2zBRI8OHbwXZAdhAh4qk81hDyFD8be06Ano9YH+MnfuqGGAgbGZwsdTtXEwmruWEPIUpqDIdMZN0KHfNXoaam0YUhUL1x64ljyjbBb6FPTt+tjxal7knDIRE92i2GzIamHWy+7UXCq+l9whfiwZj4WjSXr9mXcaaOAHaDZXRiEH24A1UeqecQ7s6BAlNI3uiBGWneD+wyYLI/qHuQyhqewOHZnyUftzYo0rS+WhOuFwQS1JL7gX48TgjqCf0AsUPXOdqnc5Ghkr6V6cYmtE1Sm8UbvwMIR2afF+oIWI9jPLIKniewiqCKFyacQohb9u7ecWpfJNAvfnyDaE+WLXQw7BSKBvtq5qUJlbO+5xoIbxcCE15bdULv33N/fEp8rPoP22qOVzexRvf0+pYBUhU4DAMp6Yw9oPor9L3N0QlEwyvlifLl40ZboHVfqQ/uhEVy/S5KtvWAZmKOtRxd8LewyuChAhmBL0YFNPkGA95CYpboeUtbvlvmUIV/9JcxavCiCkZHdjv6qK9ua9WOgNqXNmEedSpoNUyeWaf7q2tluZA6z4FjWlrljuXA957alWJY3qKLdKGZ0yHB/XtT0l8YaH9hTd3UWQupVHeYlUGBqJdqCAgtMuEUgEUv5IWroDwumwFTxzILvAW1B8e/PJNcQHk7X6JxWzcKpGZ3RqRHg05i6oLXuBne/JQVUF8kE9iJAaxnRBsbm+IPaiqTTptjKYNojNHRGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_0132cxcDPmQRKt7fVtoHam15",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "habit",
+       "device": "LG TV",
+       "kind": "",
+       "timer": 0,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [
+        "Friday"
+       ],
+       "start": "19:00",
+       "end": "01:00",
+       "text": "watching late on Fridays",
+       "message": "I'll treat the LG TV being on late on Fridays as normal, from 19:00 until 01:00, since that's when it's usually on. Tap to confirm."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ]
+  ]
+ },
+ "EV-37": {
+  "key": "fae3fa0dace38838",
+  "model": "claude-haiku-5-5",
+  "samples": [
+   [
+    [
+     {
+      "signature": "CAQS+AUKEAgUGAI4AUIIdGhpbmtpbmcSDAAGcadys8beU/f+qxoMJcXAFujwBWtOBWJqIjCfDQRzNv71soh3Cd5C9PSKYYhLEncvI/c51Vdh7DLqA4hriRhsf2qWiFSmEeNkQ94qlQVL30W9oZr2qS0bnGk3kZZAj95RgsiUwVBzYZ9uZY3y0k5tNe8+j8X5j4OnkAk6Ws7d01ITPRVnql/imglgIutXRrdvu9C8SfCdyGtkD6wczWUjjkIjmmudNyridzbGZukI5xttEABIsWQRx4DVOGCrUR2i6sSEadHG0K6skhu/N3vJIQovYNOzauSCzgUABolf59jbqDbom5e6D8CuWihfAFzUiNRc88/JqAcjXyqloCwx5VkHe7FP+bj5HaMzSNCxwQiN01PGmZSy9l96aUWRR8tojh2MF2EBaHjB1XS/02VhadbTfncx/FzDDQIeOWV97TeFXXBI2oOnOp3po6waMbGHA5hKeabx98x20j7SMGVzdeOvbKJO1bljN0rJwj57Ztugax/ertsBPIqZBrh4LZkRiJq5EsTEHgIrDKdWSKQMcOPhensNOBna7b9Lti/m051NH4mAGWTtmlFrBOTG9/9AeX+nCUEK0eeZQ6FO9mDasG5ySs+cY5cG9cHDvZOlJjkzmrwcenY7r0B6wHpJZWF1XzDJih+20uyG7Q38GeurCoyN6i4CPL3oqYjl3t62JaOhWXPTf3CYTJsPvLhxbt7Osd86AOB+L/jGtM1PjR+0ww6MLdnPp7DOP227K21itTRt5N9RJcRj318Y/vpAuNDRdPF74kQxh/m1rNvLl4/rIEvvCqN5RR+PShc/nQrJRqPzi5DPxpffOa2wlf81/JJOnqp/XQLe6XwYVs7oW7t/o4fIEJuDTP1+MIIztsastB7RpZjKzfw7Ymh3TV4GZ/Whea2Hlj/wY3jh/bjpkNj38WP931oPTJs6aeXStmJ/wHnmFLxJpaKsnd5IIkPe/NPaAulCDnCMATbq/rrsKvSm+8LuGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_013SFwvyf69pTcGhT9QLsjKe",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "Desk 2",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_015q3rLkjcrLrEJKJEShmoCP",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "3D printer",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01H6z8jgubyZg1oFjA9ZrxNq",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01VKMtMB2rV1DVFkYdXEGmBg",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "text": "Desk 2 used the most this week: 1.038 kWh (LKR 53.2), ahead of the 3D printer at 0.732 kWh. The LG TV (0.294 kWh) and PeoTV box (0.245 kWh) came well behind.",
+      "type": "text"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "CAQS+AUKEAgUGAI4AUIIdGhpbmtpbmcSDFGJ2zN6O7iZRqB+LxoMt1sDHfN9MTwUTHD3IjDJRPhb4WO194pgEqr0iYEYBIuHSpTTH8dUXnc5djCCEZu2Fx7C+YZL6R3Tc/6UEX4qlQUjYob+q75TJrjpFBhrfFAIXoWrp+PgPu5GL7i/8mzNmlrpPr9+vdSyN/cFzLDUFOzsQGhgCo3v5aFsSoLHpICrwsxyYEtypOQYoENQlkwFwPce/5g+eWExM4B9X8c/tLTnkQfKq7m3YEHS0kIBEg6Gnzw0Lx2Hx9YC1/CR2FFtechvKUp0QLWHuxQ7F9yjIF7J3xJXmAR1BP7aDYlinws1HRQHYn+FAX3r7LblBivSHOXAu7WE7Nu5CMxOvExmT4Z+72vIi5Fn27TdGLo3z40ycot5EJNUJ8zhEbcyzcmgg5NeKqCPow0zDClR2z2XApJnz6KLHHMPmR/CQKa5czeUWPqYs3RwfaA2rNVOf9uEKAxY+/NlctbeDCejYLRp2aohG56Rlbp9wHAaKn1vKUEOTBr59h7wpcNADK9dbL0b5zXCqIJcN8mbti4a6LDmQREXs9JHciWm/ykQDAhZCBtdEk0ho6/fgyiLqvf8WaTil1QuaP9E8jmStAW5oJpnQbXIMPpla6PKL7IKacFL5eyYK7Ayb1/XYkeTK0DNl0q2gqaqPyaNUTjWDYrc5G/7sAyatFUrqaR+jhMjUjTz5z6KQ/BRXy4Bt1XjWy8UcGgUGaXw1Q/pNwGMoGmsbu1g85Ajhn+OmIZhHFlaYNmyw4EYXNjlCVIxYfVO5m/ns8hKz2WWawNMudyUDh//PyQVKROZIyCfIdBAXJt7RYlz0dtxNjbZfoXrGHcwX07r5hIgQjAdIwSE8GPQfgDVSZii/Yz+ebZS9UJRtDHg8Qk+zCocmL/bk9I224kOz1yjCTK22ydOzfXsN8THCYXE5WRG89fYqxl6WmSEPmmRGBXLlpbYuiHSEXiaBRIRLrAEtS7cTx/3qWHqGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01Dgaa2PvLqmHgKnjEwCEb1N",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01NAQy4nHyHwETc6xCj3zmEw",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01WJfxH33oq8QwudpQ3PjZw3",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "3D printer",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01LfvG7yMrfhah9ywNLRgST3",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "Desk 2",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "signature": "CAQS9AYKEAgUGAI4AUIIdGhpbmtpbmcSDDK7tZ4C/lZMPpSDbBoMadDwZ63Ly2DwsJ+CIjCtcuhbcrcBkK5/FaB6pptn8taoH5CMEbDjWEnwux1NIB3XTT9l999lyKoL8ZeVNH4qkQb7mD3oiGmprqJxfhP9v8ZRobk5Sup2I49FydtdnNzqpEHu1H7WezUrKjNRwtNim/aJLtpzZG2tKc1Mm9H9QtHRlp9YnXaTaJjKa4gKiayyNlumETjKarQPL1rdnlPPGtnmTxG9YMMX/hqMudVrGpGuQWujsA6G4s33NIZmfcPTd550FlMgrZ6XIBGASvNbh3Efxlqw5udJFE2t/P52R2Rp6Yr10r5jn9y1o8hfI9cRg+NidHIHGdIAZ4VUOHzws3lYXMxA60OmOHdwRa317RJFEMRE1uwRcbulaS22WR2cpMjvB0GRfq3yI3pqOoxg4dfFFjIRpOyNvvcYkySkWQqX45DC8MOaA8HkCpBnBP2aYsHzRWG7BX3hdxWAFORhco/ubc1Sa/WzXWwWpO57w+b75tZyCCBWj8LeziaPZxXYPqb1nXRVZKRt5ufcLkmP2ouqfjpBQRrUS2n44pbgkJvpM74Wy63LkK4HPJ6lCIwDGiGpbvURn7tg0i1FYBKDupBpwEL2EMZR41NTG6MvJggsjgQnooJXfRywP2tGWfL80VQfkzZks4EaRSHwWRNuTfo9Bh9T8lD0OOAjTl+3z+wahXasj2dLgwTjRxPrzUaYaFfGdao0gx8lAykrBaZ/CHfj6Yh6IAKGKAvO2UPEyGKXeT4R6VAjt8P0j+sGcEQnRwl9+Xdr+powU926Pl1/8NYeZiL+64ruorU6l4BduAhxsA2ZjTnOnJpbMEp6uEHvXurPchGNVIg8CtjLl6joMHxQaNhgqAadg7xib8rfPfxvnugBj9T2M5AZn49Yq6d7ANTOao2O/HDe28AYO+T88N/F19hR7v1g2/Ka7GY+gtl3GUTfNO3ZWH9iHfvAlGaVat/vDNXf1MZDbPBTuJOkvR67EYl4l5J8jV9WBvewNbwhS4EIZaJTXDeEo681kBQS5hlQHqVUIiUw61Ej/t/Xy32AsEQsETrw3ASF0U1UD/4fSCGL/1UhyTDuGkvoBK0uvRLfdrRwHaI7Kb3Lkp6jEYpt4lEoyma1yWhQC/9G9EQJ9xgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "The device that used the most this week was Desk 2, at 1.04 kWh (LKR 53.2). The 3D printer was next at 0.73 kWh, and the two TVs used less than 0.3 kWh each.",
+      "type": "text"
+     }
+    ],
+    [
+     {
+      "signature": "CAQSgwcKEAgUGAI4AUIIdGhpbmtpbmcSDEtzYsUvrqI/ZWBrVRoMWeV1UxqlpS88TEWhIjD8/0rtcqXrcrxG22lFdwdBkTwzZ23Fttra2mmMTKJG6khgyza5VoP9v2mcQJ0l7RUqoAYUCI+GMnu00n8mevd3MeCmu4VexO4ANW5QR0oAJP3c5TCTV+wCTFpfv4kJnWvX5sSKXgUfEZm+rkhzPhOZLtw1soj6Ef4eg8KQTSlrse1frfAxxvuaQxMUyN5k3tbEC416drKGjPpYx0kcSXwMxqMwDhcX4vytRv4ci+DWFCzDipLclptTKrFrec2oSVDYdZcu+FXR72eZiS5N18OfQ2bKoWbGHP6/oBHeqXq7pgbzAPFc9NRtU2ZzYGE+ZfWFPVddTnG24VAkJco/MIS+uHEDm5jjS6IDCsK7VkdEL3Q7EWnt54cr1GJljB+lg8LDavRSUkdYohFBY7YT8DgQ9Ilwb0oscvnUdJy+Hm3lgTNdES7eLRGrnvJKm1A7GOJNR47EyJO3JOJ/G45g19Bv++eyNNyhsyDPVn/bIa12TNvMWP+bfE9hIZvdhrLMPg+ggmBLuR7CruulZ6abmi47GlKsdMC0Z7PbPZLkelDeknSLcsJTIsvsdhPvqbpNXPIC1Z06a3sEQ6hYf7ISCbKcklJ0MCechTB0M1lDzb4R0TAzSV/q0wYoJ4K1CpJ4GAwoibfTnj/Ya4HyPL2bNhTrc07HC4uQvP8OWfgnZLTGVJcom080MsNpi+//1LKXcon6X0viVUUIPm1oto3tv5fCM6Kja/bsrPwpSflDfatX+UaiQPTEpLvb/66xi6rycLckYht3s1xnlAIK5tTe2mqoTj/4T2r8uNeEStSTObFCc4+eT4t5Cv7LtirM5V1G8z1oAKroioG+xAGeyo3GC/537/j0dvQfDeW752QFaYXoxseTdg/iD4qIOprsCfrxRnyhq0bINP1UL3SwXu/xumuIjARTVjE73U8CR45Zjx6SxhijJ3DPrdz9US//+rwdb7dh+2dgyaD3KGnG5esVSNGcMS/loVHcEaeBZBe7jwHFWHtK+HEXQgqHeVWaqtZCbABEI+lY7GCxhKVfoc+t9ZsmSN8lVYLqTyTUg7fdzdQB2vpmkxiAxGwsdvXbB1tk8gIRnaQG5ladN2cudAKgVcoeuhexVklGzWn4TL3fGl2vypJ6GRgB",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "text": "Desk 2 used the most this week: 1.038 kWh, LKR 53.2. The 3D printer came next at 0.732 kWh, and the LG TV and PeoTV box used 0.294 kWh and 0.245 kWh.",
+      "type": "text"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "signature": "CAQS1wUKEAgUGAI4AUIIdGhpbmtpbmcSDK0Y8i894+P6Dk+c2BoMRl87qKt/NuZYA3kNIjD1LuS/wePfauy4Gw+el82Xy5aWGzOvWAyg6iwNpTt4OeCIuhuNByBBTNR2fYlj6Wsq9ATXIsCH4FQGoeYraqDB+ksGkI0LTRX9IufJ1tyh17cwFrsh6QSWHesSJk987R0ZLYWL0cl90ETUO0TxgQjtPxRAbp/X3iu+b4I+JAvQKnLtb1IdMdqHFvw3vq7eqGIo/0TlgpAAy0+64+vA8Cq/hM6YtmY4RXUQ36gKz/o38N6RFNASqv2RDAJeEpOnSRcX6NggRI0JSBA2pRp2EWDc/QBYLF2L28LIK0q6y9ZJWGBfkqM6qIsZ370vfyukZhsW0haJfHpzzLSjJ+Qd9SiT4soQpalY1RZjDZYVBhytlTQBTb70FpayIlhtXiR3PXRwIP1xkZriy820yRYoFTOd0W6x4LQus+aSLM6MK84gyRf0VsfgMHWL//NLJWkXz+0UepQ7gW3HmDsSaRXtolJ6ihq/Oy3jeIT4obgszuD6hDntXyaYCFxNcKFyoJlpFM+Hbby3s4882jUduAW+LJs8b41YK/JcPfLctbJfeRmR31bV5xd74aiH1Cqiztf3RG66R+YoQtV4PU5NksR+oUqUXdjITyt7BU3mOl8icS2mbkbTYBSGNG3BMh56OMxWnRWptadjYN1XRyxEz9lo+aTuOIxbu4Y6NH2SkydoFottjQ+rQiE5jiwcM2nn0L6lC6C/RSBDP4Np76P+F43ZATASt+s2xqI2gPCXxKPW4XBBhN4N1UguGLSzYS3WnjFtIH/Nzm+diA7aiU0KdeUdh61+iU3KRET6wNttSd9IdBeJqEaBwHQqR90RqiI1mU2Ql0+oTQpTYQFHgXlC6XRICzc+OmXgP7ddc9VMJM+TaHAjd+QLt04lob7uEzHMiokA5uNgb6xe16lvGAE=",
+      "thinking": "",
+      "type": "thinking"
+     },
+     {
+      "id": "toolu_01UHFFe3hA746TRrMTPRzTS5",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "Desk 2",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01SXsZgLtSrpddpTjvW5em9L",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "3D printer",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01JRc1JukJiqSMWWZeLggwkN",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "LG TV",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     },
+     {
+      "id": "toolu_01Y8c4y53PXbCfKea7bmEz2x",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "device": "PeoTV box",
+       "start": "2026-11-09 00:00",
+       "end": "2026-11-15 02:30"
+      },
+      "name": "cost",
+      "type": "tool_use"
+     }
+    ],
+    [
+     {
+      "text": "Desk 2 used the most this week: 1.038 kWh (LKR 53.2, 0.44 kgCO2e), ahead of the 3D printer at 0.732 kWh. The LG TV and PeoTV box used much less, at 0.294 and 0.245 kWh.",
+      "type": "text"
+     }
+    ]
+   ]
+  ]
+ },
+ "EV-38": {
+  "key": "db14171bfa75d466",
+  "model": "claude-haiku-5-5",
+  "samples": [
+   [
+    [
+     {
+      "id": "toolu_01Jz4Ybh2uUtN1iPBfkCAxJm",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "switch_off",
+       "device": "PeoTV box",
+       "kind": "",
+       "timer": 0,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [],
+       "start": "",
+       "end": "",
+       "text": "",
+       "message": "Tap to switch off the PeoTV box now. It's set to come back on at 06:00 as usual."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "id": "toolu_01CNBLs27S4Dm3A6ANacNHn1",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "switch_off",
+       "device": "PeoTV box",
+       "kind": "",
+       "timer": 0,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [],
+       "start": "",
+       "end": "",
+       "text": "",
+       "message": "Tap to switch off the PeoTV box now. Its timer turns it back on at 06:00 as usual."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "id": "toolu_01CVsz2sqTrca6mNHe17JzZY",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "action": "switch_off",
+       "device": "PeoTV box",
+       "kind": "",
+       "timer": 0,
+       "time": "",
+       "off": "",
+       "on": "",
+       "days": [],
+       "start": "",
+       "end": "",
+       "text": "",
+       "message": "Tap to switch off the PeoTV box now. Its timer turns it back on at 06:00 as usual."
+      },
+      "name": "propose",
+      "type": "tool_use"
+     }
+    ]
+   ]
+  ]
  }
 }
