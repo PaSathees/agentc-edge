@@ -220,6 +220,12 @@ Roles: [ADR-010](adr/010-four-agents-four-jobs.md). The Planner's plan reaches y
   - Done (an action you do by hand) and Not now (the change stays away for 30 days).
   - An item that cut real use shows only Not now until the weekly review chat (5c).
   - Undo puts the old timers back (`put_back`) for a day after a change, even in shadow mode, like the switch-off undo, but only if the plug still has what AgentC wrote. A double tap sends one change, and the page shows only messages the hub signed.
+- **The weekly review chat (5c, review-v1).** Talk it over on a plan item opens a chat about that item on the small model; Open the plan chat talks over the whole plan on the mid model. One agent, two scopes. Code writes the greeting and the brief (the month, the items with their numbers and saving, the devices' timers, the notes and Not nows). The agent reads with `device`, `power` and `usual`, and weighs another time or days with `try_change`: code replays 14 days and runs the plan item checks, Not now included, so it never works out a number. It ends a decision with `propose`, which code checks before you see it:
+  - change: a different move or pair for the item's device that never got in the way; Do it.
+  - anyway: the item's own change, for an item only to talk over, after the owner heard the days; Do it anyway.
+  - A new pair may run on any days: the agent names them ("Sunday", "Monday", ...), code keeps them as Tasmota's 7 days, Sunday first, and says them back as a run ("Sunday to Thursday").
+  - keep: Not now with the owner's reason (200 characters, no system words), kept on the item; next week's Planner reads it in its notes.
+  Its words are checked for made-up numbers and system words, and said again if wrong. Nothing is done until your tap, which goes through `plan.send` and the Actuator, one tap at a time, and not while a reply is still coming.
 - **Plan item checks (code, 5b1).** At most 3 items a week, no two the same. A device must be set to write and must not be must-run. The timer must exist and be set at a clock time, or a pair needs 2 free allowed slots. The plug's Timers switch must be on. No hard rule broken. Nothing the owner said Not now to in 30 days. Blocked if the device was in use in the new off time on 4 of 14 days or more, or if it saves nothing; on 1 to 3 days it is only to talk over.
 
 ## 8. Evals: how we know it works

@@ -99,3 +99,76 @@ def test_an_app_db_from_phase_5b1_gets_the_ready_column(tmp_path):
     old.close()
     db = store.connect(tmp_path / "app.db")
     assert "ready" in [row[1] for row in db.execute("PRAGMA table_info(plan_items)")]
+
+
+def test_an_app_db_from_phase_5b5_keeps_its_chats_and_takes_review_chats(tmp_path):
+    db = store.connect(tmp_path / "app.db")
+    store.add_site(db, name="home", tz="Asia/Colombo")
+    store.plug_seen(db, site_id=1, mac="AA", name="Plug-1", ip="192.0.2.1", timers_on=True,
+                    now=NOW)  # fmt: skip
+    chat = store.open_chat(db, site_id=1, mac="AA", kind="setup", now=NOW)
+    store.add_turn(db, chat_id=chat, site_id=1, role="agent", text="Hello", now=NOW)
+    old = SCHEMA_12_CHATS  # the table as 5b5 left it
+    db.execute("PRAGMA foreign_keys = OFF")
+    db.execute("PRAGMA legacy_alter_table = ON")  # keep chat_turns pointing at "chats"
+    db.execute("ALTER TABLE chats RENAME TO chats_new")
+    db.execute(old)
+    db.execute(
+        "INSERT INTO chats (id, site_id, plug_mac, kind, status, draft, created, reads)"
+        " SELECT id, site_id, plug_mac, kind, status, draft, created, reads FROM chats_new"
+    )
+    db.execute("DROP TABLE chats_new")
+    db.execute("PRAGMA user_version = 12")
+    db.commit()
+    db.close()
+    db = store.connect(tmp_path / "app.db")
+    assert [(r, t) for _, r, t in store.turns(db, chat_id=chat)] == [("agent", "Hello")]
+    assert store.chat(db, chat_id=chat).plug_mac == "AA"  # pyright: ignore[reportOptionalMemberAccess]
+    store.add_plan(db, site_id=1, week="2026-11-23", summary="s", items=[], now=NOW)
+    review = store.open_review(db, site_id=1, plan_id=1, item_id=None, now=NOW)
+    assert store.open_review(db, site_id=1, plan_id=1, item_id=None, now=NOW) == review
+    found = store.chat(db, chat_id=review)
+    assert found is not None and (found.plug_mac, found.plan_id, found.item_id) == ("", 1, None)
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+SCHEMA_12_CHATS = """CREATE TABLE chats (
+    id       INTEGER PRIMARY KEY,
+    site_id  INTEGER NOT NULL REFERENCES sites(id),
+    plug_mac TEXT NOT NULL REFERENCES plugs(mac),
+    kind     TEXT NOT NULL CHECK (kind IN ('setup')),
+    status   TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'saved', 'closed')),
+    draft    TEXT,
+    created  TEXT NOT NULL,
+    reads    TEXT
+)"""
+
+
+def test_a_migration_stopped_half_way_does_not_block_the_next_start(tmp_path):
+    db = store.connect(tmp_path / "app.db")
+    db.execute("PRAGMA foreign_keys = OFF")
+    db.execute("PRAGMA legacy_alter_table = ON")
+    db.execute("ALTER TABLE chats RENAME TO chats_new")
+    db.execute(SCHEMA_12_CHATS)
+    db.execute("DROP TABLE chats_new")
+    db.execute("CREATE TABLE chats_13 (id)")  # left behind by a stop half way
+    db.execute("PRAGMA user_version = 12")
+    db.commit()
+    db.close()
+    db = store.connect(tmp_path / "app.db")
+    assert "plan_id" in [c[1] for c in db.execute("PRAGMA table_info(chats)")]
+    assert db.execute("SELECT name FROM sqlite_master WHERE name = 'chats_13'").fetchone() is None
+
+
+def test_a_migration_that_fails_leaves_the_old_table_as_it_was(tmp_path):
+    db = sqlite3.connect(tmp_path / "app.db")
+    db.execute(SCHEMA_12_CHATS.replace("CHECK (kind IN ('setup'))", ""))
+    db.execute("INSERT INTO chats (site_id, plug_mac, kind, created) VALUES (1, 'AA', 'odd', 'x')")
+    db.execute("PRAGMA user_version = 12")
+    db.commit()
+    db.close()
+    with pytest.raises(sqlite3.IntegrityError):  # 'odd' breaks the new table's CHECK
+        store.connect(tmp_path / "app.db")
+    db = sqlite3.connect(tmp_path / "app.db")
+    assert db.execute("SELECT kind FROM chats").fetchall() == [("odd",)]
+    assert db.execute("SELECT name FROM sqlite_master WHERE name = 'chats_13'").fetchone() is None

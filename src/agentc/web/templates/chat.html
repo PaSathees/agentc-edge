@@ -2,15 +2,15 @@
 {% block body_class %}chat-page{% endblock %}
 {% block header %}
 <header class="bar">
-  <a class="icon" href="/setup" aria-label="Back to devices">
+  <a class="icon" href="{{ back }}" aria-label="{{ back_label }}">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
-  <div class="who"><b>{{ name }}</b><span class="muted">Setting up · {{ plug }}</span></div>
+  <div class="who"><b>{{ name }}</b><span class="muted">{{ subtitle }}</span></div>
   <button type="button" class="icon" id="speak" aria-pressed="false" aria-label="Read replies aloud" hidden>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="on" d="M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11"/></svg></button>
   <details class="menu">
     <summary class="icon" aria-label="More">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></summary>
-    <form method="post" action="/setup/{{ plug }}/restart">
+    <form method="post" action="{{ base }}/restart">
       <input type="hidden" name="tok" value="{{ tok }}">
       <button>Start again</button>
     </form>
@@ -20,17 +20,17 @@
 {% block main %}
 <div class="chat" id="chat">
   {% for role, text in talk %}{% include "_turn.html" %}
-  {% if loop.first and saved %}<section class="card saved"><b>Saved now</b>{% with card = saved %}{% include "_card.html" %}{% endwith %}
+  {% if loop.first and saved is defined and saved %}<section class="card saved"><b>Saved now</b>{% with card = saved %}{% include "_card.html" %}{% endwith %}
   <p class="muted">{% if timers %}Timers on the plug:<br>{{ timers | join("<br>"|safe) }}{% else %}No timers on the plug.{% endif %}</p></section>{% endif %}
   {% endfor %}
-  {% if draft %}{% include "_draft.html" %}{% endif %}
+  {% if draft %}{% include draft_tpl %}{% endif %}
   {% if waiting %}{% include "_reply.html" %}{% endif %}
 </div>
 {% endblock %}
 {% block foot %}
 <footer class="say">
   <p class="listening-note" id="heard" hidden>Listening. Pauses are fine. Tap stop when done.</p>
-  <form hx-post="/setup/{{ plug }}/say" hx-target="#chat" hx-swap="beforeend"
+  <form hx-post="{{ base }}/say" hx-target="#chat" hx-swap="beforeend"
         hx-on::after-request="if (event.detail.successful) this.reset()">
     <input type="hidden" name="tok" value="{{ tok }}">
     <button type="button" class="round" id="mic" aria-label="Talk" hidden>

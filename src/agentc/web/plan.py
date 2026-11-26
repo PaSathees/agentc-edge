@@ -121,14 +121,14 @@ def decide(item_id: int, does: str, tok: Tok, cfg: Cfg, key: Secret, now: Now, d
                      if m == item.plug_mac), None)  # fmt: skip
         if plug is None or plug not in cfg.plugs:
             return _back("Not sent: that plug is not in config.toml any more.", key)
-        text = _send(db, cfg, site, plug, planner.Change(**change), f"plan:{item_id}", now,
+        text = send(db, cfg, site, plug, planner.Change(**change), f"plan:{item_id}", now,
                      connect)  # fmt: skip
         if text.startswith("Done"):
             store.decide_item(db, item_id=item_id, status="done", now=now)
     return _back(text, key)
 
 
-def _send(db: Connection, cfg: Config, site: int, plug: str, c: planner.Change, why: str,
+def send(db: Connection, cfg: Config, site: int, plug: str, c: planner.Change, why: str,
           now: datetime, connect: Connect) -> str:  # fmt: skip
     if c.kind == "move_timer" and c.slot is not None and c.time:
         return actuator.move_timer(db, cfg, site_id=site, plug=plug, slot=c.slot, time=c.time,
@@ -145,7 +145,8 @@ def _row(i: store.PlanItem, names: dict[str, str], key: str) -> dict[str, Any]:
     buttons = [("do", "Do it")] if i.ready and change.get("kind") in SENDS else []
     buttons += [("done", "Done")] if action else []
     buttons += [("not_now", "Not now")]
-    return {"device": names.get(i.plug_mac, "?"), "action": change.get("do", "") if action else "",
+    return {"id": i.id, "device": names.get(i.plug_mac, "?"),
+            "action": change.get("do", "") if action else "",
             "was": i.was, "becomes": i.becomes, "why": i.why, "saving": i.saving,
             "ready": i.ready, "status": i.status, "tag": _tag(i, action),
             "buttons": [{"label": label, "url": f"/plan/{i.id}/{does}",

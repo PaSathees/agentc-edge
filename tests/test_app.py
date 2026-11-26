@@ -393,7 +393,7 @@ def test_a_run_tells_a_late_listener_everything_so_far():
 def test_a_quiet_run_ends_the_stream_with_a_note(monkeypatch):
     monkeypatch.setattr(webchat, "WAIT_S", 0.01)
     silent = webchat.Run().listen()
-    (only,) = list(webchat._drain(silent))  # pyright: ignore[reportPrivateUsage]
+    (only,) = list(webchat.drain(silent))  # pyright: ignore[reportPrivateUsage]
     assert only[0] == "done" and "taking too long" in only[1][0]
 
 

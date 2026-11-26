@@ -21,8 +21,8 @@ from agentc.watcher import Event
 
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
 # 7: questions.sent. 8: unused v1 tables dropped. 9: chats. 10: chats.reads. 11: plans
-# 12: plan_items.was and becomes
-SCHEMA_VERSION = 12
+# 12: plan_items.was and becomes. 13: review chats (chats.plan_id, item_id), plan_items.reason
+SCHEMA_VERSION = 13
 UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
@@ -173,12 +173,14 @@ CREATE TABLE IF NOT EXISTS questions (
 CREATE TABLE IF NOT EXISTS chats (
     id       INTEGER PRIMARY KEY,
     site_id  INTEGER NOT NULL REFERENCES sites(id),
-    plug_mac TEXT NOT NULL REFERENCES plugs(mac),
-    kind     TEXT NOT NULL CHECK (kind IN ('setup')),
+    plug_mac TEXT REFERENCES plugs(mac),  -- setup: its plug; review: NULL
+    kind     TEXT NOT NULL CHECK (kind IN ('setup', 'review')),
     status   TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'saved', 'closed')),
-    draft    TEXT,  -- JSON: the card and habits the agent proposed; NULL: none yet
+    draft    TEXT,  -- JSON: what the agent proposed last (a card, or a plan change); NULL: none
     created  TEXT NOT NULL,
-    reads    TEXT  -- JSON: [[what it asked a tool, the result], ...], so it reads each once
+    reads    TEXT,  -- JSON: [[what it asked a tool, the result], ...], so it reads each once
+    plan_id  INTEGER REFERENCES plans(id),  -- review: the plan talked over
+    item_id  INTEGER REFERENCES plan_items(id)  -- review: the item; NULL: the whole plan
 );
 -- Each message in a chat, in order
 CREATE TABLE IF NOT EXISTS chat_turns (
@@ -209,6 +211,7 @@ CREATE TABLE IF NOT EXISTS plan_items (
     ready    INTEGER NOT NULL DEFAULT 1,  -- 0: it cut real use, so only to talk over
     was      TEXT NOT NULL DEFAULT '',  -- the timer as it was when planned, in words
     becomes  TEXT NOT NULL DEFAULT '',  -- the timer after the change, in words
+    reason   TEXT NOT NULL DEFAULT '',  -- the owner's reason for Not now, from the chat
     status   TEXT NOT NULL DEFAULT 'open'
              CHECK (status IN ('open', 'done', 'not_now', 'failed', 'expired')),
     decided  TEXT
@@ -241,6 +244,9 @@ def connect(path: str | Path) -> sqlite3.Connection:
     if version < 8:  # version 1 tables, never used now; Phase 4 adds back what it needs
         for table in UNUSED:
             db.execute(f"DROP TABLE IF EXISTS {table}")
+    cols = [c[1] for c in db.execute("PRAGMA table_info(chats)")]
+    if cols and "plan_id" not in cols:  # before 13: a CHECK can change only by a new table
+        _rebuild_chats(db)
     db.executescript(SCHEMA)
     if "tries" not in [col[1] for col in db.execute("PRAGMA table_info(events)")]:
         db.execute("ALTER TABLE events ADD COLUMN tries INTEGER NOT NULL DEFAULT 0")  # before 3
@@ -248,13 +254,39 @@ def connect(path: str | Path) -> sqlite3.Connection:
         db.execute("ALTER TABLE questions ADD COLUMN sent TEXT")  # before 7
     if "ready" not in [col[1] for col in db.execute("PRAGMA table_info(plan_items)")]:
         db.execute("ALTER TABLE plan_items ADD COLUMN ready INTEGER NOT NULL DEFAULT 1")
-    if "reads" not in [col[1] for col in db.execute("PRAGMA table_info(chats)")]:
-        db.execute("ALTER TABLE chats ADD COLUMN reads TEXT")  # before 10
     if "was" not in [col[1] for col in db.execute("PRAGMA table_info(plan_items)")]:
         db.execute("ALTER TABLE plan_items ADD COLUMN was TEXT NOT NULL DEFAULT ''")  # before 12
         db.execute("ALTER TABLE plan_items ADD COLUMN becomes TEXT NOT NULL DEFAULT ''")
+    if "reason" not in [col[1] for col in db.execute("PRAGMA table_info(plan_items)")]:
+        db.execute("ALTER TABLE plan_items ADD COLUMN reason TEXT NOT NULL DEFAULT ''")  # 13
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
+
+
+def _rebuild_chats(db: sqlite3.Connection) -> None:
+    """Version 13's chats table, with every chat kept: SQLite's way to change a CHECK. All
+    in one transaction, so a stop half way leaves the old table as it was."""
+    db.execute("PRAGMA foreign_keys = OFF")  # chat_turns points at chats while it is swapped
+    try:
+        db.execute("BEGIN IMMEDIATE")  # a second process waits, then finds it done
+        try:
+            if "plan_id" not in [c[1] for c in db.execute("PRAGMA table_info(chats)")]:
+                start = SCHEMA.index("CREATE TABLE IF NOT EXISTS chats (")
+                table = SCHEMA[start : SCHEMA.index("\n);", start) + 3]  # a comment has ");"
+                db.execute("DROP TABLE IF EXISTS chats_13")
+                db.execute(table.replace("IF NOT EXISTS chats", "chats_13"))
+                have = [c[1] for c in db.execute("PRAGMA table_info(chats)")]
+                cols = ", ".join(c for c in ("id", "site_id", "plug_mac", "kind", "status",
+                                             "draft", "created", "reads") if c in have)  # fmt: skip
+                db.execute(f"INSERT INTO chats_13 ({cols}) SELECT {cols} FROM chats")
+                db.execute("DROP TABLE chats")
+                db.execute("ALTER TABLE chats_13 RENAME TO chats")
+            db.commit()
+        except BaseException:
+            db.rollback()
+            raise
+    finally:
+        db.execute("PRAGMA foreign_keys = ON")
 
 
 def add_site(db: sqlite3.Connection, *, name: str, tz: str) -> int:
@@ -728,6 +760,22 @@ def open_chat(db: sqlite3.Connection, *, site_id: int, mac: str, kind: str, now:
     return cur.lastrowid or 0
 
 
+def open_review(db: sqlite3.Connection, *, site_id: int, plan_id: int, item_id: int | None,
+                now: datetime) -> int:  # fmt: skip
+    """The open review chat for one plan item, or for the whole plan (item_id None), or a
+    new one. Returns its id."""
+    with db:
+        row = db.execute("SELECT id FROM chats WHERE kind = 'review' AND status = 'open'"
+                         " AND plan_id = ? AND item_id IS ? ORDER BY id DESC LIMIT 1",
+                         (plan_id, item_id)).fetchone()  # fmt: skip
+        if row:
+            return row[0]
+        cur = db.execute("INSERT INTO chats (site_id, kind, created, plan_id, item_id)"
+                         " VALUES (?, 'review', ?, ?, ?)",
+                         (site_id, now.astimezone(UTC).isoformat(), plan_id, item_id))  # fmt: skip
+    return cur.lastrowid or 0
+
+
 def add_turn(db: sqlite3.Connection, *, chat_id: int, site_id: int, role: str, text: str,
              now: datetime) -> int:  # fmt: skip
     with db:
@@ -751,19 +799,22 @@ def set_draft(db: sqlite3.Connection, *, chat_id: int, draft: dict[str, Any] | N
 
 @dataclass(frozen=True)
 class Chat:
-    plug_mac: str
+    plug_mac: str  # "" for a review chat
     status: str  # open, saved or closed
-    draft: dict[str, Any] | None  # the card the agent proposed last; None: none yet
+    draft: dict[str, Any] | None  # what the agent proposed last; None: none yet
     reads: tuple[tuple[str, str], ...] = ()  # (what it asked a tool, the result), oldest first
+    plan_id: int | None = None  # a review chat's plan
+    item_id: int | None = None  # a review chat's item; None: the whole plan
 
 
 def chat(db: sqlite3.Connection, *, chat_id: int) -> Chat | None:
     """One chat, or None."""
-    sql = "SELECT plug_mac, status, draft, reads FROM chats WHERE id = ?"
+    sql = "SELECT plug_mac, status, draft, reads, plan_id, item_id FROM chats WHERE id = ?"
     if (row := db.execute(sql, (chat_id,)).fetchone()) is None:
         return None
     reads = tuple((a, r) for a, r in json.loads(row[3])) if row[3] else ()
-    return Chat(row[0], row[1], json.loads(row[2]) if row[2] else None, reads)
+    return Chat(row[0] or "", row[1], json.loads(row[2]) if row[2] else None, reads, row[4],
+                row[5])  # fmt: skip
 
 
 def add_reads(db: sqlite3.Connection, *, chat_id: int, reads: Sequence[tuple[str, str]]) -> None:
@@ -896,12 +947,14 @@ def plan_item(db: sqlite3.Connection, *, site_id: int, item_id: int) -> PlanItem
     return _item(row) if row else None
 
 
-def decide_item(db: sqlite3.Connection, *, item_id: int, status: str, now: datetime) -> bool:
-    """Close an open item: done, not_now, failed or expired. False if it was not open: a
-    second tap does nothing."""
+def decide_item(db: sqlite3.Connection, *, item_id: int, status: str, now: datetime,
+                reason: str = "") -> bool:  # fmt: skip
+    """Close an open item: done, not_now, failed or expired, with the owner's reason if the
+    chat heard one. False if it was not open: a second tap does nothing."""
     with db:
-        cur = db.execute("UPDATE plan_items SET status = ?, decided = ? WHERE id = ?"
-                         " AND status = 'open'", (status, now.isoformat(), item_id))  # fmt: skip
+        cur = db.execute("UPDATE plan_items SET status = ?, decided = ?, reason = ? WHERE id = ?"
+                         " AND status = 'open'",
+                         (status, now.isoformat(), reason, item_id))  # fmt: skip
     return cur.rowcount == 1
 
 
@@ -918,6 +971,14 @@ def timer_undoable(db: sqlite3.Connection, *, site_id: int, since: datetime
              ORDER BY a.id"""
     rows = db.execute(sql, (site_id, since.astimezone(UTC).isoformat()))
     return [(i, p, json.loads(d), datetime.fromisoformat(t)) for i, p, d, t in rows]
+
+
+def reasons(db: sqlite3.Connection, *, mac: str, since: datetime) -> list[tuple[str, str]]:
+    """The owner's Not nows on this plug since a time that came with a reason, as (change
+    JSON, reason): the next plans read them."""
+    sql = """SELECT change, reason FROM plan_items WHERE plug_mac = ? AND status = 'not_now'
+             AND reason != '' AND decided >= ? ORDER BY id"""
+    return [(c, r) for c, r in db.execute(sql, (mac, since.isoformat()))]
 
 
 def refused(db: sqlite3.Connection, *, mac: str, since: datetime) -> list[str]:

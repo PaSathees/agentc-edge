@@ -3,6 +3,7 @@
 from zoneinfo import ZoneInfo
 
 from agentc.calc import ProfileHour
+from agentc.devices.base import days_words
 from agentc.owner import Decision, Outcome
 from agentc.watcher import Event
 
@@ -47,7 +48,8 @@ def decision_words(d: Decision) -> str:
     """A decision with its numbered choices, e.g. "ask: Switch it off?\n  1. Switch off"."""
     lines = [f"{d.action}: {d.text}"]
     for n, c in enumerate(d.choices, 1):
-        timer = f" (off {c.off}, on {c.on}, {c.days})" if c.does == "set_timer" else ""
+        days = days_words(c.days or "")
+        timer = f" (off {c.off}, on {c.on}, {days})" if c.does == "set_timer" else ""
         lines.append(f"  {n}. {c.label}{timer}")
     return "\n".join(lines)
 

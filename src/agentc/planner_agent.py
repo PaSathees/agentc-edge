@@ -162,8 +162,10 @@ class PlanTools:
         since = b.now - planner.NOT_NOW
         for plug in b.cfg.plugs:
             mac = store.plug_mac(b.app, name=plug)
+            said = dict(store.reasons(b.app, mac=mac, since=since)) if mac else {}
             for c in store.refused(b.app, mac=mac, since=since) if mac else []:
-                lines.append(f"Not now: {config.device(b.cfg, plug).name}: {c}")
+                why = f" (you said: {said[c]})" if c in said else ""
+                lines.append(f"Not now: {config.device(b.cfg, plug).name}: {c}{why}")
         return "\n".join(lines) or "No notes, answers or Not nows this week."
 
     def candidates(self) -> list[planner.Candidate]:
