@@ -1,6 +1,7 @@
 """The only code that changes a plug (FR-20, FR-32, NFR-12).
 
-A change comes only from the owner's tap: "switch off now" (ADR-008) or a timer pair.
+A change comes only from the owner's tap: "switch off now" (ADR-008), a timer pair, or one
+timer moved (a plan item's Do it, 5b5). A timer change can be put back for a day.
 Before anything is sent, the write-time checks, cheapest first:
 1. access none: never changed.
 2. must run: never switched off, by a tap or a timer.
@@ -8,15 +9,17 @@ Before anything is sent, the write-time checks, cheapest first:
 4. access advice: the choice is recorded, nothing is sent.
 5. shadow mode on, or no login set in .env: recorded, nothing is sent.
 6. at most WRITES_A_DAY writes a plug a day, failed ones too.
-An undo (switching back on what a tap switched off) skips 4 and 5: it only puts things back,
-so it works even after the owner turns shadow mode on again to stop everything.
+An undo (switching back on what a tap switched off, or putting timers back) skips 4 and 5:
+it only puts things back, so it works even after the owner turns shadow mode on again to
+stop everything.
 Then the write, a separate read-back, and one audit row. A failure is audited and shown as
 a note in the inbox. A timer change is all or nothing: on a failure the old timers go back.
 """
 
+import json
 import re
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime, timedelta
 from sqlite3 import Connection
 from zoneinfo import ZoneInfo
@@ -109,8 +112,110 @@ def set_timer(
     reason = f"set by AgentC after your tap: {when}"
     why_slots = {**c.why, **{t.slot: reason for t in pair}}
     store.save_card(app, site_id=site_id, mac=mac, card=replace(c, why=why_slots), now=now)
-    _wrote(app, site_id, plug, {**detail, "slots": f"{pair[0].slot},{pair[1].slot}"}, now)
+    _wrote(app, site_id, plug, {**detail, "slots": f"{pair[0].slot},{pair[1].slot}",
+                                "old": _json([old[t.slot] for t in pair]),
+                                "new": _json(list(pair))}, now)  # fmt: skip
     return f"Done: {device.name} now switches {when} (timers {pair[0].slot} and {pair[1].slot})."
+
+
+def move_timer(
+    app: Connection, cfg: Config, *, site_id: int, plug: str, slot: int, time: str, why: str,
+    now: datetime, was: str | None = None, connect: Connect = TasmotaPlug,
+) -> str:  # fmt: skip
+    """Move one clock timer to a new time, same days and action: any slot, the owner's own
+    too. It must still be as the plan saw it: at `was` on the plug, and as stored; else
+    nothing is sent, so a change by hand is never written over. Returns what happened, in
+    words for the owner."""
+    device = config.device(cfg, plug)
+    mac = store.plug_mac(app, name=plug) or ""
+    seen = {t.slot: t for t in store.load_timers(app, mac=mac)}.get(slot)
+    act = f"move {device.name}'s timer {slot} to {time}"
+    detail = {"does": "move_timer", "why": why, "slot": str(slot), "time": time}
+    if seen is None or not seen.enable or seen.mode != 0 or seen.action not in (0, 1):
+        return _refused(app, site_id, plug, detail, now, f"Not sent: {device.name} has no clock"
+                        f" timer {slot} to move.")  # fmt: skip
+    if not HHMM.match(time):
+        return _refused(app, site_id, plug, detail, now, f"Not sent: {device.name}'s timer"
+                        " needs an HH:MM time.")  # fmt: skip
+    off_at = (time, time, "every_day") if seen.action == 0 else None  # hard rules: off times
+    if stop := _checks(app, cfg, site_id, plug, act, detail, now, off=True, timer=off_at):
+        return stop
+    try:
+        p = connect(cfg.plugs[plug])
+        found = p.timers()
+    except PlugError as err:
+        return _failed(app, site_id, plug, detail, now, f"Could not {act}: the plug did not"
+                       f" answer ({err}).")  # fmt: skip
+    old = found.timers[slot - 1]
+    if not _same(old, seen) or (was is not None and old.time != was):
+        text = (f"Not sent: {device.name}'s timer {slot} changed since the plan was made."
+                " Check its timers first.")  # fmt: skip
+        return _refused(app, site_id, plug, detail, now, text)
+    new = replace(old, time=time)
+    try:
+        p.set_timer(new)
+        got = p.timers().timers[slot - 1]
+        if not _same(got, new):
+            raise PlugError(f"timer {slot} reads back as {got.time}, enable {got.enable}")
+    except PlugError as err:
+        return _failed(app, site_id, plug, detail, now, f"Could not {act}: {err}. "
+                       f"{_put_back(p, [old])}")  # fmt: skip
+    store.save_timers(app, site_id=site_id, mac=mac, timers=_merge(found.timers, (new,)), now=now)
+    c = store.load_card(app, mac=mac)
+    reason = f"moved to {time} by AgentC after your tap (was {old.time})"
+    store.save_card(app, site_id=site_id, mac=mac, card=replace(c, why={**c.why, slot: reason}),
+                    now=now)  # fmt: skip
+    _wrote(app, site_id, plug, {**detail, "old": _json([old]), "new": _json([new])}, now)
+    return f"Done: {device.name}'s timer {slot} now runs at {time} (was {old.time})."
+
+
+def put_back(
+    app: Connection, cfg: Config, *, site_id: int, plug: str, write_id: int, old: str,
+    now: datetime, new: str | None = None, connect: Connect = TasmotaPlug,
+) -> str:  # fmt: skip
+    """Undo a timer change: write the timers it replaced (old, as JSON) back, and read them
+    back. Only if the plug still has what AgentC wrote (new): a change by hand since is
+    never written over. Returns what happened, in words for the owner."""
+    device = config.device(cfg, plug)
+    timers = [Timer(**t) for t in json.loads(old)]
+    wrote = [Timer(**t) for t in json.loads(new)] if new else []
+    act = f"put {device.name}'s timers back"
+    detail = {"does": "put_back", "why": f"undo:{write_id}"}
+    if stop := _checks(app, cfg, site_id, plug, act, detail, now, off=False, undo=True):
+        return stop
+    try:
+        p = connect(cfg.plugs[plug])
+        now_on = p.timers().timers
+        if not all(_same(now_on[t.slot - 1], t) for t in wrote):
+            return _refused(
+                app,
+                site_id,
+                plug,
+                detail,
+                now,
+                f"Not sent: {device.name}'s timers"
+                " were changed on the plug since, so nothing was put back.",
+            )
+        for t in timers:
+            p.set_timer(t)
+        found = p.timers()
+    except PlugError as err:
+        return _failed(app, site_id, plug, detail, now, f"Could not {act}: the plug did not"
+                       f" answer ({err}).")  # fmt: skip
+    if not all(_same(found.timers[t.slot - 1], t) for t in timers):
+        return _failed(app, site_id, plug, detail, now, f"Could not {act}: they read back"
+                       " different. Check the plug's Timers page.")  # fmt: skip
+    mac = store.plug_mac(app, name=plug) or ""
+    store.save_timers(app, site_id=site_id, mac=mac, timers=found.timers, now=now)
+    c = store.load_card(app, mac=mac)
+    why = {s: w for s, w in c.why.items() if s not in {t.slot for t in timers}}
+    store.save_card(app, site_id=site_id, mac=mac, card=replace(c, why=why), now=now)
+    _wrote(app, site_id, plug, detail, now)
+    return f"Done: {device.name}'s timers are back as they were."
+
+
+def _json(timers: list[Timer]) -> str:
+    return json.dumps([asdict(t) for t in timers])
 
 
 def _checks(

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Plan for the week</h1>
+{% if said %}<p class="card" role="status">{{ said }}</p>{% endif %}
+{% if goal %}<p class="card goal {{ goal_state | replace(' ', '-') }}">{{ goal }}</p>{% endif %}
+{% if not plan %}
+<p>No plan yet. The first one comes on Sunday at 18:00, or sooner if the month heads over your goal.</p>
+{% else %}
+<p class="muted">Made {{ made }}</p>
+<p>{{ summary }}</p>
+{% for i in items %}
+<section class="card item {{ i.status }}">
+  <div class="row"><b>{{ i.device }}</b><span class="tag {{ i.tag | lower | replace(' ', '-') }}">{{ i.tag }}</span></div>
+  {% if i.action %}<p>{{ i.action }}</p>{% else %}<p>{{ i.was }} → <b>{{ i.becomes }}</b></p>{% endif %}
+  <p class="muted">{{ i.why }}</p>
+  <p class="muted">{{ i.saving }}</p>
+  {% if i.status == "open" and not i.ready %}<p class="muted">Changing it would have got in the way on some days, so it is only to talk over. The weekly review chat will come next.</p>{% endif %}
+  {% for b in i.buttons %}<form class="inline" method="post" action="{{ b.url }}"><input type="hidden" name="tok" value="{{ b.tok }}"><button{% if loop.first and b.label != "Not now" %} class="primary"{% endif %}>{{ b.label }}</button></form>{% endfor %}
+</section>
+{% else %}
+<p>Nothing to change this week.</p>
+{% endfor %}
+{% endif %}
+{% if undo %}
+<h2>Timer changes, last day</h2>
+<ul class="plain">
+  {% for u in undo %}<li><span>{{ u.name }}: {{ u.what }} <span class="muted">· undo until {{ u.until }}</span></span><form class="inline" method="post" action="{{ u.url }}"><input type="hidden" name="tok" value="{{ u.tok }}"><button>Undo</button></form></li>{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

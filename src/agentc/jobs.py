@@ -21,6 +21,7 @@ from agentc import (
     learn,
     notify,
     owner,
+    planner_agent,
     readings,
     store,
     timers,
@@ -46,6 +47,8 @@ LOOKED = ("left_on", "unusual_use", "automation_drift", "override", "change_poin
 PATTERN = timedelta(days=7)  # a timer's drift is asked about once a week, if it repeats
 QUESTION_LIFE = timedelta(hours=12)  # an unanswered question expires this long after it is due
 REMIND = timedelta(hours=2)  # "remind me later"
+PLAN_RETRY = timedelta(hours=6)  # a Planner run that did not finish is tried again after this
+PLAN_TRIES = 3  # runs for one week's plan at most, paid or not
 SUMMARY_AT = time(21, 0)  # the day's notes, in one quiet message
 NOTES_SINCE = timedelta(days=1)  # the summary and the inbox show notes this recent
 PROFILE_DAYS = timedelta(days=28)  # the usual week is built from this many days
@@ -98,6 +101,10 @@ def run_due(
         events += _safely(app, site_id, now, "goal", lambda: goal_check(
             app, energy, cfg, site_id=site_id, now=now)) or []  # fmt: skip
         store.set_last_run(app, site_id=site_id, job="goal", at=now)
+    if llm and _plan_due(app, site_id, now, cfg.tz):
+        if m := _safely(app, site_id, now, "plan", lambda: plan_pass(
+                app, energy, cfg, llm, site_id=site_id, now=now, sender=sender)):  # fmt: skip
+            sent.append(m)
     if _due(app, site_id, "learn", LEARN_EVERY, now):
         _safely(app, site_id, now, "learn", lambda: learn_pass(
             app, energy, cfg, site_id=site_id, now=now))  # fmt: skip
@@ -128,6 +135,58 @@ def _summary_due(app: Connection, site_id: int, now: datetime, tz: str) -> bool:
     local, last = now.astimezone(ZoneInfo(tz)), store.last_run(app, site_id=site_id, job="summary")
     sent_today = last is not None and last.astimezone(ZoneInfo(tz)).date() == local.date()
     return local.time() >= SUMMARY_AT and not sent_today
+
+
+def _plan_due(app: Connection, site_id: int, now: datetime, tz: str) -> bool:
+    """The week the plan would be for has none yet, and it is Sunday after 18:00 (the coming
+    week's), or the month is heading over the goal (goal drift this week), or a run for it
+    did not finish. Each retry waits PLAN_RETRY; at most PLAN_TRIES runs a week."""
+    week = planner_agent.plan_week(now, tz=tz)
+    if store.has_plan(app, site_id=site_id, week=week):
+        return False
+    tries = _plan_tries(app, site_id, week)
+    if tries >= PLAN_TRIES or not _due(app, site_id, "plan", PLAN_RETRY, now):
+        return False
+    local = now.astimezone(ZoneInfo(tz))
+    sunday = local.weekday() == 6 and local.time() >= planner_agent.PLAN_AT  # noqa: PLR2004
+    drift = store.has_event(app, site_id=site_id, kind="goal_drift",
+                            since=planner_agent.week_start(now, tz=tz))  # fmt: skip
+    return bool(tries) or sunday or drift
+
+
+def _plan_tries(app: Connection, site_id: int, week: str) -> int:
+    return int(store.setting(app, site_id=site_id, key=f"plan_tries:{week}") or 0)
+
+
+def plan_pass(
+    app: Connection, energy: Connection, cfg: Config, llm: Llm, *, site_id: int, now: datetime,
+    sender: Sender | None,
+) -> Message | None:  # fmt: skip
+    """Run the Planner once and save the week's plan; the older plans' open items expire.
+    With items, one quiet message with a link to the Plan tab; an empty plan sends nothing.
+    At a budget cap or with the model out of reach, it waits PLAN_RETRY."""
+    week = planner_agent.plan_week(now, tz=cfg.tz)
+    store.set_last_run(app, site_id=site_id, job="plan", at=now)  # one try, paid or not
+    store.set_setting(app, site_id=site_id, key=f"plan_tries:{week}",
+                      value=str(_plan_tries(app, site_id, week) + 1))  # fmt: skip
+    tools = agent_tools.Tools(app, energy, cfg, site_id, now)
+    try:
+        p = planner_agent.plan(tools, llm=llm, run_id=f"plan:{week}")
+    except (OverBudget, Unreachable):
+        return None
+    saved = planner_agent.save(app, p, site_id=site_id, cfg=cfg, now=now)
+    if saved is None or not p.items or sender is None:
+        return None
+    n = len(p.items)
+    m = Message(f"This week's plan: {n} change{'s' if n != 1 else ''}", p.summary,
+                (notify.Button("Open the plan", f"{sender.base_url}/plan", post=False),),
+                quiet=True)  # fmt: skip
+    try:
+        sender.publish(m)
+    except NotSent as err:  # the plan is saved: the Plan tab and the inbox show it
+        _broken(app, site_id, now, "not_sent", err)
+        return None
+    return m
 
 
 def _due(app: Connection, site_id: int, job: str, every: timedelta, now: datetime) -> bool:

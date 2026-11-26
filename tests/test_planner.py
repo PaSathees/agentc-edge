@@ -220,18 +220,34 @@ def app(tmp_path):
 
 
 def test_a_plan_is_saved_once_a_week_with_its_items(app):
-    item = ("AA", MOVE.to_json(), "It idles from 06:00.", "Saves about 0.06 kWh.", False)
+    item = ("AA", MOVE.to_json(), "It idles from 06:00.", "Saves about 0.06 kWh.", False,
+            "On at 06:00", "On at 07:00")  # fmt: skip
     plan = store.add_plan(app, site_id=1, week="2026-11-16", summary="A quiet week.",
                           items=[item], now=NOW)  # fmt: skip
-    assert plan == 1 and store.latest_plan(app, site_id=1) == (1, "2026-11-16", "A quiet week.")
+    assert store.latest_plan(app, site_id=1) == (1, "2026-11-16", "A quiet week.", NOW.isoformat())
+    assert plan == 1 and store.has_plan(app, site_id=1, week="2026-11-16")
     again = store.add_plan(app, site_id=1, week="2026-11-16", summary="x", items=[item], now=NOW)
     assert again is None
     (i,) = store.plan_items(app, plan_id=1)
     assert (i.plug_mac, i.change, i.status, i.ready) == ("AA", MOVE.to_json(), "open", False)
+    assert (i.was, i.becomes) == ("On at 06:00", "On at 07:00")
+    assert store.plan_item(app, site_id=1, item_id=1) == i
+    assert store.plan_item(app, site_id=2, item_id=1) is None  # another site's: not found
+
+
+def test_a_new_plan_expires_the_open_items_of_older_ones(app):
+    item = ("AA", MOVE.to_json(), "why", "saving", True, "", "")
+    store.add_plan(app, site_id=1, week="2026-11-09", summary="s", items=[item, item], now=NOW)
+    store.decide_item(app, item_id=1, status="done", now=NOW)
+    later = NOW + timedelta(days=7)
+    store.add_plan(app, site_id=1, week="2026-11-16", summary="s", items=[item], now=later)
+    assert [(i.status, i.decided) for i in store.plan_items(app, plan_id=1)] == [
+        ("done", NOW.isoformat()), ("expired", later.isoformat())]  # fmt: skip
+    assert [i.status for i in store.plan_items(app, plan_id=2)] == ["open"]
 
 
 def test_an_item_is_decided_once_and_not_now_is_remembered(app):
-    item = ("AA", MOVE.to_json(), "why", "saving", True)
+    item = ("AA", MOVE.to_json(), "why", "saving", True, "", "")
     store.add_plan(app, site_id=1, week="2026-11-16", summary="s", items=[item], now=NOW)
     assert store.decide_item(app, item_id=1, status="not_now", now=NOW)
     assert not store.decide_item(app, item_id=1, status="done", now=NOW)  # a second tap
@@ -298,3 +314,8 @@ def test_idle_power_counts_only_on_but_not_in_use(tmp_path):
     empty = sqlite3.connect(tmp_path / "none.db")
     empty.execute("CREATE TABLE readings (ts_utc, plug, power_w, error)")
     assert planner.idle_wh(empty, BOX, "Plug-9", end=END) == (0, 0)
+
+
+def test_numbers_too_large_for_the_solver_raise():
+    with pytest.raises(ValueError, match="too large"):
+        planner.choose([cand("A", 10**12), cand("B", 10**12)], gap_wh=10**12)

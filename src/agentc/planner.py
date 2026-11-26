@@ -39,9 +39,10 @@ KINDS = ("move_timer", "add_pair", "remove_timer")
 class Change:
     """One change to a plug's timers, as the Planner proposes it.
 
-    move_timer: timer `slot` to `time`, same days and action. add_pair: off at `off`, on
-    at `on`, on `days` (a DAY_SETS key), in free slots the device allows. remove_timer:
-    timer `slot` is cleared."""
+    move_timer: timer `slot` to `time`, same days and action; `from_time` is its time when
+    planned, so a later hand change is never written over. add_pair: off at `off`, on at
+    `on`, on `days` (a DAY_SETS key), in free slots the device allows. remove_timer: timer
+    `slot` is cleared."""
 
     kind: str
     slot: int | None = None
@@ -49,6 +50,7 @@ class Change:
     off: str | None = None
     on: str | None = None
     days: str | None = None
+    from_time: str | None = None
 
     def to_json(self) -> str:
         return json.dumps({k: v for k, v in asdict(self).items() if v is not None},
@@ -313,7 +315,10 @@ def choose(cands: Sequence[Candidate], *, gap_wh: int, items: int = ITEMS) -> li
     solver = cp_model.CpSolver()
     solver.parameters.num_workers = 1
     solver.parameters.max_time_in_seconds = 10
-    if solver.solve(m) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+    got = solver.solve(m)
+    if got == cp_model.MODEL_INVALID:  # numbers past what the solver can hold: never silent
+        raise ValueError("the savings or the gap are too large to weigh")
+    if got not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return []  # pragma: no cover (an empty set is always allowed, so never)
     return [c for c in cands if solver.value(x[c.id])]
 

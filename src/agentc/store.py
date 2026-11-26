@@ -21,7 +21,8 @@ from agentc.watcher import Event
 
 # 2: thresholds a row. 3: events.tries. 4: cards, habits. 5: automations. 6: questions.
 # 7: questions.sent. 8: unused v1 tables dropped. 9: chats. 10: chats.reads. 11: plans
-SCHEMA_VERSION = 11
+# 12: plan_items.was and becomes
+SCHEMA_VERSION = 12
 UNUSED = ("writes", "proposals", "placements", "rules", "weather", "goals", "factors")
 
 SCHEMA = """
@@ -206,6 +207,8 @@ CREATE TABLE IF NOT EXISTS plan_items (
     why      TEXT NOT NULL,  -- the Planner's reason, in the owner's words
     saving   TEXT NOT NULL,  -- what_if's text: the saving and the days in use
     ready    INTEGER NOT NULL DEFAULT 1,  -- 0: it cut real use, so only to talk over
+    was      TEXT NOT NULL DEFAULT '',  -- the timer as it was when planned, in words
+    becomes  TEXT NOT NULL DEFAULT '',  -- the timer after the change, in words
     status   TEXT NOT NULL DEFAULT 'open'
              CHECK (status IN ('open', 'done', 'not_now', 'failed', 'expired')),
     decided  TEXT
@@ -247,6 +250,9 @@ def connect(path: str | Path) -> sqlite3.Connection:
         db.execute("ALTER TABLE plan_items ADD COLUMN ready INTEGER NOT NULL DEFAULT 1")
     if "reads" not in [col[1] for col in db.execute("PRAGMA table_info(chats)")]:
         db.execute("ALTER TABLE chats ADD COLUMN reads TEXT")  # before 10
+    if "was" not in [col[1] for col in db.execute("PRAGMA table_info(plan_items)")]:
+        db.execute("ALTER TABLE plan_items ADD COLUMN was TEXT NOT NULL DEFAULT ''")  # before 12
+        db.execute("ALTER TABLE plan_items ADD COLUMN becomes TEXT NOT NULL DEFAULT ''")
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     return db
 
@@ -666,6 +672,14 @@ def audit_since(
     return [json.loads(d) for (d,) in rows]
 
 
+def has_event(db: sqlite3.Connection, *, site_id: int, kind: str, since: datetime) -> bool:
+    """Was an event of this kind raised for a time at or after `since`?"""
+    sql = "SELECT 1 FROM events WHERE site_id = ? AND kind = ? AND start_utc >= ? LIMIT 1"
+    return (
+        db.execute(sql, (site_id, kind, since.astimezone(UTC).isoformat())).fetchone() is not None
+    )
+
+
 def count_events(db: sqlite3.Connection, *, site_id: int, status: str) -> int:
     sql = "SELECT COUNT(*) FROM events WHERE site_id = ? AND status = ?"
     return db.execute(sql, (site_id, status)).fetchone()[0]
@@ -825,12 +839,18 @@ class PlanItem:
     saving: str
     status: str  # open, done, not_now, failed or expired
     ready: bool = True  # False: it would have cut real use, so only to talk over
+    was: str = ""  # the timer as it was when planned, in words ("" for an action)
+    becomes: str = ""  # the timer after the change, in words
+    decided: str = ""  # when it was done, said Not now to, failed or expired (UTC ISO)
+
+
+PlanRow = tuple[str, str, str, str, bool, str, str]  # mac, change, why, saving, ready, was, becomes
+ITEM_FIELDS = "id, plan_id, plug_mac, change, why, saving, status, ready, was, becomes, decided"
 
 
 def add_plan(db: sqlite3.Connection, *, site_id: int, week: str, summary: str,
-             items: Sequence[tuple[str, str, str, str, bool]],
-             now: datetime) -> int | None:  # fmt: skip
-    """Save a week's plan with its items (mac, change JSON, why, saving, ready), in one go.
+             items: Sequence[PlanRow], now: datetime) -> int | None:  # fmt: skip
+    """Save a week's plan with its items, in one go; the open items of older plans expire.
     None if that week has a plan already: the Planner runs once a week."""
     with db:
         sql = "INSERT OR IGNORE INTO plans (site_id, week, summary, created) VALUES (?, ?, ?, ?)"
@@ -838,26 +858,42 @@ def add_plan(db: sqlite3.Connection, *, site_id: int, week: str, summary: str,
         if not cur.rowcount:
             return None
         plan = cur.lastrowid or 0
+        db.execute("UPDATE plan_items SET status = 'expired', decided = ? WHERE site_id = ?"
+                   " AND status = 'open' AND plan_id != ?",
+                   (now.isoformat(), site_id, plan))  # fmt: skip
         db.executemany("INSERT INTO plan_items (plan_id, site_id, plug_mac, change, why, saving,"
-                       " ready) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       " ready, was, becomes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                        [(plan, site_id, *item) for item in items])  # fmt: skip
     return plan
 
 
-def latest_plan(db: sqlite3.Connection, *, site_id: int) -> tuple[int, str, str] | None:
-    """The newest plan as (id, week, summary), or None before the first one."""
-    sql = "SELECT id, week, summary FROM plans WHERE site_id = ? ORDER BY week DESC LIMIT 1"
+def latest_plan(db: sqlite3.Connection, *, site_id: int) -> tuple[int, str, str, str] | None:
+    """The newest plan as (id, week, summary, created), or None before the first one."""
+    sql = """SELECT id, week, summary, created FROM plans WHERE site_id = ?
+             ORDER BY week DESC LIMIT 1"""
     row = db.execute(sql, (site_id,)).fetchone()
-    return (row[0], row[1], row[2]) if row else None
+    return (row[0], row[1], row[2], row[3]) if row else None
+
+
+def has_plan(db: sqlite3.Connection, *, site_id: int, week: str) -> bool:
+    sql = "SELECT 1 FROM plans WHERE site_id = ? AND week = ?"
+    return db.execute(sql, (site_id, week)).fetchone() is not None
+
+
+def _item(row: tuple[Any, ...]) -> PlanItem:
+    i, p, mac, c, why, saving, status, ready, was, becomes, decided = row
+    return PlanItem(i, p, mac, c, why, saving, status, bool(ready), was, becomes, decided or "")
 
 
 def plan_items(db: sqlite3.Connection, *, plan_id: int) -> list[PlanItem]:
-    sql = """SELECT id, plan_id, plug_mac, change, why, saving, status, ready FROM plan_items
-             WHERE plan_id = ? ORDER BY id"""
-    return [
-        PlanItem(i, p, mac, c, why, saving, status, bool(ready))
-        for i, p, mac, c, why, saving, status, ready in db.execute(sql, (plan_id,))
-    ]
+    sql = f"SELECT {ITEM_FIELDS} FROM plan_items WHERE plan_id = ? ORDER BY id"
+    return [_item(row) for row in db.execute(sql, (plan_id,))]
+
+
+def plan_item(db: sqlite3.Connection, *, site_id: int, item_id: int) -> PlanItem | None:
+    sql = f"SELECT {ITEM_FIELDS} FROM plan_items WHERE site_id = ? AND id = ?"
+    row = db.execute(sql, (site_id, item_id)).fetchone()
+    return _item(row) if row else None
 
 
 def decide_item(db: sqlite3.Connection, *, item_id: int, status: str, now: datetime) -> bool:
@@ -867,6 +903,21 @@ def decide_item(db: sqlite3.Connection, *, item_id: int, status: str, now: datet
         cur = db.execute("UPDATE plan_items SET status = ?, decided = ? WHERE id = ?"
                          " AND status = 'open'", (status, now.isoformat(), item_id))  # fmt: skip
     return cur.rowcount == 1
+
+
+def timer_undoable(db: sqlite3.Connection, *, site_id: int, since: datetime
+                   ) -> list[tuple[int, str, dict[str, str], datetime]]:  # fmt: skip
+    """Timer changes since a time with nothing written to that plug after them, as (audit id,
+    plug, detail, when), oldest first: each can still be put back. Only writes that went through:
+    a failed one put the old timers back itself."""
+    sql = """SELECT a.id, substr(a.ref, 6), a.detail, a.ts_utc FROM audit a
+             WHERE a.site_id = ? AND a.action = 'write' AND a.ts_utc >= ?
+               AND json_extract(a.detail, '$.does') IN ('set_timer', 'move_timer')
+               AND NOT EXISTS (SELECT 1 FROM audit b WHERE b.site_id = a.site_id
+                               AND b.ref = a.ref AND b.id > a.id AND b.action = 'write')
+             ORDER BY a.id"""
+    rows = db.execute(sql, (site_id, since.astimezone(UTC).isoformat()))
+    return [(i, p, json.loads(d), datetime.fromisoformat(t)) for i, p, d, t in rows]
 
 
 def refused(db: sqlite3.Connection, *, mac: str, since: datetime) -> list[str]:
